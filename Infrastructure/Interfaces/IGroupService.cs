@@ -12,4 +12,5 @@ public interface IGroupService
     Task<Response<GetGroupDto>> GetGroupByIdAsync(int id);
     Task<Response<List<GetGroupDto>>> GetGroups();
     Task<PaginationResponse<List<GetGroupDto>>> GetGroupPaginated(GroupFilter filter);
+    Task<Response<GroupAttendanceStatisticsDto>> GetGroupAttendanceStatisticsAsync(int groupId);
 }
