@@ -32,6 +32,13 @@ public class AccountService(
     private const long MaxImageSize = 10 * 1024 * 1024; // 10MB
 
     #region Register
+    private static int CalculateAge(DateTime birthDate)
+    {
+        var today = DateTime.Today;
+        var age = today.Year - birthDate.Year;
+        if (birthDate.Date > today.AddYears(-age)) age--;
+        return age;
+    }
 
     public async Task<Response<string>> Register(RegisterDto model)
     {
@@ -64,7 +71,7 @@ public class AccountService(
             profileImagePath = $"/uploads/profiles/{uniqueFileName}";
         }
 
-        // Always generate a random password
+        
         string password = GenerateRandomPassword();
 
         var newUser = new User
@@ -72,7 +79,8 @@ public class AccountService(
             FullName = model.FullName,
             UserName = model.UserName,
             Email = model.Email,
-            Age = model.Age,
+            Birthday = model.Birthday,
+            Age = CalculateAge(model.Birthday),
             ProfileImagePath = profileImagePath,
             Address = model.Address,
             PhoneNumber = model.PhoneNumber,

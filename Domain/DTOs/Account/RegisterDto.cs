@@ -11,8 +11,7 @@ public class RegisterDto
     [StringLength(50,MinimumLength = 4, ErrorMessage = "Username must be between 4 and 50 characters")]
     public string UserName { get; set; } = string.Empty;
     [Required]
-    public DateTimeOffset Birthday { get; set; }
-    public int Age { get; set; }
+    public DateTime Birthday { get; set; }
     public string PhoneNumber { get; set; } = string.Empty; 
     public string Address { get; set; } = string.Empty;
     [Required]
