@@ -484,5 +484,4 @@ $RECYCLE.BIN/
 *.swp
 
 WebApp/wwwroot/
-WebApp/appsettings.json
 WebApp/appsettings.Development.json
