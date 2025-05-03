@@ -1,6 +1,5 @@
 using Domain.DTOs.EmailDTOs;
 using Domain.Entities;
-using Infrastructure.BackgroundTasks;
 using Infrastructure.Data;
 using Infrastructure.Interfaces;
 using Infrastructure.Seed;
@@ -38,7 +37,12 @@ public static class Register
                     npgsqlOptions.UseNodaTime();
                 }));
         services.AddScoped<IHashService, HashService>();
-        services.AddScoped<IEmailService, EmailService>();
+        // Регистрация EmailService с правильным внедрением зависимостей
+        services.AddScoped<IEmailService>(sp => 
+            new EmailService(
+                sp.GetRequiredService<EmailConfiguration>(),
+                sp.GetRequiredService<IConfiguration>()
+            ));
         services.AddScoped<IAttendanceService, AttendanceService>();
         services.AddScoped<ICommentService, CommentService>();
     }
@@ -101,7 +105,6 @@ public static class Register
         services.AddScoped<IMentorService>(st => 
             new MentorService(
                 st.GetRequiredService<DataContext>(),
-                st.GetRequiredService<IHttpContextAccessor>(),
                 st.GetRequiredService<UserManager<User>>(),
                 uploadPath,
                 st.GetRequiredService<IEmailService>()
@@ -127,16 +130,16 @@ public static class Register
                 uploadPath
             ));
             
-        // services.AddScoped<IGroupService>(us => 
-        //     new GroupService(
-        //         us.GetRequiredService<DataContext>(),
-        //         uploadPath
-        //     ));
-        //     
-        // services.AddScoped<IStudentGroupService, StudentGroupService>();
+        services.AddScoped<IGroupService>(gs => 
+            new GroupService(
+                gs.GetRequiredService<DataContext>(),
+                uploadPath
+            ));
+            
+        services.AddScoped<IStudentGroupService, StudentGroupService>();
         
         // Регистрация сервиса для планировщика уроков
-        services.AddScoped<LessonSchedulerService>();
+        // services.AddScoped<LessonSchedulerService>();
         services.AddLogging(logging =>
         {
             logging.AddConsole();
@@ -145,12 +148,7 @@ public static class Register
         
        
         services.AddScoped<SeedData>();
-        
-        // Конфигурация Email
-        var emailConfig = configuration
-            .GetSection("EmailConfiguration")
-            .Get<EmailConfiguration>();
-        services.AddSingleton(emailConfig!);
+       
     }
     
     // Регистрация Swagger

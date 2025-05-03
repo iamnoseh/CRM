@@ -231,12 +231,12 @@ public class GroupService(DataContext context, string uploadPath) : IGroupServic
 
             // Проверка активных занятий в группе
             var activeLessons = await context.Lessons
-                .Where(l => l.GroupId == id && l.Status == LessonStatus.Scheduled)
+                .Where(l => l.GroupId == id)
                 .CountAsync();
 
             if (activeLessons > 0)
                 return new Response<string>(HttpStatusCode.BadRequest, 
-                    $"Cannot delete group because it has {activeLessons} scheduled lessons");
+                    $"Cannot delete group because it has {activeLessons} active lessons");
 
             // Мягкое удаление - устанавливаем флаг IsDeleted
             group.IsDeleted = true;
@@ -369,29 +369,25 @@ public class GroupService(DataContext context, string uploadPath) : IGroupServic
 
             // Фильтр по дате начала (от)
             if (filter.StartDateFrom.HasValue)
-                query = query.Where(g => g.StartDate >= filter.StartDateFrom.Value);
+                query = query.Where(g => g.StartDate >= new DateTimeOffset(filter.StartDateFrom.Value));
 
             // Фильтр по дате начала (до)
             if (filter.StartDateTo.HasValue)
-                query = query.Where(g => g.StartDate <= filter.StartDateTo.Value);
+                query = query.Where(g => g.StartDate <= new DateTimeOffset(filter.StartDateTo.Value));
 
             // Фильтр по дате окончания (от)
             if (filter.EndDateFrom.HasValue)
-                query = query.Where(g => g.EndDate >= filter.EndDateFrom.Value);
+                query = query.Where(g => g.EndDate >= new DateTimeOffset(filter.EndDateFrom.Value));
 
             // Фильтр по дате окончания (до)
             if (filter.EndDateTo.HasValue)
-                query = query.Where(g => g.EndDate <= filter.EndDateTo.Value);
+                query = query.Where(g => g.EndDate <= new DateTimeOffset(filter.EndDateTo.Value));
 
             // Получение общего количества записей для пагинации
             var totalRecords = await query.CountAsync();
 
-            // Применение сортировки
-            query = filter.SortOrder.ToLower() switch
-            {
-                "desc" => query.OrderByDescending(GetSortProperty(filter.SortColumn)),
-                _ => query.OrderBy(GetSortProperty(filter.SortColumn))
-            };
+            // Сортировка по умолчанию по Id
+            query = query.OrderBy(g => g.Id);
 
             // Применение пагинации
             query = query.Skip((filter.PageNumber - 1) * filter.PageSize).Take(filter.PageSize);
@@ -466,7 +462,6 @@ public class GroupService(DataContext context, string uploadPath) : IGroupServic
 
             // Получаем все посещения по группе
             var allAttendances = group.Lessons
-                .Where(l => l.Status != LessonStatus.Cancelled) // Исключаем отмененные занятия
                 .SelectMany(l => l.Attendances)
                 .ToList();
 
@@ -482,7 +477,7 @@ public class GroupService(DataContext context, string uploadPath) : IGroupServic
 
             // Группируем посещения по неделям
             var attendancesByWeek = allAttendances
-                .GroupBy(a => group.Lessons.FirstOrDefault(l => l.Id == a.LessonId)?.WeekNumber ?? 0)
+                .GroupBy(a => group.Lessons.FirstOrDefault(l => l.Id == a.LessonId)?.WeekIndex ?? 0)
                 .ToDictionary(g => g.Key, g => g.ToList());
 
             // Заполняем статистику по неделям
@@ -510,17 +505,17 @@ public class GroupService(DataContext context, string uploadPath) : IGroupServic
 
             // Получаем последние 10 записей о посещаемости
             statistics.RecentAttendances = group.Lessons
-                .OrderByDescending(l => l.LessonDate)
+                .OrderByDescending(l => l.StartTime)
                 .Take(5)
                 .SelectMany(l => l.Attendances)
-                .Select(a => new Domain.DTOs.Attendance.GetAttendanceDto
+                .Select(a => new GetAttendanceDto
                 {
                     Id = a.Id,
                     Status = a.Status,
                     LessonId = a.LessonId,
                     StudentId = a.StudentId,
                     StudentName = group.StudentGroups.FirstOrDefault(sg => sg.StudentId == a.StudentId)?.Student?.FullName ?? string.Empty,
-                    Date = group.Lessons.FirstOrDefault(l => l.Id == a.LessonId)?.LessonDate ?? DateTimeOffset.MinValue
+                    LessonStartTime = group.Lessons.FirstOrDefault(l => l.Id == a.LessonId)?.StartTime ?? DateTimeOffset.MinValue
                 })
                 .Take(10)
                 .ToList();
@@ -534,22 +529,5 @@ public class GroupService(DataContext context, string uploadPath) : IGroupServic
     }
     #endregion
 
-    #region Helpers
-    private static System.Linq.Expressions.Expression<Func<Group, object>> GetSortProperty(string? sortColumn)
-    {
-        return sortColumn?.ToLower() switch
-        {
-            "name" => g => g.Name,
-            "courseid" => g => g.CourseId,
-            "mentorid" => g => g.MentorId,
-            "startdate" => g => g.StartDate,
-            "enddate" => g => g.EndDate,
-            "status" => g => g.Status,
-            "started" => g => g.Started,
-            "totalweeks" => g => g.TotalWeeks,
-            "currentweek" => g => g.CurrentWeek,
-            _ => g => g.Id // Сортировка по умолчанию - по ID
-        };
-    }
-    #endregion
+
 }

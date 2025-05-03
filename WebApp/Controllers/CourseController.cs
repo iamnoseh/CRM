@@ -30,7 +30,7 @@ public class CourseController (ICourseService service) : ControllerBase
     public async Task<Response<string>> CreateCourse([FromForm] CreateCourseDto course) => 
         await service.CreateCourseAsync(course);
         
-    [HttpPut("{id}")]
+    [HttpPut]
     [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin}")]
     public async Task<Response<string>> UpdateCourse(int id, [FromForm] UpdateCourseDto dto) =>
         await service.UpdateCourseAsync(dto);

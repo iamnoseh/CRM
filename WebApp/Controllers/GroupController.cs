@@ -1,4 +1,5 @@
 using Domain.DTOs.Group;
+using Domain.Entities;
 using Domain.Enums;
 using Domain.Filters;
 using Domain.Responses;
@@ -29,7 +30,7 @@ public class GroupController(IGroupService service) : ControllerBase
     public async Task<Response<string>> CreateGroup([FromForm] CreateGroupDto dto) => 
         await service.CreateGroupAsync(dto);
 
-    [HttpPut("{id}")]
+    [HttpPut]
     [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin}")]
     public async Task<Response<string>> UpdateGroup(int id, [FromForm] UpdateGroupDto dto) =>
         await service.UpdateGroupAsync(id, dto);

@@ -11,34 +11,21 @@ namespace WebApp.Controllers;
 [ApiController]
 public class CenterController(ICenterService centerService) : ControllerBase
 {
-    /// <summary>
-    /// Получить все центры
-    /// </summary>
-    /// <returns>Список центров</returns>
+
     [HttpGet]
     public async Task<ActionResult<Response<List<GetCenterDto>>>> GetCenters()
     {
         var response = await centerService.GetCenters();
         return StatusCode((int)response.StatusCode, response);
     }
-
-    /// <summary>
-    /// Получить центр по ID
-    /// </summary>
-    /// <param name="id">ID центра</param>
-    /// <returns>Информация о центре</returns>
+    
     [HttpGet("{id}")]
     public async Task<ActionResult<Response<GetCenterDto>>> GetCenterById(int id)
     {
         var response = await centerService.GetCenterByIdAsync(id);
         return StatusCode((int)response.StatusCode, response);
     }
-
-    /// <summary>
-    /// Получить список центров с пагинацией и фильтрацией
-    /// </summary>
-    /// <param name="filter">Параметры фильтрации и пагинации</param>
-    /// <returns>Пагинированный список центров</returns>
+    
     [HttpGet("paginated")]
     public async Task<ActionResult<PaginationResponse<List<GetCenterDto>>>> GetCentersPaginated([FromQuery] CenterFilter filter)
     {
@@ -46,11 +33,6 @@ public class CenterController(ICenterService centerService) : ControllerBase
         return StatusCode((int)response.StatusCode, response);
     }
 
-    /// <summary>
-    /// Создать новый центр
-    /// </summary>
-    /// <param name="createCenterDto">Данные для создания центра</param>
-    /// <returns>Результат операции</returns>
     [HttpPost]
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<Response<string>>> CreateCenter([FromForm] CreateCenterDto createCenterDto)
@@ -59,13 +41,8 @@ public class CenterController(ICenterService centerService) : ControllerBase
         return StatusCode((int)response.StatusCode, response);
     }
 
-    /// <summary>
-    /// Обновить существующий центр
-    /// </summary>
-    /// <param name="id">ID центра</param>
-    /// <param name="updateCenterDto">Данные для обновления центра</param>
-    /// <returns>Результат операции</returns>
-    [HttpPut("{id}")]
+
+    [HttpPut]
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<Response<string>>> UpdateCenter(int id, [FromForm] UpdateCenterDto updateCenterDto)
     {
@@ -73,11 +50,7 @@ public class CenterController(ICenterService centerService) : ControllerBase
         return StatusCode((int)response.StatusCode, response);
     }
 
-    /// <summary>
-    /// Удалить центр
-    /// </summary>
-    /// <param name="id">ID центра</param>
-    /// <returns>Результат операции</returns>
+
     [HttpDelete("{id}")]
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<Response<string>>> DeleteCenter(int id)
@@ -86,11 +59,6 @@ public class CenterController(ICenterService centerService) : ControllerBase
         return StatusCode((int)response.StatusCode, response);
     }
 
-    /// <summary>
-    /// Получить группы, связанные с центром
-    /// </summary>
-    /// <param name="id">ID центра</param>
-    /// <returns>Список групп центра</returns>
     [HttpGet("{id}/groups")]
     public async Task<ActionResult<Response<List<GetCenterGroupsDto>>>> GetCenterGroups(int id)
     {
@@ -98,11 +66,7 @@ public class CenterController(ICenterService centerService) : ControllerBase
         return StatusCode((int)response.StatusCode, response);
     }
 
-    /// <summary>
-    /// Получить студентов центра
-    /// </summary>
-    /// <param name="id">ID центра</param>
-    /// <returns>Список студентов центра</returns>
+
     [HttpGet("{id}/students")]
     public async Task<ActionResult<Response<List<GetCenterStudentsDto>>>> GetCenterStudents(int id)
     {
@@ -110,11 +74,6 @@ public class CenterController(ICenterService centerService) : ControllerBase
         return StatusCode((int)response.StatusCode, response);
     }
 
-    /// <summary>
-    /// Получить преподавателей центра
-    /// </summary>
-    /// <param name="id">ID центра</param>
-    /// <returns>Список преподавателей центра</returns>
     [HttpGet("{id}/mentors")]
     public async Task<ActionResult<Response<List<GetCenterMentorsDto>>>> GetCenterMentors(int id)
     {
@@ -122,11 +81,6 @@ public class CenterController(ICenterService centerService) : ControllerBase
         return StatusCode((int)response.StatusCode, response);
     }
 
-    /// <summary>
-    /// Получить курсы центра
-    /// </summary>
-    /// <param name="id">ID центра</param>
-    /// <returns>Список курсов центра</returns>
     [HttpGet("{id}/courses")]
     public async Task<ActionResult<Response<List<GetCenterCoursesDto>>>> GetCenterCourses(int id)
     {
@@ -134,11 +88,7 @@ public class CenterController(ICenterService centerService) : ControllerBase
         return StatusCode((int)response.StatusCode, response);
     }
 
-    /// <summary>
-    /// Получить статистику по центру
-    /// </summary>
-    /// <param name="id">ID центра</param>
-    /// <returns>Статистика центра</returns>
+
     [HttpGet("{id}/statistics")]
     public async Task<ActionResult<Response<CenterStatisticsDto>>> GetCenterStatistics(int id)
     {
