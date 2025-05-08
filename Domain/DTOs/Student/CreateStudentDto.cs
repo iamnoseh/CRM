@@ -14,5 +14,5 @@ public class CreateStudentDto
     public ActiveStatus ActiveStatus { get; set; } = ActiveStatus.Active;
     public PaymentStatus PaymentStatus { get; set; } = PaymentStatus.Paid;
     public IFormFile? ProfilePhoto { get; set; }
-    public int? CenterId { get; set; }
+    public int CenterId { get; set; }
 }

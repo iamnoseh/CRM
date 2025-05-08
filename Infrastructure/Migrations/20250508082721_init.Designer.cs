@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(DataContext))]
-    [Migration("20250502125959_init")]
+    [Migration("20250508082721_init")]
     partial class init
     {
         /// <inheritdoc />
@@ -141,9 +141,6 @@ namespace Infrastructure.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<int?>("ExamId")
-                        .HasColumnType("integer");
-
                     b.Property<int>("GroupId")
                         .HasColumnType("integer");
 
@@ -164,8 +161,6 @@ namespace Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ExamId");
-
                     b.HasIndex("GroupId");
 
                     b.HasIndex("LessonId");
@@ -183,7 +178,7 @@ namespace Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<int?>("CenterId")
+                    b.Property<int>("CenterId")
                         .HasColumnType("integer");
 
                     b.Property<string>("CourseName")
@@ -237,14 +232,12 @@ namespace Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<int?>("BonusPoints")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Comment")
-                        .HasColumnType("text");
-
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<DateTimeOffset>("ExamDate")
                         .HasColumnType("timestamp with time zone");
@@ -255,17 +248,14 @@ namespace Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
-                    b.Property<bool>("IsWeeklyExam")
-                        .HasColumnType("boolean");
+                    b.Property<int>("MaxPoints")
+                        .HasColumnType("integer");
 
-                    b.Property<int>("StudentId")
+                    b.Property<int?>("StudentId")
                         .HasColumnType("integer");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<int?>("Value")
-                        .HasColumnType("integer");
 
                     b.Property<int>("WeekIndex")
                         .HasColumnType("integer");
@@ -277,6 +267,51 @@ namespace Infrastructure.Migrations
                     b.HasIndex("StudentId");
 
                     b.ToTable("Exams");
+                });
+
+            modelBuilder.Entity("Domain.Entities.ExamGrade", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BonusPoint")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Comment")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ExamId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool?>("HasPassed")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Points")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExamId");
+
+                    b.HasIndex("StudentId");
+
+                    b.ToTable("ExamGrades");
                 });
 
             modelBuilder.Entity("Domain.Entities.Grade", b =>
@@ -454,7 +489,7 @@ namespace Infrastructure.Migrations
                     b.Property<DateTime>("Birthday")
                         .HasColumnType("timestamp without time zone");
 
-                    b.Property<int?>("CenterId")
+                    b.Property<int>("CenterId")
                         .HasColumnType("integer");
 
                     b.Property<DateTimeOffset>("CreatedAt")
@@ -502,6 +537,41 @@ namespace Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("Mentors");
+                });
+
+            modelBuilder.Entity("Domain.Entities.MentorGroup", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("GroupId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool?>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("MentorId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GroupId");
+
+                    b.HasIndex("MentorId");
+
+                    b.ToTable("MentorGroups");
                 });
 
             modelBuilder.Entity("Domain.Entities.MonthlySummary", b =>
@@ -933,7 +1003,7 @@ namespace Infrastructure.Migrations
                     b.Property<DateTime>("Birthday")
                         .HasColumnType("timestamp without time zone");
 
-                    b.Property<int?>("CenterId")
+                    b.Property<int>("CenterId")
                         .HasColumnType("integer");
 
                     b.Property<string>("Code")
@@ -986,6 +1056,9 @@ namespace Infrastructure.Migrations
                     b.Property<string>("PasswordHash")
                         .HasColumnType("text");
 
+                    b.Property<int>("PaymentStatus")
+                        .HasColumnType("integer");
+
                     b.Property<string>("PhoneNumber")
                         .HasColumnType("text");
 
@@ -994,6 +1067,9 @@ namespace Infrastructure.Migrations
 
                     b.Property<string>("ProfileImagePath")
                         .HasColumnType("text");
+
+                    b.Property<decimal?>("Salary")
+                        .HasColumnType("numeric");
 
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("text");
@@ -1189,10 +1265,6 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Entities.Comment", b =>
                 {
-                    b.HasOne("Domain.Entities.Exam", null)
-                        .WithMany("Comments")
-                        .HasForeignKey("ExamId");
-
                     b.HasOne("Domain.Entities.Group", "Group")
                         .WithMany("Comments")
                         .HasForeignKey("GroupId")
@@ -1220,9 +1292,13 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Entities.Course", b =>
                 {
-                    b.HasOne("Domain.Entities.Center", null)
+                    b.HasOne("Domain.Entities.Center", "Center")
                         .WithMany("Courses")
-                        .HasForeignKey("CenterId");
+                        .HasForeignKey("CenterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Center");
                 });
 
             modelBuilder.Entity("Domain.Entities.Exam", b =>
@@ -1230,16 +1306,31 @@ namespace Infrastructure.Migrations
                     b.HasOne("Domain.Entities.Group", "Group")
                         .WithMany("Exams")
                         .HasForeignKey("GroupId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Domain.Entities.Student", "Student")
+                    b.HasOne("Domain.Entities.Student", null)
                         .WithMany("Exams")
+                        .HasForeignKey("StudentId");
+
+                    b.Navigation("Group");
+                });
+
+            modelBuilder.Entity("Domain.Entities.ExamGrade", b =>
+                {
+                    b.HasOne("Domain.Entities.Exam", "Exam")
+                        .WithMany("ExamGrades")
+                        .HasForeignKey("ExamId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.User", "Student")
+                        .WithMany()
                         .HasForeignKey("StudentId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("Group");
+                    b.Navigation("Exam");
 
                     b.Navigation("Student");
                 });
@@ -1303,9 +1394,11 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Entities.Mentor", b =>
                 {
-                    b.HasOne("Domain.Entities.Center", null)
+                    b.HasOne("Domain.Entities.Center", "Center")
                         .WithMany("Mentors")
-                        .HasForeignKey("CenterId");
+                        .HasForeignKey("CenterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("Domain.Entities.User", "User")
                         .WithOne("MentorProfile")
@@ -1313,7 +1406,28 @@ namespace Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.Navigation("Center");
+
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Domain.Entities.MentorGroup", b =>
+                {
+                    b.HasOne("Domain.Entities.Group", "Group")
+                        .WithMany()
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.Mentor", "Mentor")
+                        .WithMany()
+                        .HasForeignKey("MentorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Group");
+
+                    b.Navigation("Mentor");
                 });
 
             modelBuilder.Entity("Domain.Entities.MonthlySummary", b =>
@@ -1456,7 +1570,8 @@ namespace Infrastructure.Migrations
                     b.HasOne("Domain.Entities.Center", "Center")
                         .WithMany("Users")
                         .HasForeignKey("CenterId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .IsRequired();
 
                     b.Navigation("Center");
                 });
@@ -1534,7 +1649,7 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Entities.Exam", b =>
                 {
-                    b.Navigation("Comments");
+                    b.Navigation("ExamGrades");
                 });
 
             modelBuilder.Entity("Domain.Entities.Group", b =>
@@ -1579,9 +1694,11 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Entities.User", b =>
                 {
-                    b.Navigation("MentorProfile");
+                    b.Navigation("MentorProfile")
+                        .IsRequired();
 
-                    b.Navigation("StudentProfile");
+                    b.Navigation("StudentProfile")
+                        .IsRequired();
                 });
 #pragma warning restore 612, 618
         }

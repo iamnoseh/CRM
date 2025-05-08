@@ -13,6 +13,8 @@ public class User : IdentityUser<int>
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public string? ProfileImagePath { get; set; }
+    public PaymentStatus PaymentStatus { get; set; }
+    public decimal? Salary { get; set; }
     public int Age { get; set; }
     public string Address { get; set; }
     public string? Code { get; set; }
@@ -23,6 +25,6 @@ public class User : IdentityUser<int>
     public bool TelegramNotificationsEnabled { get; set; } = true;
     public int? CenterId { get; set; }
     public Center? Center { get; set; }
-    public Student? StudentProfile { get; set; }
-    public Mentor? MentorProfile { get; set; }
+    public Student StudentProfile { get; set; }
+    public Mentor MentorProfile { get; set; }
 }

@@ -45,6 +45,10 @@ public static class Register
             ));
         services.AddScoped<IAttendanceService, AttendanceService>();
         services.AddScoped<ICommentService, CommentService>();
+        services.AddScoped<IUserService, UserService>();
+        services.AddScoped<ILessonService, LessonService>();
+        services.AddScoped<IGradeService, GradeService>();
+        services.AddScoped<IExamService, ExamService>();
     }
     
     // Регистрация identity и аутентификации
@@ -107,16 +111,10 @@ public static class Register
                 st.GetRequiredService<DataContext>(),
                 st.GetRequiredService<UserManager<User>>(),
                 uploadPath,
-                st.GetRequiredService<IEmailService>()
+                st.GetRequiredService<IEmailService>(),
+                st.GetRequiredService<IHttpContextAccessor>()
             ));
-            
-        // services.AddScoped<IUserService>(us => 
-        //     new UserService(
-        //         us.GetRequiredService<DataContext>(),
-        //         us.GetRequiredService<UserManager<User>>(),
-        //         us.GetRequiredService<IHttpContextAccessor>()
-        //     ));
-        //     
+        
         services.AddScoped<ICourseService>(us => 
             new CourseService(
                 us.GetRequiredService<DataContext>(),
@@ -137,6 +135,8 @@ public static class Register
             ));
             
         services.AddScoped<IStudentGroupService, StudentGroupService>();
+        
+        services.AddScoped<IMentorGroupService, MentorGroupService>();
         
         // Регистрация сервиса для планировщика уроков
         // services.AddScoped<LessonSchedulerService>();

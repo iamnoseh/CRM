@@ -4,7 +4,6 @@ namespace Domain.DTOs.Attendance;
 
 public class GetAttendanceDto : EditAttendanceDto 
 {
-    // Маълумоти иловагӣ барои намоиш
     public string StudentName { get; set; } = string.Empty;
     public string GroupName { get; set; } = string.Empty;
     public DateTimeOffset LessonStartTime { get; set; }

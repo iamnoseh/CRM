@@ -87,6 +87,8 @@ namespace Infrastructure.Migrations
                     CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     UpdatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     ProfileImagePath = table.Column<string>(type: "text", nullable: true),
+                    PaymentStatus = table.Column<int>(type: "integer", nullable: false),
+                    Salary = table.Column<decimal>(type: "numeric", nullable: true),
                     Age = table.Column<int>(type: "integer", nullable: false),
                     Address = table.Column<string>(type: "text", nullable: false),
                     Code = table.Column<string>(type: "text", nullable: true),
@@ -95,7 +97,7 @@ namespace Infrastructure.Migrations
                     TelegramChatId = table.Column<string>(type: "text", nullable: true),
                     EmailNotificationsEnabled = table.Column<bool>(type: "boolean", nullable: false),
                     TelegramNotificationsEnabled = table.Column<bool>(type: "boolean", nullable: false),
-                    CenterId = table.Column<int>(type: "integer", nullable: true),
+                    CenterId = table.Column<int>(type: "integer", nullable: false),
                     UserName = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
                     NormalizedUserName = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
                     Email = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
@@ -136,7 +138,7 @@ namespace Infrastructure.Migrations
                     Status = table.Column<int>(type: "integer", nullable: false),
                     StartDate = table.Column<DateTime>(type: "timestamp without time zone", nullable: false),
                     EndDate = table.Column<DateTime>(type: "timestamp without time zone", nullable: false),
-                    CenterId = table.Column<int>(type: "integer", nullable: true),
+                    CenterId = table.Column<int>(type: "integer", nullable: false),
                     CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     UpdatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     IsDeleted = table.Column<bool>(type: "boolean", nullable: false)
@@ -148,7 +150,8 @@ namespace Infrastructure.Migrations
                         name: "FK_Courses_Centers_CenterId",
                         column: x => x.CenterId,
                         principalTable: "Centers",
-                        principalColumn: "Id");
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -288,7 +291,7 @@ namespace Infrastructure.Migrations
                     PaymentStatus = table.Column<int>(type: "integer", nullable: false),
                     ProfileImage = table.Column<string>(type: "text", nullable: true),
                     UserId = table.Column<int>(type: "integer", nullable: false),
-                    CenterId = table.Column<int>(type: "integer", nullable: true),
+                    CenterId = table.Column<int>(type: "integer", nullable: false),
                     CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     UpdatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     IsDeleted = table.Column<bool>(type: "boolean", nullable: false)
@@ -306,7 +309,8 @@ namespace Infrastructure.Migrations
                         name: "FK_Mentors_Centers_CenterId",
                         column: x => x.CenterId,
                         principalTable: "Centers",
-                        principalColumn: "Id");
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -398,14 +402,12 @@ namespace Infrastructure.Migrations
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    Value = table.Column<int>(type: "integer", nullable: true),
-                    Comment = table.Column<string>(type: "text", nullable: true),
-                    BonusPoints = table.Column<int>(type: "integer", nullable: true),
                     WeekIndex = table.Column<int>(type: "integer", nullable: false),
-                    IsWeeklyExam = table.Column<bool>(type: "boolean", nullable: false),
                     ExamDate = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    StudentId = table.Column<int>(type: "integer", nullable: false),
+                    Description = table.Column<string>(type: "text", nullable: false),
                     GroupId = table.Column<int>(type: "integer", nullable: false),
+                    MaxPoints = table.Column<int>(type: "integer", nullable: false),
+                    StudentId = table.Column<int>(type: "integer", nullable: true),
                     CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     UpdatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     IsDeleted = table.Column<bool>(type: "boolean", nullable: false)
@@ -418,13 +420,12 @@ namespace Infrastructure.Migrations
                         column: x => x.GroupId,
                         principalTable: "Groups",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_Exams_Students_StudentId",
                         column: x => x.StudentId,
                         principalTable: "Students",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
+                        principalColumn: "Id");
                 });
 
             migrationBuilder.CreateTable(
@@ -448,6 +449,36 @@ namespace Infrastructure.Migrations
                         name: "FK_Lessons_Groups_GroupId",
                         column: x => x.GroupId,
                         principalTable: "Groups",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "MentorGroups",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    MentorId = table.Column<int>(type: "integer", nullable: false),
+                    GroupId = table.Column<int>(type: "integer", nullable: false),
+                    IsActive = table.Column<bool>(type: "boolean", nullable: true),
+                    CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    UpdatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    IsDeleted = table.Column<bool>(type: "boolean", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_MentorGroups", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_MentorGroups_Groups_GroupId",
+                        column: x => x.GroupId,
+                        principalTable: "Groups",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_MentorGroups_Mentors_MentorId",
+                        column: x => x.MentorId,
+                        principalTable: "Mentors",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -641,6 +672,39 @@ namespace Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "ExamGrades",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    ExamId = table.Column<int>(type: "integer", nullable: false),
+                    StudentId = table.Column<int>(type: "integer", nullable: false),
+                    Points = table.Column<int>(type: "integer", nullable: false),
+                    HasPassed = table.Column<bool>(type: "boolean", nullable: true),
+                    Comment = table.Column<string>(type: "text", nullable: false),
+                    BonusPoint = table.Column<int>(type: "integer", nullable: false),
+                    CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    UpdatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    IsDeleted = table.Column<bool>(type: "boolean", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ExamGrades", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ExamGrades_AspNetUsers_StudentId",
+                        column: x => x.StudentId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_ExamGrades_Exams_ExamId",
+                        column: x => x.ExamId,
+                        principalTable: "Exams",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Attendances",
                 columns: table => new
                 {
@@ -689,7 +753,6 @@ namespace Infrastructure.Migrations
                     LessonId = table.Column<int>(type: "integer", nullable: false),
                     AuthorId = table.Column<int>(type: "integer", nullable: true),
                     CommentDate = table.Column<DateTime>(type: "timestamp without time zone", nullable: false),
-                    ExamId = table.Column<int>(type: "integer", nullable: true),
                     CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     UpdatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     IsDeleted = table.Column<bool>(type: "boolean", nullable: false)
@@ -697,11 +760,6 @@ namespace Infrastructure.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Comments", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_Comments_Exams_ExamId",
-                        column: x => x.ExamId,
-                        principalTable: "Exams",
-                        principalColumn: "Id");
                     table.ForeignKey(
                         name: "FK_Comments_Groups_GroupId",
                         column: x => x.GroupId,
@@ -820,11 +878,6 @@ namespace Infrastructure.Migrations
                 column: "StudentId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Comments_ExamId",
-                table: "Comments",
-                column: "ExamId");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_Comments_GroupId",
                 table: "Comments",
                 column: "GroupId");
@@ -843,6 +896,16 @@ namespace Infrastructure.Migrations
                 name: "IX_Courses_CenterId",
                 table: "Courses",
                 column: "CenterId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ExamGrades_ExamId",
+                table: "ExamGrades",
+                column: "ExamId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ExamGrades_StudentId",
+                table: "ExamGrades",
+                column: "StudentId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Exams_GroupId",
@@ -883,6 +946,16 @@ namespace Infrastructure.Migrations
                 name: "IX_Lessons_GroupId",
                 table: "Lessons",
                 column: "GroupId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_MentorGroups_GroupId",
+                table: "MentorGroups",
+                column: "GroupId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_MentorGroups_MentorId",
+                table: "MentorGroups",
+                column: "MentorId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Mentors_CenterId",
@@ -1012,7 +1085,13 @@ namespace Infrastructure.Migrations
                 name: "Comments");
 
             migrationBuilder.DropTable(
+                name: "ExamGrades");
+
+            migrationBuilder.DropTable(
                 name: "Grades");
+
+            migrationBuilder.DropTable(
+                name: "MentorGroups");
 
             migrationBuilder.DropTable(
                 name: "MonthlySummaries");

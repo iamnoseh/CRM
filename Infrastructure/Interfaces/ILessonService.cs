@@ -14,4 +14,5 @@ public interface ILessonService
     Task<PaginationResponse<List<GetLessonDto>>> GetLessonsPaginated(BaseFilter filter);
     Task<Response<List<GetLessonDto>>> GetLessonsByGroup(int groupId);
     Task<Response<string>> CreateWeeklyLessons(int groupId, int weekIndex, DateTimeOffset startDate);
+    Task<Response<string>> MarkStudentPresent(int lessonId, int studentId);
 }

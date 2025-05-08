@@ -1,52 +1,125 @@
-// using Domain.DTOs.Exam;
-// using Domain.Entities;
-// using Domain.Responses;
-// using Infrastructure.Interfaces;
-// using Microsoft.AspNetCore.Authorization;
-// using Microsoft.AspNetCore.Mvc;
-//
-// namespace WebApp.Controllers;
-//
-// [ApiController]
-// [Route("api/[controller]")]
-// public class ExamController(IExamService service) : ControllerBase
-// {
-//     [HttpGet]
-//     public async Task<Response<List<GetExamDto>>> GetAllExams() => 
-//         await service.GetExams();
-//
-//     [HttpGet("{id}")]
-//     public async Task<Response<GetExamDto>> GetExamById(int id) => 
-//         await service.GetExamById(id);
-//     
-//     [HttpGet("student/{studentId}")]
-//     public async Task<Response<List<GetExamDto>>> GetExamsByStudent(int studentId) =>
-//         await service.GetExamsByStudent(studentId);
-//         
-//     [HttpGet("group/{groupId}")]
-//     public async Task<Response<List<GetExamDto>>> GetExamsByGroup(int groupId) =>
-//         await service.GetExamsByGroup(groupId);
-//         
-//     [HttpGet("group/{groupId}/week/{weekIndex}")]
-//     public async Task<Response<List<GetExamDto>>> GetExamsByGroupAndWeek(int groupId, int weekIndex) =>
-//         await service.GetExamsByGroupAndWeek(groupId, weekIndex);
-//     
-//     [HttpGet("student/{studentId}/group/{groupId}/week/{weekIndex}")]
-//     public async Task<Response<List<GetExamDto>>> GetStudentExamsByWeek(int studentId, int groupId, int weekIndex) =>
-//         await service.GetStudentExamsByWeek(studentId, groupId, weekIndex);
-//     
-//     [HttpPost]
-//     [Authorize(Roles = $"{Roles.Admin},{Roles.Teacher},{Roles.SuperAdmin}")]
-//     public async Task<Response<string>> CreateExam(CreateExamDto createExam) =>
-//         await service.CreateExam(createExam);
-//     
-//     [HttpDelete("{id}")]
-//     [Authorize(Roles = $"{Roles.Admin},{Roles.Teacher},{Roles.SuperAdmin}")]
-//     public async Task<Response<string>> DeleteExam(int id) => 
-//         await service.DeleteExam(id);
-//     
-//     [HttpPut("{id}")]
-//     [Authorize(Roles = $"{Roles.Admin},{Roles.Teacher},{Roles.SuperAdmin}")]
-//     public async Task<Response<string>> UpdateExam(int id, UpdateExamDto examDto) => 
-//         await service.UpdateExam(id, examDto);
-// } 
+using Domain.DTOs.Exam;
+using Domain.Entities;
+using Domain.Responses;
+using Infrastructure.Interfaces;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace WebApp.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class ExamController(IExamService examService) : ControllerBase
+{
+    #region Exam Endpoints
+    
+    [HttpGet]
+    [Authorize(Roles = "Admin,Teacher,Student,Manager")]
+    public async Task<ActionResult<Response<List<GetExamDto>>>> GetAllExams()
+    {
+        var response = await examService.GetExams();
+        return StatusCode((int)response.StatusCode, response);
+    }
+
+    [HttpGet("{id}")]
+    [Authorize(Roles = "Admin,Teacher,Student,Manager")]
+    public async Task<ActionResult<Response<GetExamDto>>> GetExamById(int id)
+    {
+        var response = await examService.GetExamById(id);
+        return StatusCode((int)response.StatusCode, response);
+    }
+    
+    [HttpGet("group/{groupId}")]
+    [Authorize(Roles = "Admin,Teacher,Student,Manager")]
+    public async Task<ActionResult<Response<List<GetExamDto>>>> GetExamsByGroup(int groupId)
+    {
+        var response = await examService.GetExamsByGroup(groupId);
+        return StatusCode((int)response.StatusCode, response);
+    }
+    
+    [HttpPost]
+    [Authorize(Roles = "Admin,Teacher")]
+    public async Task<ActionResult<Response<string>>> CreateExam([FromBody] CreateExamDto createExamDto)
+    {
+        var response = await examService.CreateExam(createExamDto);
+        return StatusCode((int)response.StatusCode, response);
+    }
+    
+    [HttpPut("{id}")]
+    [Authorize(Roles = "Admin,Teacher")]
+    public async Task<ActionResult<Response<string>>> UpdateExam(int id, [FromBody] UpdateExamDto updateExamDto)
+    {
+        var response = await examService.UpdateExam(id, updateExamDto);
+        return StatusCode((int)response.StatusCode, response);
+    }
+    
+    [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin,Teacher")]
+    public async Task<ActionResult<Response<string>>> DeleteExam(int id)
+    {
+        var response = await examService.DeleteExam(id);
+        return StatusCode((int)response.StatusCode, response);
+    }
+    
+    #endregion
+    
+    #region ExamGrade Endpoints
+    
+    [HttpGet("grade/{id}")]
+    [Authorize(Roles = "Admin,Teacher,Student,Manager")]
+    public async Task<ActionResult<Response<GetExamGradeDto>>> GetExamGradeById(int id)
+    {
+        var response = await examService.GetExamGradeById(id);
+        return StatusCode((int)response.StatusCode, response);
+    }
+    
+    [HttpGet("{examId}/grades")]
+    [Authorize(Roles = "Admin,Teacher,Manager")]
+    public async Task<ActionResult<Response<List<GetExamGradeDto>>>> GetExamGradesByExam(int examId)
+    {
+        var response = await examService.GetExamGradesByExam(examId);
+        return StatusCode((int)response.StatusCode, response);
+    }
+    
+    [HttpGet("student/{studentId}/grades")]
+    [Authorize(Roles = "Admin,Teacher,Student,Manager")]
+    public async Task<ActionResult<Response<List<GetExamGradeDto>>>> GetExamGradesByStudent(int studentId)
+    {
+        var response = await examService.GetExamGradesByStudent(studentId);
+        return StatusCode((int)response.StatusCode, response);
+    }
+    
+    [HttpPost("grade")]
+    [Authorize(Roles = "Admin,Teacher")]
+    public async Task<ActionResult<Response<string>>> CreateExamGrade([FromBody] CreateExamGradeDto createExamGradeDto)
+    {
+        var response = await examService.CreateExamGrade(createExamGradeDto);
+        return StatusCode((int)response.StatusCode, response);
+    }
+    
+    [HttpPut("grade/{id}")]
+    [Authorize(Roles = "Admin,Teacher")]
+    public async Task<ActionResult<Response<string>>> UpdateExamGrade(int id, [FromBody] UpdateExamGradeDto updateExamGradeDto)
+    {
+        var response = await examService.UpdateExamGrade(id, updateExamGradeDto);
+        return StatusCode((int)response.StatusCode, response);
+    }
+    
+    [HttpDelete("grade/{id}")]
+    [Authorize(Roles = "Admin,Teacher")]
+    public async Task<ActionResult<Response<string>>> DeleteExamGrade(int id)
+    {
+        var response = await examService.DeleteExamGrade(id);
+        return StatusCode((int)response.StatusCode, response);
+    }
+    
+    [HttpPost("grade/{examGradeId}/bonus")]
+    [Authorize(Roles = "Admin,Teacher")]
+    public async Task<ActionResult<Response<string>>> AddBonusPoint(int examGradeId, [FromBody] int bonusPoints)
+    {
+        var response = await examService.AddBonusPoint(examGradeId, bonusPoints);
+        return StatusCode((int)response.StatusCode, response);
+    }
+    
+    #endregion
+}

@@ -1,11 +1,27 @@
 namespace Domain.DTOs.Exam;
 
+/// <summary>
+/// DTO для обновления экзамена
+/// </summary>
 public class UpdateExamDto
 {
-    public int ExamId { get; set; }
-    public int? Value { get; set; }
-    public int? BonusPoints { get; set; }
-    public string? Comment { get; set; }
+    /// <summary>
+    /// Дата проведения экзамена
+    /// </summary>
+    public DateTimeOffset? ExamDate { get; set; }
+    
+    /// <summary>
+    /// Описание или тема экзамена
+    /// </summary>
+    public string Description { get; set; }
+    
+    /// <summary>
+    /// Индекс недели
+    /// </summary>
     public int? WeekIndex { get; set; }
-    public DateTime? ExamDate { get; set; }
-} 
+    
+    /// <summary>
+    /// Максимально возможное количество баллов за экзамен
+    /// </summary>
+    public int? MaxPoints { get; set; }
+}

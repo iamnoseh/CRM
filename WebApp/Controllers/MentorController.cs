@@ -1,10 +1,8 @@
 using Domain.DTOs.Mentor;
-using Domain.Entities;
 using Domain.Filters;
 using Domain.Responses;
 using Infrastructure.Interfaces;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace WebApp.Controllers;

@@ -16,9 +16,11 @@ public class DataContext(DbContextOptions<DataContext> options) : IdentityDbCont
     public DbSet<Exam> Exams { get; set; }
     public DbSet<Attendance> Attendances { get; set; }
     public DbSet<StudentGroup> StudentGroups { get; set; }
+    public DbSet<MentorGroup> MentorGroups { get; set; }
     public DbSet<Comment> Comments { get; set; }
     public DbSet<Center> Centers { get; set; }
     public DbSet<Payment> Payments { get; set; }
+    public DbSet<ExamGrade> ExamGrades { get; set; }
     public DbSet<StudentPerformance> StudentPerformances { get; set; }
     public DbSet<StudentStatistics> StudentStatistics { get; set; }
     public DbSet<MonthlySummary> MonthlySummaries { get; set; }
@@ -76,18 +78,30 @@ public class DataContext(DbContextOptions<DataContext> options) : IdentityDbCont
             .HasForeignKey(g => g.GroupId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        //  Exam vs Student, Group
-        modelBuilder.Entity<Exam>()
-            .HasOne(e => e.Student)
-            .WithMany(s => s.Exams)
-            .HasForeignKey(e => e.StudentId)
-            .OnDelete(DeleteBehavior.Restrict);
-
+        //  Exam и ExamGrade
         modelBuilder.Entity<Exam>()
             .HasOne(e => e.Group)
             .WithMany(g => g.Exams)
             .HasForeignKey(e => e.GroupId)
+            .OnDelete(DeleteBehavior.Cascade);
+            
+        modelBuilder.Entity<ExamGrade>()
+            .HasOne(eg => eg.Exam)
+            .WithMany(e => e.ExamGrades)
+            .HasForeignKey(eg => eg.ExamId)
+            .OnDelete(DeleteBehavior.Cascade);
+            
+        modelBuilder.Entity<ExamGrade>()
+            .HasOne(eg => eg.Student)
+            .WithMany()
+            .HasForeignKey(eg => eg.StudentId)
             .OnDelete(DeleteBehavior.Restrict);
+            
+        modelBuilder.Entity<ExamGrade>()
+            .HasIndex(eg => eg.ExamId);
+            
+        modelBuilder.Entity<ExamGrade>()
+            .HasIndex(eg => eg.StudentId);
 
         //  Attendance vs Lesson, Student, Group
         modelBuilder.Entity<Attendance>()
@@ -144,6 +158,30 @@ public class DataContext(DbContextOptions<DataContext> options) : IdentityDbCont
             .HasForeignKey(sg => sg.GroupId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        modelBuilder.Entity<StudentGroup>()
+            .HasIndex(sg => sg.StudentId);
+
+        modelBuilder.Entity<StudentGroup>()
+            .HasIndex(sg => sg.GroupId);
+
+        modelBuilder.Entity<MentorGroup>()
+            .HasOne(mg => mg.Mentor)
+            .WithMany()
+            .HasForeignKey(mg => mg.MentorId)
+            .OnDelete(DeleteBehavior.Cascade);
+            
+        modelBuilder.Entity<MentorGroup>()
+            .HasOne(mg => mg.Group)
+            .WithMany()
+            .HasForeignKey(mg => mg.GroupId)
+            .OnDelete(DeleteBehavior.Cascade);
+            
+        modelBuilder.Entity<MentorGroup>()
+            .HasIndex(mg => mg.MentorId);
+            
+        modelBuilder.Entity<MentorGroup>()
+            .HasIndex(mg => mg.GroupId);
+
         //  User vs Student, Mentor (як ба як)
         modelBuilder.Entity<Student>()
             .HasOne(s => s.User)
@@ -189,14 +227,18 @@ public class DataContext(DbContextOptions<DataContext> options) : IdentityDbCont
             .HasForeignKey(p => p.CenterId)
             .OnDelete(DeleteBehavior.SetNull);
             
-        // MonthlySummary vs Center
-        modelBuilder.Entity<MonthlySummary>()
-            .HasOne(ms => ms.Center)
-            .WithMany(c => c.MonthlySummaries)
-            .HasForeignKey(ms => ms.CenterId)
-            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<Payment>()
+            .HasIndex(p => p.StudentId);
             
-        // StudentPerformance vs Student, Group
+        modelBuilder.Entity<Payment>()
+            .HasIndex(p => p.GroupId);
+            
+        modelBuilder.Entity<Payment>()
+            .HasIndex(p => p.CenterId);
+            
+        modelBuilder.Entity<Payment>()
+            .HasIndex(p => new { p.Month, p.Year });
+            
         modelBuilder.Entity<StudentPerformance>()
             .HasOne(sp => sp.Student)
             .WithMany()
@@ -209,7 +251,6 @@ public class DataContext(DbContextOptions<DataContext> options) : IdentityDbCont
             .HasForeignKey(sp => sp.GroupId)
             .OnDelete(DeleteBehavior.Cascade);
             
-        // StudentStatistics vs Student, Group
         modelBuilder.Entity<StudentStatistics>()
             .HasOne(ss => ss.Student)
             .WithMany()
@@ -222,7 +263,12 @@ public class DataContext(DbContextOptions<DataContext> options) : IdentityDbCont
             .HasForeignKey(ss => ss.GroupId)
             .OnDelete(DeleteBehavior.Cascade);
             
-        // NotificationLog vs Student, Group, Center
+        modelBuilder.Entity<MonthlySummary>()
+            .HasOne(ms => ms.Center)
+            .WithMany(c => c.MonthlySummaries)
+            .HasForeignKey(ms => ms.CenterId)
+            .OnDelete(DeleteBehavior.Cascade);
+            
         modelBuilder.Entity<NotificationLog>()
             .HasOne(nl => nl.Student)
             .WithMany()
@@ -260,9 +306,6 @@ public class DataContext(DbContextOptions<DataContext> options) : IdentityDbCont
             .HasIndex(g => g.GroupId);
 
         modelBuilder.Entity<Exam>()
-            .HasIndex(e => e.StudentId);
-
-        modelBuilder.Entity<Exam>()
             .HasIndex(e => e.GroupId);
 
         modelBuilder.Entity<Attendance>()
@@ -283,24 +326,6 @@ public class DataContext(DbContextOptions<DataContext> options) : IdentityDbCont
         modelBuilder.Entity<Comment>()
             .HasIndex(c => c.LessonId);
 
-        modelBuilder.Entity<StudentGroup>()
-            .HasIndex(sg => sg.StudentId);
-
-        modelBuilder.Entity<StudentGroup>()
-            .HasIndex(sg => sg.GroupId);
-            
-        modelBuilder.Entity<Payment>()
-            .HasIndex(p => p.StudentId);
-            
-        modelBuilder.Entity<Payment>()
-            .HasIndex(p => p.GroupId);
-            
-        modelBuilder.Entity<Payment>()
-            .HasIndex(p => p.CenterId);
-            
-        modelBuilder.Entity<Payment>()
-            .HasIndex(p => new { p.Month, p.Year });
-            
         modelBuilder.Entity<StudentPerformance>()
             .HasIndex(sp => sp.StudentId);
             

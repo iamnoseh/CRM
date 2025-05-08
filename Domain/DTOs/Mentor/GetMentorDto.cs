@@ -16,5 +16,5 @@ public class GetMentorDto
     public PaymentStatus PaymentStatus { get; set; }
     public string? ImagePath { get; set; }
     public decimal? Salary { get; set; }
-    public int CenterId { get; set; }
+    public int? CenterId { get; set; }
 }

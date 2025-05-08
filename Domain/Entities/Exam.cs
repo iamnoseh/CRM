@@ -1,17 +1,38 @@
 namespace Domain.Entities;
 
+/// <summary>
+/// Сущность экзамена для группы
+/// </summary>
 public class Exam : BaseEntity
 {
-    public int? Value { get; set; }
-    public string? Comment { get; set; }
-    public int? BonusPoints { get; set; }
+    /// <summary>
+    /// Индекс недели
+    /// </summary>
     public int WeekIndex { get; set; }
-    public bool IsWeeklyExam { get; set; } = true;
     
+    /// <summary>
+    /// Дата проведения экзамена
+    /// </summary>
     public DateTimeOffset ExamDate { get; set; }
-    public int StudentId { get; set; }
+    
+    
+    /// <summary>
+    /// ID группы
+    /// </summary>
     public int GroupId { get; set; }
-    public Student Student { get; set; }
+    
+    /// <summary>
+    /// Навигационное свойство для группы
+    /// </summary>
     public Group Group { get; set; }
-    public List<Comment> Comments { get; set; } = new();
+    
+    /// <summary>
+    /// Максимально возможное количество баллов за экзамен
+    /// </summary>
+    public int MaxPoints { get; set; } = 100;
+    
+    /// <summary>
+    /// Коллекция оценок студентов за этот экзамен
+    /// </summary>
+    public ICollection<ExamGrade> ExamGrades { get; set; } = new List<ExamGrade>();
 }

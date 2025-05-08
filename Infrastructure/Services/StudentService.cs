@@ -444,133 +444,150 @@ public class StudentService(
     #region GetStudentDetailedAsync
     public async Task<Response<GetStudentDetailedDto>> GetStudentDetailedAsync(int id)
     {
-        var student = await context.Students
-            .Include(s => s.Center)
-            .Include(s => s.StudentGroups)
-            .ThenInclude(sg => sg.Group)
-            .ThenInclude(g => g.Course)
-            .FirstOrDefaultAsync(s => s.Id == id && !s.IsDeleted);
-
-        if (student == null)
-            return new Response<GetStudentDetailedDto>(HttpStatusCode.NotFound, "Student not found");
-
-        // Получаем средний балл студента
-        double averageGrade = 0;
-        var grades = await context.Grades
-            .Where(g => g.StudentId == id && !g.IsDeleted && g.Value.HasValue)
-            .ToListAsync();
-            
-        var exams = await context.Exams
-            .Where(e => e.StudentId == id && !e.IsDeleted && e.Value.HasValue)
-            .ToListAsync();
-        
-        if (grades.Any() || exams.Any())
+        try
         {
-            double totalSum = 0;
-            int totalCount = 0;
-            
-            if (grades.Any())
-            {
-                totalSum += grades.Sum(g => g.Value!.Value);
-                totalCount += grades.Count;
-            }
-            
-            if (exams.Any())
-            {
-                totalSum += exams.Sum(e => e.Value!.Value);
-                totalCount += exams.Count;
-            }
-            
-            averageGrade = totalCount > 0 ? Math.Round(totalSum / totalCount, 2) : 0;
-        }
+            var student = await context.Students
+                .Include(s => s.User)
+                .FirstOrDefaultAsync(s => s.Id == id && !s.IsDeleted);
 
-        // Создаем DTO с детальной информацией
-        var result = new GetStudentDetailedDto
-        {
-            Id = student.Id,
-            FullName = student.FullName,
-            Email = student.Email,
-            Address = student.Address,
-            Phone = student.PhoneNumber,
-            Birthday = student.Birthday,
-            Age = student.Age,
-            Gender = student.Gender,
-            ActiveStatus = student.ActiveStatus,
-            PaymentStatus = student.PaymentStatus,
-            ImagePath = student.ProfileImage,
-            
-            // Статистика
-            AverageGrade = averageGrade,
-            GroupsCount = student.StudentGroups.Count(sg => !sg.IsDeleted),
-            Groups = student.StudentGroups
-                .Where(sg => !sg.IsDeleted && sg.Group != null && !sg.Group.IsDeleted)
-                .Select(sg => 
+            if (student == null)
+                return new Response<GetStudentDetailedDto>
                 {
-                    // Расчет среднего балла для группы
-                    double groupAvg = 0;
-                    var groupGrades = grades.Where(g => g.GroupId == sg.GroupId).ToList();
-                    var groupExams = exams.Where(e => e.GroupId == sg.GroupId).ToList();
-                    
-                    int gradeCount = groupGrades.Count + groupExams.Count;
-                    double gradeSum = 0;
-                    
-                    if (groupGrades.Any())
-                        gradeSum += groupGrades.Sum(g => g.Value!.Value);
-                        
-                    if (groupExams.Any())
-                        gradeSum += groupExams.Sum(e => e.Value!.Value);
-                        
-                    if (gradeCount > 0)
-                        groupAvg = Math.Round(gradeSum / gradeCount, 2);
+                    StatusCode = (int)HttpStatusCode.NotFound,
+                    Message = "Студент не найден"
+                };
 
-                    return new GetStudentDetailedDto.GroupInfo
-                    {
-                        GroupId = sg.GroupId,
-                        GroupName = sg.Group.Name,
-                        GroupAverageGrade = groupAvg
-                    };
+            // Получаем группы, в которых состоит студент
+            var studentGroups = await context.StudentGroups
+                .Include(sg => sg.Group)
+                .Where(sg => sg.StudentId == id && (bool)sg.IsActive && !sg.IsDeleted)
+                .ToListAsync();
+
+            // Получаем оценки студента (последние 10)
+            var recentGrades = await context.Grades
+                .Include(g => g.Lesson)
+                .ThenInclude(l => l.Group)
+                .Where(g => g.StudentId == id && !g.IsDeleted)
+                .OrderByDescending(g => g.CreatedAt)
+                .Take(10)
+                .Select(g => new GetGradeDto
+                {
+                    Id = g.Id,
+                    Value = g.Value,
+                    Comment = g.Comment,
+                    BonusPoints = g.BonusPoints,
+                    LessonId = g.LessonId,
+                    CreatedAt = g.Lesson.StartTime,
+                    GroupId = g.GroupId,
+                    StudentId = g.StudentId
                 })
-                .ToList()
-        };
-        
-        result.RecentGrades = await context.Grades
-            .Where(g => g.StudentId == id && !g.IsDeleted && g.Value.HasValue)
-            .OrderByDescending(g => g.CreatedAt)
-            .Take(5)
-            .Select(g => new GetGradeDto
-            {
-                Id = g.Id,
-                StudentId = g.StudentId,
-                GroupId = g.GroupId,
-                LessonId = g.LessonId,
-                Value = g.Value,
-                BonusPoints = g.BonusPoints,
-                WeekIndex = g.WeekIndex,
-                CreatedAt = g.CreatedAt,
-                Comment = g.Comment,
-                
-            })
-            .ToListAsync();
+                .ToListAsync();
 
-        // Получаем последние экзамены
-        result.RecentExams = await context.Exams
-            .Where(e => e.StudentId == id && !e.IsDeleted && e.Value.HasValue)
-            .OrderByDescending(e => e.CreatedAt)
-            .Take(5)
-            .Select(e => new GetExamDto
-            {
-                Id = e.Id,
-                StudentId = e.StudentId,
-                GroupId = e.GroupId,
-                Value = e.Value,
-                BonusPoints = e.BonusPoints,
-                Comment = e.Comment,
-                WeekIndex = e.WeekIndex,
-                ExamDate = e.ExamDate,
-            })
-            .ToListAsync();
+            // Получаем результаты экзаменов студента (последние 5)
+            var recentExams = await context.ExamGrades
+                .Include(eg => eg.Exam)
+                .ThenInclude(e => e.Group)
+                .Where(eg => eg.StudentId == id && !eg.IsDeleted)
+                .OrderByDescending(eg => eg.CreatedAt)
+                .Take(5)
+                .ToListAsync();
 
-        return new Response<GetStudentDetailedDto>(result);
+            // Преобразуем результаты экзаменов в DTO
+            var examDtos = recentExams.Select(eg => new GetExamDto
+            {
+                Id = eg.ExamId,
+                GroupId = eg.Exam.GroupId,
+                WeekIndex = eg.Exam.WeekIndex,
+                ExamDate = eg.Exam.ExamDate,
+                MaxPoints = eg.Points,
+            }).ToList();
+
+            // Рассчитываем средний балл по всем предметам
+            double averageGrade = 0;
+            var allGrades = await context.Grades
+                .Where(g => g.StudentId == id && g.Value.HasValue && !g.IsDeleted)
+                .Select(g => g.Value.Value)
+                .ToListAsync();
+
+            if (allGrades.Any())
+            {
+                averageGrade = Math.Round(allGrades.Average(), 2);
+            }
+
+            // Собираем информацию о группах и оценках в них
+            var groupInfos = new List<GetStudentDetailedDto.GroupInfo>();
+            foreach (var group in studentGroups)
+            {
+                var groupGrades = await context.Grades
+                    .Where(g => g.StudentId == id && 
+                               g.GroupId == group.GroupId && 
+                               g.Value.HasValue &&
+                               !g.IsDeleted)
+                    .Select(g => g.Value.Value)
+                    .ToListAsync();
+
+                double groupAverage = 0;
+                if (groupGrades.Any())
+                {
+                    groupAverage = Math.Round(groupGrades.Average(), 2);
+                }
+
+                groupInfos.Add(new GetStudentDetailedDto.GroupInfo
+                {
+                    GroupId = group.GroupId,
+                    GroupName = group.Group.Name,
+                    GroupAverageGrade = groupAverage
+                });
+            }
+
+            // Определяем статус оплаты на основе последних платежей
+            var paymentStatus = Domain.Enums.PaymentStatus.Paid;
+            var latestPayment = await context.Payments
+                .Where(p => p.StudentId == id && !p.IsDeleted)
+                .OrderByDescending(p => p.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            if (latestPayment != null)
+            {
+                paymentStatus = latestPayment.Status;
+            }
+
+            // Создаем итоговый DTO с детальной информацией
+            var studentDetailed = new GetStudentDetailedDto
+            {
+                Id = student.Id,
+                FullName = student.User.FullName,
+                Email = student.User.Email,
+                Phone = student.User.PhoneNumber,
+                Address = student.Address,
+                Birthday = student.Birthday,
+                Age = CalculateAge(student.Birthday),
+                Gender = student.Gender,
+                ActiveStatus = student.User.ActiveStatus,
+                PaymentStatus = paymentStatus,
+                ImagePath = student.User.ProfileImagePath,
+                AverageGrade = averageGrade,
+                GroupsCount = studentGroups.Count,
+                Groups = groupInfos,
+                RecentGrades = recentGrades,
+                RecentExams = examDtos
+            };
+
+            return new Response<GetStudentDetailedDto>
+            {
+                StatusCode = (int)HttpStatusCode.OK,
+                Message = "Детальная информация о студенте получена успешно",
+                Data = studentDetailed
+            };
+        }
+        catch (Exception ex)
+        {
+            return new Response<GetStudentDetailedDto>
+            {
+                StatusCode = (int)HttpStatusCode.InternalServerError,
+                Message = $"Ошибка при получении детальной информации о студенте: {ex.Message}"
+            };
+        }
     }
     #endregion
 }

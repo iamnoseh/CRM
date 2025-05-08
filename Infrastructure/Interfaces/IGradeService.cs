@@ -15,4 +15,6 @@ public interface IGradeService
     Task<Response<List<GetGradeDto>>> GetGradesByGroupAsync(int groupId);
     Task<Response<List<GetGradeDto>>> GetGradesByLessonAsync(int lessonId);
     Task<Response<double>> GetStudentAverageGradeAsync(int studentId, int? groupId = null);
+ 
+
 }

@@ -1,52 +1,84 @@
-// using Domain.DTOs.Attendance;
-// using Domain.Entities;
-// using Domain.Responses;
-// using Infrastructure.Interfaces;
-// using Microsoft.AspNetCore.Authorization;
-// using Microsoft.AspNetCore.Mvc;
-//
-// namespace WebApp.Controllers;
-// [ApiController]
-// [Route("api/[controller]")]
-// public class AttendanceController (IAttendanceService service) : ControllerBase
-// {
-//     [HttpGet]
-//     [Authorize(Roles = $"{Roles.Admin},{Roles.Teacher},{Roles.Student},{Roles.SuperAdmin},{Roles.Manager}")]
-//     public async Task<Response<List<GetAttendanceDto>>> GetAttendances() => 
-//         await service.GetAttendances();
-//         
-//     [HttpGet("{id}")]
-//     [Authorize(Roles = $"{Roles.Admin},{Roles.Teacher},{Roles.Student},{Roles.SuperAdmin},{Roles.Manager}")]
-//     public async Task<Response<GetAttendanceDto>> GetAttendance(int id) => 
-//         await service.GetAttendanceById(id);
-//         
-//     [HttpGet("student/{studentId}")]
-//     [Authorize(Roles = $"{Roles.Admin},{Roles.Teacher},{Roles.Student},{Roles.SuperAdmin},{Roles.Manager}")]
-//     public async Task<Response<List<GetAttendanceDto>>> GetAttendancesByStudent(int studentId) =>
-//         await service.GetAttendancesByStudent(studentId);
-//         
-//     [HttpGet("group/{groupId}")]
-//     [Authorize(Roles = $"{Roles.Admin},{Roles.Teacher},{Roles.Student},{Roles.SuperAdmin},{Roles.Manager}")]
-//     public async Task<Response<List<GetAttendanceDto>>> GetAttendancesByGroup(int groupId) =>
-//         await service.GetAttendancesByGroup(groupId);
-//         
-//     [HttpGet("lesson/{lessonId}")]
-//     [Authorize(Roles = $"{Roles.Admin},{Roles.Teacher},{Roles.Student},{Roles.SuperAdmin},{Roles.Manager}")]
-//     public async Task<Response<List<GetAttendanceDto>>> GetAttendancesByLesson(int lessonId) =>
-//         await service.GetAttendancesByLesson(lessonId);
-//
-//     [HttpPost]
-//     [Authorize(Roles = $"{Roles.Admin},{Roles.Teacher},{Roles.SuperAdmin}")]
-//     public async Task<Response<string>> CreateAttendance(AddAttendanceDto request) =>
-//         await service.CreateAttendance(request);
-//     
-//     [HttpPut]
-//     [Authorize(Roles = $"{Roles.Admin},{Roles.Teacher},{Roles.SuperAdmin}")]
-//     public async Task<Response<string>> UpdateAttendance(EditAttendanceDto request) =>
-//         await service.EditAttendance(request);
-//     
-//     [HttpDelete("{id}")]
-//     [Authorize(Roles = $"{Roles.Admin},{Roles.Teacher},{Roles.SuperAdmin}")]
-//     public async Task<Response<string>> DeleteAttendance(int id) =>
-//         await service.DeleteAttendanceById(id);
-// }
+using Domain.DTOs.Attendance;
+using Domain.Responses;
+using Infrastructure.Interfaces;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace WebApp.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class AttendanceController(IAttendanceService attendanceService) : ControllerBase
+{
+    [HttpGet]
+    [Authorize(Roles = "Admin,Teacher,Student,Manager")]
+    public async Task<ActionResult<Response<List<GetAttendanceDto>>>> GetAttendances()
+    {
+        var response = await attendanceService.GetAttendances();
+        return StatusCode((int)response.StatusCode, response);
+    }
+    
+    [HttpGet("{id}")]
+    [Authorize(Roles = "Admin,Teacher,Student,Manager")]
+    public async Task<ActionResult<Response<GetAttendanceDto>>> GetAttendanceById(int id)
+    {
+        var response = await attendanceService.GetAttendanceById(id);
+        return StatusCode((int)response.StatusCode, response);
+    }
+    
+    [HttpGet("student/{studentId}")]
+    [Authorize(Roles = "Admin,Teacher,Student,Manager")]
+    public async Task<ActionResult<Response<List<GetAttendanceDto>>>> GetAttendancesByStudent(int studentId)
+    {
+        var response = await attendanceService.GetAttendancesByStudent(studentId);
+        return StatusCode((int)response.StatusCode, response);
+    }
+    
+    [HttpGet("group/{groupId}")]
+    [Authorize(Roles = "Admin,Teacher,Student,Manager")]
+    public async Task<ActionResult<Response<List<GetAttendanceDto>>>> GetAttendancesByGroup(int groupId)
+    {
+        var response = await attendanceService.GetAttendancesByGroup(groupId);
+        return StatusCode((int)response.StatusCode, response);
+    }
+    
+    [HttpGet("lesson/{lessonId}")]
+    [Authorize(Roles = "Admin,Teacher,Student,Manager")]
+    public async Task<ActionResult<Response<List<GetAttendanceDto>>>> GetAttendancesByLesson(int lessonId)
+    {
+        var response = await attendanceService.GetAttendancesByLesson(lessonId);
+        return StatusCode((int)response.StatusCode, response);
+    }
+    
+    [HttpGet("student/{studentId}/rate")]
+    [Authorize(Roles = "Admin,Teacher,Student,Manager")]
+    public async Task<ActionResult<Response<double>>> GetStudentAttendanceRate(int studentId, [FromQuery] int? groupId = null)
+    {
+        var response = await attendanceService.GetStudentAttendanceRate(studentId, groupId);
+        return StatusCode((int)response.StatusCode, response);
+    }
+    
+    [HttpPost]
+    [Authorize(Roles = "Admin,Teacher")]
+    public async Task<ActionResult<Response<string>>> CreateAttendance([FromBody] AddAttendanceDto addAttendanceDto)
+    {
+        var response = await attendanceService.CreateAttendance(addAttendanceDto);
+        return StatusCode((int)response.StatusCode, response);
+    }
+    
+    [HttpPut]
+    [Authorize(Roles = "Admin,Teacher")]
+    public async Task<ActionResult<Response<string>>> UpdateAttendance([FromBody] EditAttendanceDto editAttendanceDto)
+    {
+        var response = await attendanceService.EditAttendance(editAttendanceDto);
+        return StatusCode((int)response.StatusCode, response);
+    }
+    
+    [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin,Teacher")]
+    public async Task<ActionResult<Response<string>>> DeleteAttendance(int id)
+    {
+        var response = await attendanceService.DeleteAttendanceById(id);
+        return StatusCode((int)response.StatusCode, response);
+    }
+}

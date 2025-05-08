@@ -1,49 +1,87 @@
-// using Domain.DTOs.Comment;
-// using Domain.Entities;
-// using Domain.Responses;
-// using Infrastructure.Interfaces;
-// using Microsoft.AspNetCore.Authorization;
-// using Microsoft.AspNetCore.Mvc;
-//
-// namespace WebApp.Controllers;
-//
-// [ApiController]
-// [Route("api/[controller]")]
-// public class 
-//     CommentController(ICommentService service) : ControllerBase
-// {
-//     [HttpGet]
-//     public async Task<Response<List<GetCommentDto>>> GetAllComments() => 
-//         await service.GetComments();
-//
-//     [HttpGet("{id}")]
-//     public async Task<Response<GetCommentDto>> GetCommentById(int id) => 
-//         await service.GetCommentById(id);
-//     
-//     [HttpGet("student/{studentId}")]
-//     public async Task<Response<List<GetCommentDto>>> GetCommentsByStudent(int studentId) =>
-//         await service.GetCommentsByStudent(studentId);
-//         
-//     [HttpGet("group/{groupId}")]
-//     public async Task<Response<List<GetCommentDto>>> GetCommentsByGroup(int groupId) =>
-//         await service.GetCommentsByGroup(groupId);
-//         
-//     [HttpGet("lesson/{lessonId}")]
-//     public async Task<Response<List<GetCommentDto>>> GetCommentsByLesson(int lessonId) =>
-//         await service.GetCommentsByLesson(lessonId);
-//     
-//     [HttpPost]
-//     [Authorize(Roles = $"{Roles.Admin},{Roles.Teacher},{Roles.SuperAdmin}")]
-//     public async Task<Response<string>> CreateComment(CreateCommentDto createComment) =>
-//         await service.CreateComment(createComment);
-//     
-//     [HttpDelete("{id}")]
-//     [Authorize(Roles = $"{Roles.Admin},{Roles.Teacher},{Roles.SuperAdmin}")]
-//     public async Task<Response<string>> DeleteComment(int id) => 
-//         await service.DeleteComment(id);
-//     
-//     [HttpPut]
-//     [Authorize(Roles = $"{Roles.Admin},{Roles.Teacher},{Roles.SuperAdmin}")]
-//     public async Task<Response<string>> UpdateComment(UpdateCommentDto commentDto) => 
-//         await service.UpdateComment(commentDto);
-// } 
+using Domain.DTOs.Comment;
+using Domain.Enums;
+using Domain.Responses;
+using Infrastructure.Interfaces;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace WebApp.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class CommentController(ICommentService commentService) : ControllerBase
+{
+    [HttpGet]
+    public async Task<ActionResult<Response<List<GetCommentDto>>>> GetAllComments()
+    {
+        var response = await commentService.GetComments();
+        return StatusCode((int)response.StatusCode, response);
+    }
+
+    [HttpGet("{id}")]
+    public async Task<ActionResult<Response<GetCommentDto>>> GetCommentById(int id)
+    {
+        var response = await commentService.GetCommentById(id);
+        return StatusCode((int)response.StatusCode, response);
+    }
+    
+    [HttpGet("student/{studentId}")]
+    public async Task<ActionResult<Response<List<GetCommentDto>>>> GetCommentsByStudent(int studentId)
+    {
+        var response = await commentService.GetCommentsByStudent(studentId);
+        return StatusCode((int)response.StatusCode, response);
+    }
+    
+    [HttpGet("group/{groupId}")]
+    public async Task<ActionResult<Response<List<GetCommentDto>>>> GetCommentsByGroup(int groupId)
+    {
+        var response = await commentService.GetCommentsByGroup(groupId);
+        return StatusCode((int)response.StatusCode, response);
+    }
+    
+    [HttpGet("lesson/{lessonId}")]
+    public async Task<ActionResult<Response<List<GetCommentDto>>>> GetCommentsByLesson(int lessonId)
+    {
+        var response = await commentService.GetCommentsByLesson(lessonId);
+        return StatusCode((int)response.StatusCode, response);
+    }
+    
+    [HttpGet("type/{type}")]
+    public async Task<ActionResult<Response<List<GetCommentDto>>>> GetCommentsByType(CommentType type)
+    {
+        var response = await commentService.GetCommentsByType(type);
+        return StatusCode((int)response.StatusCode, response);
+    }
+    
+    [HttpGet("private/{authorId}")]
+    [Authorize(Roles = "Admin,Teacher")]
+    public async Task<ActionResult<Response<List<GetCommentDto>>>> GetPrivateComments(int authorId)
+    {
+        var response = await commentService.GetPrivateComments(authorId);
+        return StatusCode((int)response.StatusCode, response);
+    }
+    
+    [HttpPost]
+    [Authorize(Roles = "Admin,Teacher")]
+    public async Task<ActionResult<Response<string>>> CreateComment([FromBody] CreateCommentDto createCommentDto)
+    {
+        var response = await commentService.CreateComment(createCommentDto);
+        return StatusCode((int)response.StatusCode, response);
+    }
+    
+    [HttpPut]
+    [Authorize(Roles = "Admin,Teacher")]
+    public async Task<ActionResult<Response<string>>> UpdateComment([FromBody] UpdateCommentDto updateCommentDto)
+    {
+        var response = await commentService.UpdateComment(updateCommentDto);
+        return StatusCode((int)response.StatusCode, response);
+    }
+    
+    [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin,Teacher")]
+    public async Task<ActionResult<Response<string>>> DeleteComment(int id)
+    {
+        var response = await commentService.DeleteComment(id);
+        return StatusCode((int)response.StatusCode, response);
+    }
+}
