@@ -184,19 +184,7 @@ public static class Register
     }
     
     
-    public static void AddCorsServices(this IServiceCollection services)
-    {
-        services.AddCors(options =>
-        {
-            options.AddPolicy("AllowBlazorClient",
-                policyBuilder =>
-                {
-                    policyBuilder.WithOrigins("http://localhost:5005")
-                        .AllowAnyMethod()
-                        .AllowAnyHeader();
-                });
-        });
-    }
+
     
     public static void AddHangfireServices(this IServiceCollection services, IConfiguration configuration)
     {

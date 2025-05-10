@@ -13,6 +13,25 @@ builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddIdentityServices(builder.Configuration);
 
+var allowedOrigins = new List<string>
+{
+
+    "http://localhost:5173",
+    "http://localhost:5174" ,
+};
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins(allowedOrigins.ToArray())
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials();
+    });
+});
+
+
 // Настройка конфигурации электронной почты
 var emailConfig = builder.Configuration.GetSection("EmailConfiguration").Get<EmailConfiguration>();
 builder.Services.AddSingleton(emailConfig);
@@ -20,7 +39,6 @@ builder.Services.AddSingleton(emailConfig);
 
 builder.Services.AddApplicationServices(builder.Configuration, uploadPath);
 
-builder.Services.AddCorsServices();
 
 builder.Services.AddSwaggerServices();
 
