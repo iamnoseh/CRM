@@ -20,7 +20,6 @@ using System.Text;
 using Infrastructure.BackgroundTasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace Infrastructure.ExtensionMethods.Register;
@@ -211,25 +210,16 @@ public static class Register
     // Настройка задач для Hangfire
     public static void ConfigureHangfireJobs(this IApplicationBuilder app)
     {
-        // Фоновые сервисы уже работают автоматически как BackgroundService
-        // Здесь мы просто добавляем текстовые описания в Hangfire Dashboard
         
         // Ежедневное создание уроков (00:01, пн-пт)
         RecurringJob.AddOrUpdate("daily-lesson-creation", 
             () => System.Console.WriteLine("Daily Lesson Creator Service is working automatically as a BackgroundService"),
             "1 0 * * 1-5", TimeZoneInfo.Local); // 00:01 с пн по пт
         
-        // Еженедельное создание экзаменов (00:04 каждую субботу)
-        RecurringJob.AddOrUpdate("weekly-exam-creation", 
-            () => System.Console.WriteLine("Weekly Exam Creator Service is working automatically as a BackgroundService"),
-            "4 0 * * 6", TimeZoneInfo.Local); // 00:04 каждую субботу
         
-        // Проверка истечения срока групп (00:07 ежедневно)
         RecurringJob.AddOrUpdate("group-expiration-check", 
             () => System.Console.WriteLine("Group Expiration Service is working automatically as a BackgroundService"),
             "7 0 * * *", TimeZoneInfo.Local); // 00:07 ежедневно
-        
-        // Обновление статуса студентов (00:10 ежедневно)
         RecurringJob.AddOrUpdate("student-status-update", 
             () => System.Console.WriteLine("Student Status Updater Service is working automatically as a BackgroundService"),
             "10 0 * * *", TimeZoneInfo.Local); // 00:10 ежедневно

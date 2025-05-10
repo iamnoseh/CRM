@@ -22,7 +22,7 @@ public class StudentService(
     IEmailService emailService) : IStudentService
 {
     private readonly string[] _allowedImageExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" };
-    private const long MaxImageSize = 10 * 1024 * 1024; // 10MB
+    private const long MaxImageSize = 50 * 1024 * 1024; 
     
     private static int CalculateAge(DateTime birthDate)
     {
@@ -34,7 +34,7 @@ public class StudentService(
 
     private static string GenerateRandomPassword(int length = 8)
     {
-        const string upperChars = "ABCDEFGHJKLMNOPQRSTUVWXYZ";
+        const string upperChars = "ABCDEFGHJKLMNO";
         const string lowerChars = "abcde";
         const string numericChars = "0123456789";
         const string specialChars = "-.";
@@ -421,7 +421,6 @@ public class StudentService(
         student.ProfileImage = newProfileImagePath;
         student.UpdatedAt = DateTime.UtcNow;
 
-        // Обновление изображения в профиле пользователя
         if (student.UserId != null)
         {
             var user = await userManager.FindByIdAsync(student.UserId.ToString());
@@ -482,8 +481,6 @@ public class StudentService(
                     StudentId = g.StudentId
                 })
                 .ToListAsync();
-
-            // Получаем результаты экзаменов студента (последние 5)
             var recentExams = await context.ExamGrades
                 .Include(eg => eg.Exam)
                 .ThenInclude(e => e.Group)
@@ -491,8 +488,7 @@ public class StudentService(
                 .OrderByDescending(eg => eg.CreatedAt)
                 .Take(5)
                 .ToListAsync();
-
-            // Преобразуем результаты экзаменов в DTO
+            
             var examDtos = recentExams.Select(eg => new GetExamDto
             {
                 Id = eg.ExamId,
@@ -501,8 +497,7 @@ public class StudentService(
                 ExamDate = eg.Exam.ExamDate,
                 MaxPoints = eg.Points,
             }).ToList();
-
-            // Рассчитываем средний балл по всем предметам
+            
             double averageGrade = 0;
             var allGrades = await context.Grades
                 .Where(g => g.StudentId == id && g.Value.HasValue && !g.IsDeleted)

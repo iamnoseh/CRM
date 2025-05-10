@@ -8,12 +8,12 @@ public class SeedData(UserManager<User> userManager, RoleManager<IdentityRole<in
 {
     public async Task<bool> SeedUser()
     {
-        var existing = await userManager.FindByNameAsync("admin123");
+        var existing = await userManager.FindByNameAsync("admin1234");
         if (existing != null) return false;
         
         var user = new User()
         {
-            UserName = "admin123",
+            UserName = "admin1234",
             Email = "nosehtagaymurodzoda@gmail.com",
             Address = "Dushanbe",
             Age = 24,
