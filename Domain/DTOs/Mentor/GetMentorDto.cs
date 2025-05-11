@@ -17,4 +17,6 @@ public class GetMentorDto
     public string? ImagePath { get; set; }
     public decimal? Salary { get; set; }
     public int? CenterId { get; set; }
+    public string? Role { get; set; }
+    public int UserId { get; set; }
 }

@@ -9,7 +9,7 @@ public class CreateMentorDto
     public required string Email { get; set; }
     public string Address { get; set; } = string.Empty;
     public required string PhoneNumber { get; set; }
-    public decimal? Salary { get; set; }
+    public decimal Salary { get; set; }
     public DateTime Birthday { get; set; }
     public Gender Gender { get; set; }
     public ActiveStatus ActiveStatus { get; set; } = ActiveStatus.Active;

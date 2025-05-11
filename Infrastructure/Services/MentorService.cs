@@ -159,11 +159,10 @@ public class MentorService(
 
                 profileImagePath = $"/uploads/mentor/{uniqueFileName}";
             }
-
-            // Рассчитываем возраст
+            
             var age = CalculateAge(createMentorDto.Birthday);
 
-            // Создаем пользователя
+           
             var user = new User
             {
                 UserName = createMentorDto.Email,
@@ -176,7 +175,8 @@ public class MentorService(
                 Address = createMentorDto.Address,
                 CenterId = createMentorDto.CenterId,
                 ProfileImagePath = profileImagePath,
-                ActiveStatus = ActiveStatus.Active
+                ActiveStatus = ActiveStatus.Active,
+                PaymentStatus = createMentorDto.PaymentStatus,
             };
 
             // Создаем пользователя с случайным паролем
@@ -206,10 +206,12 @@ public class MentorService(
                 Gender = createMentorDto.Gender,
                 CenterId = createMentorDto.CenterId,
                 UserId = user.Id,
+                Salary = createMentorDto.Salary,
                 ProfileImage = profileImagePath,
                 ActiveStatus = ActiveStatus.Active,
                 CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                UpdatedAt = DateTime.UtcNow,
+                PaymentStatus = createMentorDto.PaymentStatus,
             };
 
             await context.Mentors.AddAsync(mentor);
@@ -301,7 +303,7 @@ public class MentorService(
                     }
                 }
 
-                // Сохраняем новое изображение
+       
                 var profilesFolder = Path.Combine(uploadPath, "uploads", "mentor");
                 if (!Directory.Exists(profilesFolder))
                     Directory.CreateDirectory(profilesFolder);
@@ -337,19 +339,16 @@ public class MentorService(
     {
         try
         {
-            // Находим ментора по ID
             var mentor = await context.Mentors
                 .FirstOrDefaultAsync(m => m.Id == id && !m.IsDeleted);
 
             if (mentor == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Ментор не найден");
-
-            // Мягкое удаление ментора
+            
             mentor.IsDeleted = true;
             mentor.UpdatedAt = DateTime.UtcNow;
             context.Mentors.Update(mentor);
-
-            // Находим и обновляем связанного пользователя
+            
             var user = await context.Users
                 .FirstOrDefaultAsync(u => u.Id == mentor.UserId && !u.IsDeleted);
 
@@ -359,8 +358,7 @@ public class MentorService(
                 user.UpdatedAt = DateTime.UtcNow;
                 context.Users.Update(user);
             }
-
-            // Деактивируем связи с группами
+            
             var mentorGroups = await context.MentorGroups
                 .Where(mg => mg.MentorId == id && !mg.IsDeleted)
                 .ToListAsync();
@@ -394,7 +392,7 @@ public class MentorService(
     {
         try
         {
-            var mentors = await context.Mentors
+            var mentorsQuery = context.Mentors
                 .Where(m => !m.IsDeleted)
                 .Select(m => new GetMentorDto
                 {
@@ -405,12 +403,29 @@ public class MentorService(
                     Address = m.Address,
                     Birthday = m.Birthday,
                     Age = m.Age,
+                    Salary = m.Salary,
                     Gender = m.Gender,
                     ActiveStatus = m.ActiveStatus,
                     ImagePath = m.ProfileImage,
-                    CenterId = m.CenterId
-                })
-                .ToListAsync();
+                    CenterId = m.CenterId,
+                    UserId = m.UserId
+                });
+            
+            var mentors = await mentorsQuery.ToListAsync();
+            
+            // Добавление ролей для каждого ментора
+            foreach (var mentor in mentors)
+            {
+                if (mentor.UserId > 0)
+                {
+                    var user = await userManager.FindByIdAsync(mentor.UserId.ToString());
+                    if (user != null)
+                    {
+                        var roles = await userManager.GetRolesAsync(user);
+                        mentor.Role = roles.FirstOrDefault() ?? "Teacher"; // По умолчанию Teacher
+                    }
+                }
+            }
 
             if (mentors.Count == 0)
                 return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound, "Менторы не найдены");
@@ -439,10 +454,13 @@ public class MentorService(
                     Address = m.Address,
                     Birthday = m.Birthday,
                     Age = m.Age,
+                    Salary = m.Salary,
                     Gender = m.Gender,
+                    PaymentStatus = m.PaymentStatus,
                     ActiveStatus = m.ActiveStatus,
                     ImagePath = m.ProfileImage,
-                    CenterId = m.CenterId
+                    CenterId = m.CenterId,
+                    UserId = m.UserId,
                 })
                 .FirstOrDefaultAsync();
 
@@ -569,15 +587,14 @@ public class MentorService(
                 query = query.Where(s => s.Gender == filter.Gender.Value);
             
             var totalCount = await query.CountAsync();
-
-            // Применяем сортировку и пагинацию
+            
             var mentors = await query
                 .OrderBy(u => u.FullName)
                 .Skip((filter.PageNumber - 1) * filter.PageSize)
                 .Take(filter.PageSize)
                 .Select(u => new GetMentorDto
                 {
-                    Id = u.Id,
+                    UserId = u.Id,
                     FullName = u.FullName,
                     Email = u.Email,
                     Phone = u.PhoneNumber,
@@ -589,7 +606,7 @@ public class MentorService(
                     PaymentStatus = u.PaymentStatus,
                     ImagePath = u.ProfileImagePath,
                     Salary = u.Salary,
-                    CenterId = u.CenterId
+                    CenterId = u.CenterId,
                 })
                 .ToListAsync();
 
@@ -636,7 +653,7 @@ public class MentorService(
                 .Where(u => mentorIds.Contains(u.Id) && !u.IsDeleted)
                 .Select(u => new GetMentorDto
                 {
-                    Id = u.Id,
+                    UserId = u.Id,
                     FullName = u.FullName,
                     Email = u.Email,
                     Phone = u.PhoneNumber,

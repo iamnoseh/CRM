@@ -170,6 +170,13 @@ public class StudentService(
             return new Response<string>(HttpStatusCode.BadRequest, 
                 string.Join(", ", result.Errors.Select(e => e.Description)));
 
+        // Добавляем роль Student для пользователя
+        var roleResult = await userManager.AddToRoleAsync(user, Domain.Enums.Role.Student.ToString());
+        if (!roleResult.Succeeded)
+        {
+            // Логируем ошибку, но продолжаем выполнение
+            // Можно было бы добавить полноценное логирование
+        }
        
         if (!string.IsNullOrEmpty(createStudentDto.Email))
         {
@@ -278,7 +285,7 @@ public class StudentService(
     #region GetStudents
     public async Task<Response<List<GetStudentDto>>> GetStudents()
     {
-        var students = await context.Students
+        var studentsQuery = context.Students
             .Where(s => !s.IsDeleted)
             .Select(s => new GetStudentDto
             { 
@@ -292,9 +299,25 @@ public class StudentService(
                 Gender = s.Gender,
                 ActiveStatus = s.ActiveStatus,
                 PaymentStatus = s.PaymentStatus,
+                UserId = s.UserId ,
                 ImagePath = s.ProfileImage
-            })
-            .ToListAsync();
+            });
+            
+        var students = await studentsQuery.ToListAsync();
+        
+        // Добавление ролей для каждого студента
+        foreach (var student in students)
+        {
+            if (student.UserId > 0)
+            {
+                var user = await userManager.FindByIdAsync(student.UserId.ToString());
+                if (user != null)
+                {
+                    var roles = await userManager.GetRolesAsync(user);
+                    student.Role = roles.FirstOrDefault() ?? "Student"; // По умолчанию Student
+                }
+            }
+        }
 
         return students.Any()
             ? new Response<List<GetStudentDto>>(students)
