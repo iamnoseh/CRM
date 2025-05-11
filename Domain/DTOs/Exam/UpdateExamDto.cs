@@ -11,11 +11,6 @@ public class UpdateExamDto
     public DateTimeOffset? ExamDate { get; set; }
     
     /// <summary>
-    /// Описание или тема экзамена
-    /// </summary>
-    public string Description { get; set; }
-    
-    /// <summary>
     /// Индекс недели
     /// </summary>
     public int? WeekIndex { get; set; }

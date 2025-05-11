@@ -39,10 +39,7 @@ public class DailyLessonCreatorService(
             {
                 await CheckAndCreateMissingLessons(stoppingToken);
 
-                // Получаем текущее время
                 var now = DateTimeOffset.UtcNow;
-                
-                // Вычисляем время до следующего запуска (00:01)
                 var nextRunTime = CalculateNextRunTime(now);
                 var delay = nextRunTime - now;
                 
@@ -72,8 +69,6 @@ public class DailyLessonCreatorService(
             {
                 logger.LogError(ex, "Ошибка при создании ежедневных уроков");
             }
-            
-            // Пауза перед следующей итерацией цикла
             try
             {
                 await Task.Delay(TimeSpan.FromMinutes(2), stoppingToken);
@@ -171,14 +166,12 @@ public class DailyLessonCreatorService(
         var today = DateTimeOffset.UtcNow.Date;
         var dayOfWeek = today.DayOfWeek;
         
-        // Пропускаем выходные дни
+
         if (dayOfWeek < DayOfWeek.Monday || dayOfWeek > DayOfWeek.Friday)
         {
             logger.LogInformation($"Сегодня {dayOfWeek} - не создаем уроки (не рабочий день)");
             return;
         }
-        
-        // Получаем все активные группы с активными студентами
         var activeGroups = await context.Groups
             .Where(g => g.Started && 
                         today >= g.StartDate.Date && 
@@ -191,36 +184,30 @@ public class DailyLessonCreatorService(
         
         int lessonCount = 0;
         
-        // Обрабатываем каждую активную группу
+        
         foreach (var group in activeGroups)
         {
-            // Получаем последний урок для этой группы чтобы определить текущий dayIndex и weekIndex
             var lastLesson = await context.Lessons
                 .Where(l => l.GroupId == group.Id && !l.IsDeleted)
                 .OrderByDescending(l => l.WeekIndex)
                 .ThenByDescending(l => l.DayOfWeekIndex)
                 .FirstOrDefaultAsync();
             
-            // Определяем начальные значения индексов
+          
             int dayOfWeekIndex;
             int weekIndex;
-            
+
             if (lastLesson == null)
             {
-                // Если уроков еще нет, начинаем с первого дня первой недели
-                dayOfWeekIndex = 1; // Начинаем с 1-го дня
-                weekIndex = 1;     // Начинаем с 1-й недели
+                dayOfWeekIndex = 1;
+                weekIndex = 1;
             }
             else
             {
-                // Продолжаем с последнего известного состояния
                 dayOfWeekIndex = lastLesson.DayOfWeekIndex + 1; // Следующий день
                 weekIndex = lastLesson.WeekIndex;
-                
-                // Если это был 5-й день, следующий будет экзамен (день 6)
                 if (dayOfWeekIndex == 6)
                 {
-                    // Проверяем, был ли уже создан экзамен
                     var examExists = await context.Exams
                         .AnyAsync(e => e.GroupId == group.Id && 
                                      e.WeekIndex == weekIndex && 
@@ -241,17 +228,13 @@ public class DailyLessonCreatorService(
                         await context.Exams.AddAsync(exam);
                         logger.LogInformation($"Создан экзамен для группы {group.Id} на неделе {weekIndex}");
                     }
-                    
-                    // После экзамена переходим к первому дню следующей недели
-                    dayOfWeekIndex = 1;
+                     dayOfWeekIndex = 1;
                     weekIndex = weekIndex < 4 ? weekIndex + 1 : 1; // Увеличиваем неделю, с циклом 1-4
                 }
             }
             
             logger.LogInformation($"Создание урока для группы {group.Id}, неделя {weekIndex}, день {dayOfWeekIndex}");
-            
-            // Проверяем, существует ли уже урок на этот день
-            var existingLesson = await context.Lessons
+             var existingLesson = await context.Lessons
                 .AnyAsync(l => l.GroupId == group.Id && 
                               l.WeekIndex == weekIndex && 
                               l.DayOfWeekIndex == dayOfWeekIndex && 
@@ -262,8 +245,6 @@ public class DailyLessonCreatorService(
                 logger.LogInformation($"Урок уже существует для группы {group.Id} с индексом дня {dayOfWeekIndex}");
                 continue;
             }
-            
-            // Создаем урок на текущий день
             var lesson = new Lesson
             {
                 GroupId = group.Id,
@@ -317,34 +298,28 @@ public class DailyLessonCreatorService(
         logger.LogInformation($"Создание уроков для группы {groupId}");
         
         int lessonCount = 0;
-        
-        // Получаем последний урок для этой группы
         var lastLesson = await context.Lessons
             .Where(l => l.GroupId == group.Id && !l.IsDeleted)
             .OrderByDescending(l => l.WeekIndex)
             .ThenByDescending(l => l.DayOfWeekIndex)
             .FirstOrDefaultAsync();
         
-        // Определяем начальные значения для индексов
         int startDayIndex;
         int weekIndex;
         
         if (lastLesson == null)
         {
-            // Если уроков еще нет, начинаем с первого дня первой недели
             startDayIndex = 1;
             weekIndex = 1;
         }
         else
         {
-            // Продолжаем с последнего известного урока
-            startDayIndex = lastLesson.DayOfWeekIndex + 1; // Следующий день
+            startDayIndex = lastLesson.DayOfWeekIndex + 1; 
             weekIndex = lastLesson.WeekIndex;
             
-            // Если это был 5-й день, следующий будет экзамен (день 6)
+           
             if (startDayIndex == 6)
             {
-                // Проверяем, есть ли уже экзамен
                 var examExists = await context.Exams
                     .AnyAsync(e => e.GroupId == group.Id && 
                                  e.WeekIndex == weekIndex && 
@@ -352,7 +327,6 @@ public class DailyLessonCreatorService(
                 
                 if (!examExists)
                 {
-                    // Создаем экзамен для этой недели
                     var exam = new Exam
                     {
                         GroupId = group.Id,
@@ -365,17 +339,13 @@ public class DailyLessonCreatorService(
                     await context.Exams.AddAsync(exam);
                     logger.LogInformation($"Создан экзамен для группы {group.Id} на неделе {weekIndex}");
                 }
-                
-                // Переходим к первому дню следующей недели
                 startDayIndex = 1;
                 weekIndex = weekIndex < 4 ? weekIndex + 1 : 1; // Переходим к следующей неделе или начинаем цикл заново
             }
         }
         
-        // Создаем уроки в последовательные дни, начиная с текущего индекса
         for (int dayIndex = startDayIndex; dayIndex <= 5; dayIndex++)
         {
-            // Проверяем, есть ли урок с такими параметрами
             var existingLesson = await context.Lessons
                 .AnyAsync(l => l.GroupId == group.Id && 
                               l.WeekIndex == weekIndex && 
@@ -437,19 +407,17 @@ public class DailyLessonCreatorService(
             
             int createdLessonsCount = 0;
             
-            // Проверяем каждую группу
+
             foreach (var group in activeGroups)
             {
-                // Получаем последний по дате урок для этой группы
                 var lastLesson = await context.Lessons
                     .Where(l => l.GroupId == group.Id && !l.IsDeleted)
                     .OrderByDescending(l => l.StartTime)
                     .FirstOrDefaultAsync(stoppingToken);
                 
-                // Если уроков еще нет совсем
+        
                 if (lastLesson == null)
                 {
-                    // Создаем первый урок для группы
                     var lesson = new Lesson
                     {
                         GroupId = group.Id,
@@ -468,23 +436,20 @@ public class DailyLessonCreatorService(
                     continue;
                 }
                 
-                // Получаем урок с наибольшими индексами недели и дня
+               
                 var latestIndexLesson = await context.Lessons
                     .Where(l => l.GroupId == group.Id && !l.IsDeleted)
                     .OrderByDescending(l => l.WeekIndex)
                     .ThenByDescending(l => l.DayOfWeekIndex)
                     .FirstOrDefaultAsync(stoppingToken);
                 
-                if (latestIndexLesson == null) continue; // Дополнительная проверка
+                if (latestIndexLesson == null) continue; 
                 
-                // Определяем следующий индекс дня
                 int nextDayIndex = latestIndexLesson.DayOfWeekIndex + 1;
                 int weekIndex = latestIndexLesson.WeekIndex;
                 
-                // Если это был 5-й день, следующий будет экзамен (день 6)
                 if (nextDayIndex == 6)
                 {
-                    // Проверяем, есть ли уже экзамен для этой недели
                     var examExists = await context.Exams
                         .AnyAsync(e => e.GroupId == group.Id && 
                                     e.WeekIndex == weekIndex && 
@@ -493,7 +458,6 @@ public class DailyLessonCreatorService(
                     
                     if (!examExists)
                     {
-                        // Создаем экзамен для этой недели
                         var exam = new Exam
                         {
                             GroupId = group.Id,
@@ -507,12 +471,10 @@ public class DailyLessonCreatorService(
                         logger.LogInformation($"Создан пропущенный экзамен для группы {group.Id}, неделя {weekIndex}");
                     }
                     
-                    // Переходим к первому дню следующей недели
                     nextDayIndex = 1;
                     weekIndex = weekIndex < 4 ? weekIndex + 1 : 1; // Увеличиваем неделю, с циклом 1-4
                 }
                 
-                // Создаем следующий урок если он еще не существует
                 var nextLessonExists = await context.Lessons
                     .AnyAsync(l => l.GroupId == group.Id && 
                                 l.WeekIndex == weekIndex && 

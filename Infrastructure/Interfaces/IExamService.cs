@@ -4,9 +4,6 @@ using Domain.Responses;
 
 namespace Infrastructure.Interfaces;
 
-/// <summary>
-/// Интерфейс сервиса для работы с экзаменами
-/// </summary>
 public interface IExamService
 {
     // Методы для работы с экзаменами

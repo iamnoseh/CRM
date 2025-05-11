@@ -13,9 +13,6 @@ public class GroupExpirationService(
     IServiceProvider serviceProvider)
     : BackgroundService
 {
-    /// <summary>
-    /// Публичный метод для запуска из Hangfire
-    /// </summary>
     public async Task Run()
     {
         logger.LogInformation("Manual run of Group Expiration Service triggered");
@@ -52,7 +49,6 @@ public class GroupExpirationService(
             }
             catch (TaskCanceledException)
             {
-                // Подавляем исключение TaskCanceledException при остановке сервиса
                 break;
             }
         }

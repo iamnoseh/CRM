@@ -182,7 +182,30 @@ public static class Register
             });
         });
     }
+        public static void AddCorsServices(this IServiceCollection services)
+    {
+        var defaultOrigins = new string[]
+        {
+            "http://localhost:5173",
+            "http://localhost:5174",
+        };
+        
+        services.AddCors(options =>
+        {
+            options.AddPolicy("AllowFrontend", policy =>
+            {
+                policy.WithOrigins(defaultOrigins)
+                    .AllowAnyMethod()
+                    .AllowAnyHeader()
+                    .AllowCredentials();
+                    
+                // Enable CORS Preflight caching
+                policy.SetPreflightMaxAge(TimeSpan.FromMinutes(10));
+            });
+        });
+    }
     
+   
     
 
     
@@ -224,8 +247,8 @@ public static class Register
             await context.Database.MigrateAsync();
             
             var seedService = services.GetRequiredService<SeedData>();
-            await seedService.SeedRole();
-            await seedService.SeedUser();
+            // Use the new combined method that ensures proper seeding order
+            await seedService.SeedAllData();
 
         }
         catch (Exception ex)

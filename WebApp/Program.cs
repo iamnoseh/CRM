@@ -13,23 +13,7 @@ builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddIdentityServices(builder.Configuration);
 
-var allowedOrigins = new List<string>
-{
-
-    "http://localhost:5173",
-    "http://localhost:5174" ,
-};
-
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowFrontend", policy =>
-    {
-        policy.WithOrigins(allowedOrigins.ToArray())
-            .AllowAnyMethod()
-            .AllowAnyHeader()
-            .AllowCredentials();
-    });
-});
+builder.Services.AddCorsServices();
 
 
 // Настройка конфигурации электронной почты
@@ -52,6 +36,8 @@ await app.ApplyMigrationsAndSeedData();
 
 app.UseStaticFilesConfiguration(uploadPath);
 
+app.UseCors("AllowFrontend");
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -64,7 +50,7 @@ if (app.Environment.IsDevelopment())
 app.UseHangfireDashboard("/hangfire");
 app.UseHangfireServer();
 
-app.UseCors("AllowBlazorClient");
+
 app.UseRouting();
 app.UseHttpsRedirection();
 app.UseAuthentication();
