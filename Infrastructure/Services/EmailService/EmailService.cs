@@ -35,7 +35,7 @@ namespace Infrastructure.Services.EmailService
             using var client = new SmtpClient();
             try
             {
-                await client.ConnectAsync(configuration.SmtpServer, configuration.Port, SecureSocketOptions.SslOnConnect);
+                await client.ConnectAsync(configuration.SmtpServer, configuration.Port, SecureSocketOptions.StartTls);
                 client.AuthenticationMechanisms.Remove("OAUTH2");
                 await client.AuthenticateAsync(configuration.Username, configuration.Password);
                 await client.SendAsync(mailMessage);
