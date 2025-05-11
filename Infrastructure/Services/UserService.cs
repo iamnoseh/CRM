@@ -63,6 +63,7 @@ public class UserService(DataContext context, UserManager<User> userManager, IHt
                     Gender = user.Gender,
                     ActiveStatus = user.ActiveStatus,
                     Age = user.Age,
+                    DateOfBirth = user.Birthday,
                     Image = user.ProfileImagePath,
                     Role = role
                 });
@@ -106,6 +107,7 @@ public class UserService(DataContext context, UserManager<User> userManager, IHt
                 Gender = user.Gender,
                 ActiveStatus = user.ActiveStatus,
                 Age = user.Age,
+                DateOfBirth = user.Birthday,
                 Image = user.ProfileImagePath,
                 Role = role
             };
@@ -238,6 +240,7 @@ public class UserService(DataContext context, UserManager<User> userManager, IHt
                 Gender = user.Gender,
                 ActiveStatus = user.ActiveStatus,
                 Age = user.Age,
+                DateOfBirth = user.Birthday,
                 Image = user.ProfileImagePath,
                 Role = role
             }).ToList();
@@ -252,177 +255,4 @@ public class UserService(DataContext context, UserManager<User> userManager, IHt
     
     #endregion
     
-    // #region GetUserActivity
-    //
-    // public async Task<Response<UserActivityDto>> GetUserActivityAsync(int userId)
-    // {
-    //     try
-    //     {
-    //         var user = await context.Users.FirstOrDefaultAsync(u => u.Id == userId && !u.IsDeleted);
-    //         if (user == null)
-    //         {
-    //             return new Response<UserActivityDto>(HttpStatusCode.NotFound, "User not found");
-    //         }
-    //         
-    //         // Создаем базовый объект активности пользователя
-    //         var activityDto = new UserActivityDto
-    //         {
-    //             UserId = userId,
-    //             Username = user.UserName ?? user.Email ?? user.FullName,
-    //             LastLoginTime = DateTime.UtcNow, // Заполним позже, если найдем реальные данные
-    //             LoginCount = 0,
-    //             TotalActions = 0,
-    //             LastActivityTime = user.UpdatedAt.DateTime
-    //         };
-    //
-    //         // 1. Собираем уведомления, связанные с пользователем (студентом или ментором)
-    //         var notificationLogs = new List<NotificationLog>();
-    //         
-    //         // Если пользователь - студент
-    //         if (user.StudentProfile != null)
-    //         {
-    //             notificationLogs.AddRange(await context.NotificationLogs
-    //                 .Where(n => n.StudentId == user.StudentProfile.Id && !n.IsDeleted)
-    //                 .OrderByDescending(n => n.SentDateTime)
-    //                 .Take(10)
-    //                 .ToListAsync());
-    //                 
-    //             // Добавляем записи о действиях, связанных со студентом
-    //             foreach (var notification in notificationLogs)
-    //             {
-    //                 activityDto.RecentActions.Add(new UserActivityDto.UserActionItem
-    //                 {
-    //                     Timestamp = notification.SentDateTime,
-    //                     ActionType = "Notification",
-    //                     Description = notification.Subject,
-    //                     RelatedEntityType = "Student",
-    //                     RelatedEntityId = notification.StudentId
-    //                 });
-    //             }
-    //             
-    //             // Активность, связанная с группами студента
-    //             var studentGroups = await context.StudentGroups
-    //                 .Where(sg => sg.StudentId == user.StudentProfile.Id && !sg.IsDeleted)
-    //                 .OrderByDescending(sg => sg.UpdatedAt)
-    //                 .Take(5)
-    //                 .ToListAsync();
-    //                 
-    //             foreach (var sg in studentGroups)
-    //             {
-    //                 activityDto.RecentActions.Add(new UserActivityDto.UserActionItem
-    //                 {
-    //                     Timestamp = sg.UpdatedAt.DateTime,
-    //                     ActionType = sg.IsActive == true ? "JoinGroup" : "LeaveGroup",
-    //                     Description = sg.IsActive == true ? "Joined a group" : "Left a group",
-    //                     RelatedEntityType = "Group",
-    //                     RelatedEntityId = sg.GroupId
-    //                 });
-    //             }
-    //         }
-    //         
-    //         // Если пользователь - ментор
-    //         if (user.MentorProfile != null)
-    //         {
-    //             // Активность, связанная с группами ментора
-    //             var mentorGroups = await context.MentorGroups
-    //                 .Where(mg => mg.MentorId == user.MentorProfile.Id && !mg.IsDeleted)
-    //                 .OrderByDescending(mg => mg.UpdatedAt)
-    //                 .Take(5)
-    //                 .ToListAsync();
-    //                 
-    //             foreach (var mg in mentorGroups)
-    //             {
-    //                 activityDto.RecentActions.Add(new UserActivityDto.UserActionItem
-    //                 {
-    //                     Timestamp = mg.UpdatedAt.DateTime,
-    //                     ActionType = "AssignedToGroup",
-    //                     Description = "Assigned to a group as mentor",
-    //                     RelatedEntityType = "Group",
-    //                     RelatedEntityId = mg.GroupId
-    //                 });
-    //             }
-    //         }
-    //         
-    //         // 2. Собираем данные из таблицы комментариев
-    //         var comments = await context.Comments
-    //             .Where(c => c.AuthorId == userId && !c.IsDeleted)
-    //             .OrderByDescending(c => c.CreatedAt)
-    //             .Take(10)
-    //             .ToListAsync();
-    //             
-    //         foreach (var comment in comments)
-    //         {
-    //             activityDto.RecentActions.Add(new UserActivityDto.UserActionItem
-    //             {
-    //                 Timestamp = comment.CreatedAt.DateTime,
-    //                 ActionType = "AddComment",
-    //                 Description = $"Added comment: {(comment.Text.Length > 30 ? comment.Text.Substring(0, 30) + "..." : comment.Text)}",
-    //                 RelatedEntityType = comment.EntityType.ToString(),
-    //                 RelatedEntityId = comment.EntityId
-    //             });
-    //         }
-    //         
-    //         // 3. Имитация логинов (в будущем можно заменить на реальные данные из таблицы логинов)
-    //         activityDto.RecentLogins.Add(new UserActivityDto.LoginHistoryItem 
-    //         { 
-    //             LoginTime = DateTime.UtcNow.AddDays(-1), 
-    //             IpAddress = "192.168.1.1", 
-    //             UserAgent = "Chrome/121.0.0.0", 
-    //             IsSuccessful = true 
-    //         });
-    //         
-    //         activityDto.RecentLogins.Add(new UserActivityDto.LoginHistoryItem 
-    //         { 
-    //             LoginTime = DateTime.UtcNow.AddDays(-3), 
-    //             IpAddress = "192.168.1.1", 
-    //             UserAgent = "Firefox/120.0", 
-    //             IsSuccessful = true 
-    //         });
-    //         
-    //         // 4. Подсчитываем статистику действий по категориям
-    //         var categoryCount = activityDto.RecentActions
-    //             .GroupBy(a => a.ActionType)
-    //             .ToDictionary(g => g.Key, g => g.Count());
-    //             
-    //         foreach (var category in categoryCount)
-    //         {
-    //             activityDto.ActivityByCategory[category.Key] = category.Value;
-    //         }
-    //         
-    //         // Если каких-то категорий нет, добавляем их для полноты данных
-    //         if (!activityDto.ActivityByCategory.ContainsKey("Login"))
-    //             activityDto.ActivityByCategory["Login"] = 2; // Количество логинов из имитации
-    //             
-    //         if (!activityDto.ActivityByCategory.ContainsKey("Profile"))
-    //             activityDto.ActivityByCategory["Profile"] = 1;
-    //         
-    //         // 5. Обновляем общую статистику
-    //         activityDto.TotalActions = activityDto.RecentActions.Count + activityDto.RecentLogins.Count;
-    //         activityDto.LoginCount = activityDto.RecentLogins.Count;
-    //         
-    //         if (activityDto.RecentLogins.Any())
-    //             activityDto.LastLoginTime = activityDto.RecentLogins.Max(l => l.LoginTime);
-    //             
-    //         if (activityDto.RecentActions.Any())
-    //         {
-    //             var lastAction = activityDto.RecentActions.MaxBy(a => a.Timestamp);
-    //             if (lastAction != null && lastAction.Timestamp > activityDto.LastLoginTime)
-    //                 activityDto.LastActivityTime = lastAction.Timestamp;
-    //             else
-    //                 activityDto.LastActivityTime = activityDto.LastLoginTime;
-    //         }
-    //         else
-    //         {
-    //             activityDto.LastActivityTime = activityDto.LastLoginTime;
-    //         }
-    //
-    //         return new Response<UserActivityDto>(activityDto);
-    //     }
-    //     catch (Exception ex)
-    //     {
-    //         return new Response<UserActivityDto>(HttpStatusCode.InternalServerError, ex.Message);
-    //     }
-    // }
-    //
-    // #endregion
-}
+   }
