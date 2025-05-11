@@ -9,11 +9,8 @@ public class SeedData(UserManager<User> userManager, RoleManager<IdentityRole<in
 {
     public async Task<bool> SeedCenter()
     {
-        // Check if any centers already exist
         if (await context.Centers.AnyAsync())
             return false;
-            
-        // Create a default center
         var defaultCenter = new Center
         {
             Name = "Main Office",
@@ -35,9 +32,14 @@ public class SeedData(UserManager<User> userManager, RoleManager<IdentityRole<in
     public async Task<bool> SeedUser()
     {
         var existing = await userManager.FindByNameAsync("admin1234");
-        if (existing != null) return false;
+        if (existing != null)
+        {
+            if (!await userManager.IsInRoleAsync(existing, Roles.Admin))
+                await userManager.AddToRoleAsync(existing, Roles.Admin);
+            return false;
+        }
         
-        // Find the first center or set CenterId to null
+
         var centerId = await context.Centers.Select(c => c.Id).FirstOrDefaultAsync();
         
         var user = new User()
@@ -54,8 +56,12 @@ public class SeedData(UserManager<User> userManager, RoleManager<IdentityRole<in
 
         var result = await userManager.CreateAsync(user, "Qwerty123!");
         if (!result.Succeeded) return false;
-        
-        await userManager.AddToRoleAsync(user, Roles.Admin);
+
+        var addToRoleResult = await userManager.AddToRoleAsync(user, Roles.Admin);
+        if (!addToRoleResult.Succeeded)
+        {
+            // 
+        }
         return true;
     }
     
@@ -85,9 +91,8 @@ public class SeedData(UserManager<User> userManager, RoleManager<IdentityRole<in
     
     public async Task SeedAllData()
     {
-        // Order is important: first seed Center, then User, then Roles
+        await SeedRole();
         await SeedCenter();
         await SeedUser();
-        await SeedRole();
     }
 }
