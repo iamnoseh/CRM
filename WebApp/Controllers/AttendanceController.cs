@@ -50,13 +50,6 @@ public class AttendanceController(IAttendanceService attendanceService) : Contro
         return StatusCode((int)response.StatusCode, response);
     }
     
-    [HttpGet("student/{studentId}/rate")]
-    [Authorize(Roles = "Admin,Teacher,Student,Manager")]
-    public async Task<ActionResult<Response<double>>> GetStudentAttendanceRate(int studentId, [FromQuery] int? groupId = null)
-    {
-        var response = await attendanceService.GetStudentAttendanceRate(studentId, groupId);
-        return StatusCode((int)response.StatusCode, response);
-    }
     
     [HttpPost]
     [Authorize(Roles = "Admin,Teacher")]

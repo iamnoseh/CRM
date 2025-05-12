@@ -14,5 +14,4 @@ public interface IAttendanceService
     Task<Response<List<GetAttendanceDto>>> GetAttendancesByStudent(int studentId);
     Task<Response<List<GetAttendanceDto>>> GetAttendancesByGroup(int groupId);
     Task<Response<List<GetAttendanceDto>>> GetAttendancesByLesson(int lessonId);
-    Task<Response<double>> GetStudentAttendanceRate(int studentId, int? groupId = null);
 }

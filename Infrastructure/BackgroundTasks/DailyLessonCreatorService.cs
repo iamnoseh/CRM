@@ -55,7 +55,7 @@ public class DailyLessonCreatorService(
                 }
                 
                 var dayOfWeek = DateTimeOffset.UtcNow.DayOfWeek;
-                if (dayOfWeek >= DayOfWeek.Monday && dayOfWeek <= DayOfWeek.Friday)
+                if (dayOfWeek is >= DayOfWeek.Monday and <= DayOfWeek.Friday)
                 {
                     await CreateLessonsForToday(maxRetries: 3);
                 }
@@ -215,7 +215,6 @@ public class DailyLessonCreatorService(
                     
                     if (!examExists)
                     {
-                        // Создаем экзамен для этой недели
                         var exam = new Exam
                         {
                             GroupId = group.Id,
@@ -228,8 +227,8 @@ public class DailyLessonCreatorService(
                         await context.Exams.AddAsync(exam);
                         logger.LogInformation($"Создан экзамен для группы {group.Id} на неделе {weekIndex}");
                     }
-                     dayOfWeekIndex = 1;
-                    weekIndex = weekIndex < 4 ? weekIndex + 1 : 1; // Увеличиваем неделю, с циклом 1-4
+                    dayOfWeekIndex = 1;
+                    weekIndex = weekIndex < 4 ? weekIndex + 1 : 1; 
                 }
             }
             

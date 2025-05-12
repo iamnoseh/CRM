@@ -11,6 +11,7 @@ public class GetMentorDto
     public string? Address { get; set; } = string.Empty;
     public DateTime Birthday { get; set; }
     public int Age { get; set; }
+    public int Experience { get; set; }
     public Gender Gender { get; set; }
     public ActiveStatus ActiveStatus { get; set; }
     public PaymentStatus PaymentStatus { get; set; }

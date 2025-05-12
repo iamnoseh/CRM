@@ -23,7 +23,7 @@ public class MentorService(
     IHttpContextAccessor httpContextAccessor) : IMentorService
 {
     private readonly string[] _allowedImageExtensions = { ".jpg", ".jpeg", ".png", ".gif" };
-    private const long MaxImageSize = 10 * 1024 * 1024; // 10MB
+    private const long MaxImageSize = 50 * 1024 * 1024; // 10MB
 
     private static int CalculateAge(DateTime birthDate)
     {
@@ -206,6 +206,7 @@ public class MentorService(
                 Gender = createMentorDto.Gender,
                 CenterId = createMentorDto.CenterId,
                 UserId = user.Id,
+                Experience = createMentorDto.Experience,
                 Salary = createMentorDto.Salary,
                 ProfileImage = profileImagePath,
                 ActiveStatus = ActiveStatus.Active,
@@ -274,10 +275,8 @@ public class MentorService(
             user.Salary = updateMentorDto.Salary;
             user.UpdatedAt = DateTime.UtcNow;
 
-            // Обработка изображения профиля, если оно предоставлено
             if (updateMentorDto.ProfileImage != null && updateMentorDto.ProfileImage.Length > 0)
             {
-                // Проверка формата и размера изображения
                 var fileExtension = Path.GetExtension(updateMentorDto.ProfileImage.FileName).ToLowerInvariant();
                 if (!_allowedImageExtensions.Contains(fileExtension))
                     return new Response<string>(HttpStatusCode.BadRequest,
@@ -286,7 +285,6 @@ public class MentorService(
                 if (updateMentorDto.ProfileImage.Length > MaxImageSize)
                     return new Response<string>(HttpStatusCode.BadRequest, "Размер изображения не должен превышать 10МБ");
 
-                // Удаляем старое изображение, если оно существует
                 if (!string.IsNullOrEmpty(user.ProfileImagePath))
                 {
                     var oldImagePath = Path.Combine(uploadPath, user.ProfileImagePath.TrimStart('/'));
@@ -298,7 +296,7 @@ public class MentorService(
                         }
                         catch
                         {
-                            // Игнорируем ошибки при удалении старого файла
+                            
                         }
                     }
                 }
@@ -404,6 +402,7 @@ public class MentorService(
                     Birthday = m.Birthday,
                     Age = m.Age,
                     Salary = m.Salary,
+                    Experience = m.Experience,
                     Gender = m.Gender,
                     ActiveStatus = m.ActiveStatus,
                     ImagePath = m.ProfileImage,
@@ -413,7 +412,6 @@ public class MentorService(
             
             var mentors = await mentorsQuery.ToListAsync();
             
-            // Добавление ролей для каждого ментора
             foreach (var mentor in mentors)
             {
                 if (mentor.UserId > 0)
@@ -422,7 +420,7 @@ public class MentorService(
                     if (user != null)
                     {
                         var roles = await userManager.GetRolesAsync(user);
-                        mentor.Role = roles.FirstOrDefault() ?? "Teacher"; // По умолчанию Teacher
+                        mentor.Role = roles.FirstOrDefault() ?? "Teacher";
                     }
                 }
             }
@@ -456,6 +454,7 @@ public class MentorService(
                     Age = m.Age,
                     Salary = m.Salary,
                     Gender = m.Gender,
+                    Experience = m.Experience,
                     PaymentStatus = m.PaymentStatus,
                     ActiveStatus = m.ActiveStatus,
                     ImagePath = m.ProfileImage,
@@ -568,7 +567,7 @@ public class MentorService(
     {
         try
         {
-            var query = context.Users
+            var query = context.Mentors
                 .Where(u =>
                     !u.IsDeleted);
 
@@ -594,7 +593,7 @@ public class MentorService(
                 .Take(filter.PageSize)
                 .Select(u => new GetMentorDto
                 {
-                    UserId = u.Id,
+                    Id = u.Id,
                     FullName = u.FullName,
                     Email = u.Email,
                     Phone = u.PhoneNumber,
@@ -604,8 +603,10 @@ public class MentorService(
                     Gender = u.Gender,
                     ActiveStatus = u.ActiveStatus,
                     PaymentStatus = u.PaymentStatus,
-                    ImagePath = u.ProfileImagePath,
+                    ImagePath = u.ProfileImage,
+                    Experience = u.Experience,
                     Salary = u.Salary,
+                    UserId = u.UserId,
                     CenterId = u.CenterId,
                 })
                 .ToListAsync();
@@ -634,12 +635,10 @@ public class MentorService(
     {
         try
         {
-            // Проверяем существование группы
             var group = await context.Groups.FirstOrDefaultAsync(g => g.Id == groupId && !g.IsDeleted);
             if (group == null)
                 return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound, "Группа не найдена");
 
-            // Получаем менторов, связанных с группой
             var mentorIds = await context.MentorGroups
                 .Where(mg => mg.GroupId == groupId && (bool)mg.IsActive && !mg.IsDeleted)
                 .Select(mg => mg.MentorId)
@@ -649,11 +648,11 @@ public class MentorService(
                 return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound,
                     "Менторы не найдены для данной группы");
 
-            var mentors = await context.Users
+            var mentors = await context.Mentors
                 .Where(u => mentorIds.Contains(u.Id) && !u.IsDeleted)
                 .Select(u => new GetMentorDto
                 {
-                    UserId = u.Id,
+                    Id = u.Id,
                     FullName = u.FullName,
                     Email = u.Email,
                     Phone = u.PhoneNumber,
@@ -663,8 +662,10 @@ public class MentorService(
                     Gender = u.Gender,
                     ActiveStatus = u.ActiveStatus,
                     PaymentStatus = u.PaymentStatus,
-                    ImagePath = u.ProfileImagePath,
+                    ImagePath = u.ProfileImage,
+                    Experience = u.Experience,
                     Salary = u.Salary,
+                    UserId = u.UserId,
                     CenterId = u.CenterId
                 })
                 .ToListAsync();
@@ -682,12 +683,9 @@ public class MentorService(
     {
         try
         {
-            // Проверяем существование курса
             var course = await context.Courses.FirstOrDefaultAsync(c => c.Id == courseId && !c.IsDeleted);
             if (course == null)
                 return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound, "Курс не найден");
-
-            // Получаем группы курса
             var groupIds = await context.Groups
                 .Where(g => g.CourseId == courseId && !g.IsDeleted)
                 .Select(g => g.Id)
@@ -696,7 +694,6 @@ public class MentorService(
             if (groupIds.Count == 0)
                 return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound, "Группы не найдены для данного курса");
 
-            // Получаем менторов, связанных с этими группами
             var mentorIds = await context.MentorGroups
                 .Where(mg => groupIds.Contains(mg.GroupId) && (bool)mg.IsActive && !mg.IsDeleted)
                 .Select(mg => mg.MentorId)
@@ -707,7 +704,7 @@ public class MentorService(
                 return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound,
                     "Менторы не найдены для данного курса");
 
-            var mentors = await context.Users
+            var mentors = await context.Mentors
                 .Where(u => mentorIds.Contains(u.Id) && !u.IsDeleted)
                 .Select(u => new GetMentorDto
                 {
@@ -721,7 +718,9 @@ public class MentorService(
                     Gender = u.Gender,
                     ActiveStatus = u.ActiveStatus,
                     PaymentStatus = u.PaymentStatus,
-                    ImagePath = u.ProfileImagePath,
+                    ImagePath = u.ProfileImage,
+                    Experience = u.Experience,
+                    UserId = u.UserId,
                     Salary = u.Salary,
                     CenterId = u.CenterId
                 })
