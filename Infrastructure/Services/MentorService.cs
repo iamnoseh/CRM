@@ -60,8 +60,6 @@ public class MentorService(
 
         return new string(chars.ToArray());
     }
-
-    // Отправка электронной почты с учетными данными
     private async Task SendLoginDetailsEmail(string email, string username, string password)
     {
         try
@@ -178,8 +176,7 @@ public class MentorService(
                 ActiveStatus = ActiveStatus.Active,
                 PaymentStatus = createMentorDto.PaymentStatus,
             };
-
-            // Создаем пользователя с случайным паролем
+            
             var password = GenerateRandomPassword();
             var result = await userManager.CreateAsync(user, password);
             if (!result.Succeeded)
@@ -193,8 +190,7 @@ public class MentorService(
             {
                 await SendLoginDetailsEmail(createMentorDto.Email, createMentorDto.Email, password);
             }
-
-            // Создаем запись ментора в базе
+            
             var mentor = new Mentor
             {
                 FullName = createMentorDto.FullName,

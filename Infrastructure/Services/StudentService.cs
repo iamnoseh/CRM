@@ -21,7 +21,7 @@ public class StudentService(
     UserManager<User> userManager, string uploadPath,
     IEmailService emailService) : IStudentService
 {
-    private readonly string[] _allowedImageExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" };
+    private readonly string[] _allowedImageExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif",".svg" };
     private const long MaxImageSize = 50 * 1024 * 1024; 
     
     private static int CalculateAge(DateTime birthDate)
@@ -153,7 +153,7 @@ public class StudentService(
         
         var user = new User
         {
-            UserName = createStudentDto.PhoneNumber,
+            UserName = createStudentDto.Email,
             PhoneNumber = createStudentDto.PhoneNumber,
             FullName = createStudentDto.FullName,
             Birthday = createStudentDto.Birthday,
@@ -169,18 +169,13 @@ public class StudentService(
         if (!result.Succeeded)
             return new Response<string>(HttpStatusCode.BadRequest, 
                 string.Join(", ", result.Errors.Select(e => e.Description)));
-
-        // Добавляем роль Student для пользователя
+        
         var roleResult = await userManager.AddToRoleAsync(user, Domain.Enums.Role.Student.ToString());
-        if (!roleResult.Succeeded)
-        {
-            // Логируем ошибку, но продолжаем выполнение
-            // Можно было бы добавить полноценное логирование
-        }
+
        
         if (!string.IsNullOrEmpty(createStudentDto.Email))
         {
-            await SendLoginDetailsEmail(createStudentDto.Email, createStudentDto.PhoneNumber, password);
+            await SendLoginDetailsEmail(createStudentDto.Email, createStudentDto.Email, password);
         }
 
         var student = new Student
@@ -478,20 +473,18 @@ public class StudentService(
                     StatusCode = (int)HttpStatusCode.NotFound,
                     Message = "Студент не найден"
                 };
-
-            // Получаем группы, в которых состоит студент
+            
             var studentGroups = await context.StudentGroups
                 .Include(sg => sg.Group)
                 .Where(sg => sg.StudentId == id && (bool)sg.IsActive && !sg.IsDeleted)
                 .ToListAsync();
-
-            // Получаем оценки студента (последние 10)
+            
             var recentGrades = await context.Grades
                 .Include(g => g.Lesson)
                 .ThenInclude(l => l.Group)
                 .Where(g => g.StudentId == id && !g.IsDeleted)
                 .OrderByDescending(g => g.CreatedAt)
-                .Take(10)
+                .Take(5)
                 .Select(g => new GetGradeDto
                 {
                     Id = g.Id,
@@ -509,7 +502,7 @@ public class StudentService(
                 .ThenInclude(e => e.Group)
                 .Where(eg => eg.StudentId == id && !eg.IsDeleted)
                 .OrderByDescending(eg => eg.CreatedAt)
-                .Take(5)
+                .Take(1)
                 .ToListAsync();
             
             var examDtos = recentExams.Select(eg => new GetExamDto
@@ -531,8 +524,7 @@ public class StudentService(
             {
                 averageGrade = Math.Round(allGrades.Average(), 2);
             }
-
-            // Собираем информацию о группах и оценках в них
+            
             var groupInfos = new List<GetStudentDetailedDto.GroupInfo>();
             foreach (var group in studentGroups)
             {
@@ -558,7 +550,6 @@ public class StudentService(
                 });
             }
 
-            // Определяем статус оплаты на основе последних платежей
             var paymentStatus = Domain.Enums.PaymentStatus.Paid;
             var latestPayment = await context.Payments
                 .Where(p => p.StudentId == id && !p.IsDeleted)
@@ -569,8 +560,7 @@ public class StudentService(
             {
                 paymentStatus = latestPayment.Status;
             }
-
-            // Создаем итоговый DTO с детальной информацией
+            
             var studentDetailed = new GetStudentDetailedDto
             {
                 Id = student.Id,
