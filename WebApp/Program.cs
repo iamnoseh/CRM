@@ -38,15 +38,12 @@ app.UseStaticFilesConfiguration(uploadPath);
 
 app.UseCors("AllowFrontend");
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {  
-        c.AddThemes(app);  
-    });
-    
-}
+// Swagger дар ҳамаи муҳитҳо фаъол аст
+app.UseSwagger();
+app.UseSwaggerUI(c =>
+{  
+    c.AddThemes(app);  
+});
 app.UseHangfireDashboard("/hangfire");
 app.UseHangfireServer();
 
