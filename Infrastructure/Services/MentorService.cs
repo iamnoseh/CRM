@@ -23,7 +23,7 @@ public class MentorService(
     IHttpContextAccessor httpContextAccessor) : IMentorService
 {
     private readonly string[] _allowedImageExtensions = { ".jpg", ".jpeg", ".png", ".gif" };
-    private const long MaxImageSize = 50 * 1024 * 1024; // 10MB
+    private const long MaxImageSize = 50 * 1024 * 1024; 
 
     private static int CalculateAge(DateTime birthDate)
     {
@@ -238,7 +238,6 @@ public class MentorService(
             if (user == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Ментор не найден");
 
-            // Проверяем, существует ли пользователь с таким email (кроме текущего пользователя)
             if (user.Email != updateMentorDto.Email)
             {
                 var existingUser = await userManager.FindByEmailAsync(updateMentorDto.Email);
@@ -248,8 +247,7 @@ public class MentorService(
                 user.Email = updateMentorDto.Email;
                 user.UserName = updateMentorDto.Email;
             }
-
-            // Проверяем существование центра
+            
             if (user.CenterId != updateMentorDto.CenterId)
             {
                 var center =
@@ -259,8 +257,7 @@ public class MentorService(
 
                 user.CenterId = updateMentorDto.CenterId;
             }
-
-            // Обновляем данные пользователя
+            
             user.PhoneNumber = updateMentorDto.PhoneNumber;
             user.FullName = updateMentorDto.FullName;
             user.Address = updateMentorDto.Address;

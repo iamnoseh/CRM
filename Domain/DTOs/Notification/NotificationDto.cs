@@ -16,5 +16,5 @@ public class NotificationDto
     public DateTime SentAt { get; set; }
     public bool SentByEmail { get; set; }
     public bool SentByTelegram { get; set; }
-    public DateTime CreatedAt { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
 }

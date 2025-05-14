@@ -49,6 +49,7 @@ public static class Register
         services.AddScoped<ILessonService, LessonService>();
         services.AddScoped<IGradeService, GradeService>();
         services.AddScoped<IExamService, ExamService>();
+        services.AddScoped<INotificationService, NotificationService>();
     }
     
 
@@ -188,6 +189,8 @@ public static class Register
         {
             "http://localhost:5173",
             "http://localhost:5174",
+            "http://localhost:5064/",
+            "http://localhost:5032/"
         };
         
         services.AddCors(options =>
@@ -209,6 +212,7 @@ public static class Register
     
 
     
+    [Obsolete("Obsolete")]
     public static void AddHangfireServices(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddHangfire(config =>
@@ -218,11 +222,8 @@ public static class Register
         services.AddHangfireServer();
     }
     
-    // Настройка задач для Hangfire
     public static void ConfigureHangfireJobs(this IApplicationBuilder app)
     {
-        
-        // Ежедневное создание уроков (00:01, пн-пт)
         RecurringJob.AddOrUpdate("daily-lesson-creation", 
             () => System.Console.WriteLine("Daily Lesson Creator Service is working automatically as a BackgroundService"),
             "1 0 * * 1-5", TimeZoneInfo.Local); // 00:01 с пн по пт

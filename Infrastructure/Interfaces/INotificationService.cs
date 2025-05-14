@@ -10,6 +10,7 @@ public interface INotificationService
     // Базовые методы отправки
     Task<Response<string>> SendEmailAsync(string toEmail, string subject, string message);
     Task<Response<string>> SendTelegramMessageAsync(string chatId, string message);
+    Task<Response<string>> SendSmsAsync(int studentId, string message);
     
     // Уведомления для студентов/групп
     Task<Response<string>> SendStudentNotificationAsync(int studentId, string subject, string message, bool sendEmail = true, bool sendTelegram = true);
