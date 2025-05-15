@@ -35,8 +35,8 @@ public class MentorService(
 
     private static string GenerateRandomPassword(int length = 8)
     {
-        const string upperChars = "ABCDEFGHJKLMNOPQRSTUVWXYZ";
-        const string lowerChars = "abcdefghijklmnopqrstuvwxyz";
+        const string upperChars = "BDFHLNPRSWXZ";
+        const string lowerChars = "abcde";
         const string numericChars = "0123456789";
         const string specialChars = "-.";
 
@@ -60,7 +60,7 @@ public class MentorService(
 
         return new string(chars.ToArray());
     }
-    private async Task SendLoginDetailsEmail(string email, string username, string password)
+    public async Task SendLoginDetailsEmail(string email, string username, string password)
     {
         try
         {

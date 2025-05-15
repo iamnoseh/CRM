@@ -12,14 +12,13 @@ namespace Infrastructure.Services;
 public class CourseService(DataContext context, string uploadPath) : ICourseService
 {
     private readonly string[] _allowedImageExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" };
-    private const long MaxImageSize = 10 * 1024 * 1024; // 10MB
+    private const long MaxImageSize = 50 * 1024 * 1024; 
 
     #region CreateCourseAsync
     public async Task<Response<string>> CreateCourseAsync(CreateCourseDto createCourseDto)
     {
         try
         {
-            // Проверяем существование центра
             var center = await context.Centers.FirstOrDefaultAsync(c => c.Id == createCourseDto.CenterId && !c.IsDeleted);
             if (center == null)
                 return new Response<string>(HttpStatusCode.BadRequest, "Center not found");
@@ -46,7 +45,6 @@ public class CourseService(DataContext context, string uploadPath) : ICourseServ
                 CenterId = createCourseDto.CenterId
             };
 
-            // Сохранение изображения, если оно есть
             if (createCourseDto.ImageFile != null)
             {
                 var uploadsFolder = Path.Combine(uploadPath, "uploads", "courses");
@@ -160,7 +158,6 @@ public class CourseService(DataContext context, string uploadPath) : ICourseServ
             course.IsDeleted = true;
             course.UpdatedAt = DateTime.UtcNow;
 
-            // Физическое удаление файла изображения
             if (!string.IsNullOrEmpty(course.ImagePath))
             {
                 var imagePath = Path.Combine(uploadPath, course.ImagePath.TrimStart('/'));
@@ -206,7 +203,7 @@ public class CourseService(DataContext context, string uploadPath) : ICourseServ
                 })
                 .ToListAsync();
 
-            return courses.Any()
+             return courses.Any()
                 ? new Response<List<GetCourseDto>>(courses)
                 : new Response<List<GetCourseDto>>(HttpStatusCode.NotFound, "No courses found");
         }
@@ -274,11 +271,9 @@ public class CourseService(DataContext context, string uploadPath) : ICourseServ
 
             if (filter.Status.HasValue)
                 coursesQuery = coursesQuery.Where(c => c.Status == filter.Status.Value);
-
-            // Подсчет общего количества записей
+            
             var totalRecords = await coursesQuery.CountAsync();
 
-            // Применение пагинации
             var skip = (filter.PageNumber - 1) * filter.PageSize;
             var courses = await coursesQuery
                 .OrderBy(c => c.Id)

@@ -62,7 +62,6 @@ public class NotificationController(INotificationService notificationService) : 
         return StatusCode(result.StatusCode, result);
     }
 
-    // Специальные типы уведомлений
     [HttpPost("payment-reminder/{studentId}")]
     [Authorize(Roles = "Admin,Teacher")]
     public async Task<ActionResult<Response<string>>> SendPaymentReminder(int studentId)

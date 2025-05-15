@@ -80,14 +80,12 @@ public class LessonService(DataContext context) : ILessonService
     {
         try
         {
-            // Проверяем существование группы
             var group = await context.Groups
                 .FirstOrDefaultAsync(g => g.Id == createLessonDto.GroupId && !g.IsDeleted);
                 
             if (group == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Group not found");
 
-            // Проверка на дублирование урока в том же временном слоте
             var existingLesson = await context.Lessons
                 .AnyAsync(l => l.GroupId == createLessonDto.GroupId &&
                               l.WeekIndex == createLessonDto.WeekIndex &&
@@ -98,7 +96,6 @@ public class LessonService(DataContext context) : ILessonService
             if (existingLesson)
                 return new Response<string>(HttpStatusCode.BadRequest, "Lesson with this schedule already exists");
 
-            // Создаем новый урок
             var lesson = new Lesson
             {
                 GroupId = createLessonDto.GroupId,
@@ -134,7 +131,6 @@ public class LessonService(DataContext context) : ILessonService
             if (lesson == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Lesson not found");
 
-            // Проверка на дублирование урока в том же временном слоте
             var existingLesson = await context.Lessons
                 .AnyAsync(l => l.GroupId == lesson.GroupId &&
                               l.WeekIndex == updateLessonDto.WeekIndex &&
@@ -146,7 +142,6 @@ public class LessonService(DataContext context) : ILessonService
             if (existingLesson)
                 return new Response<string>(HttpStatusCode.BadRequest, "Another lesson with this schedule already exists");
 
-            // Обновляем урок
             lesson.StartTime = updateLessonDto.StartTime;
             lesson.WeekIndex = updateLessonDto.WeekIndex;
             lesson.DayOfWeekIndex = updateLessonDto.DayOfWeekIndex;
@@ -177,7 +172,6 @@ public class LessonService(DataContext context) : ILessonService
             if (lesson == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Lesson not found");
 
-            // Мягкое удаление
             lesson.IsDeleted = true;
             lesson.UpdatedAt = DateTimeOffset.UtcNow;
 
@@ -204,11 +198,8 @@ public class LessonService(DataContext context) : ILessonService
                 .Include(l => l.Group)
                 .Where(l => !l.IsDeleted)
                 .AsQueryable();
-
-            // Получаем общее количество записей для пагинации
             var totalCount = await query.CountAsync();
-
-            // Применяем пагинацию
+            
             var lessons = await query
                 .OrderByDescending(l => l.StartTime)
                 .Skip((filter.PageNumber - 1) * filter.PageSize)
@@ -285,31 +276,26 @@ public class LessonService(DataContext context) : ILessonService
     {
         try
         {
-            // Проверяем существование группы
             var group = await context.Groups
                 .FirstOrDefaultAsync(g => g.Id == groupId && !g.IsDeleted);
                 
             if (group == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Group not found");
 
-            // Получаем шаблон расписания группы
             var existingLessons = await context.Lessons
                 .Where(l => l.GroupId == groupId && l.WeekIndex == weekIndex && !l.IsDeleted)
                 .ToListAsync();
 
             if (!existingLessons.Any())
                 return new Response<string>(HttpStatusCode.NotFound, "No lesson templates found for this week index");
-
-            // Подготавливаем список новых уроков на основе шаблона
+            
             var newLessons = new List<Lesson>();
-            var startOfWeek = startDate.Date; // Начало недели (с первого указанного дня)
+            var startOfWeek = startDate.Date;
 
             foreach (var template in existingLessons)
             {
-                // Вычисляем день недели для нового урока
                 var lessonDay = startOfWeek.AddDays(template.DayOfWeekIndex);
                 
-                // Создаем новый урок на основе шаблона
                 var newLesson = new Lesson
                 {
                     GroupId = template.GroupId,
@@ -326,7 +312,6 @@ public class LessonService(DataContext context) : ILessonService
                 newLessons.Add(newLesson);
             }
 
-            // Добавляем все новые уроки в базу данных
             await context.Lessons.AddRangeAsync(newLessons);
             var result = await context.SaveChangesAsync();
 
@@ -346,23 +331,18 @@ public class LessonService(DataContext context) : ILessonService
     {
         try
         {
-            // Проверяем существование урока
             var lesson = await context.Lessons
                 .Include(l => l.Group)
                 .FirstOrDefaultAsync(l => l.Id == lessonId && !l.IsDeleted);
                 
             if (lesson == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Урок не найден");
-
-            // Проверяем существование студента
             var student = await context.Students
                 .Include(s => s.User)
                 .FirstOrDefaultAsync(s => s.Id == studentId && !s.IsDeleted);
                 
             if (student == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Студент не найден");
-
-            // Проверяем, что студент принадлежит к группе, в которой проводится урок
             var studentGroup = await context.StudentGroups
                 .FirstOrDefaultAsync(sg => sg.StudentId == studentId && 
                                       sg.GroupId == lesson.GroupId && 
@@ -372,7 +352,6 @@ public class LessonService(DataContext context) : ILessonService
             if (studentGroup == null)
                 return new Response<string>(HttpStatusCode.BadRequest, "Студент не принадлежит к группе этого урока");
 
-            // Проверяем, существует ли уже оценка для этого студента и урока
             var existingGrade = await context.Grades
                 .FirstOrDefaultAsync(g => g.StudentId == studentId && 
                                     g.LessonId == lessonId && 
@@ -380,14 +359,12 @@ public class LessonService(DataContext context) : ILessonService
             
             if (existingGrade != null)
             {
-                // Увеличиваем количество бонусных баллов на 1
                 existingGrade.BonusPoints = (existingGrade.BonusPoints ?? 0) + 1;
                 existingGrade.UpdatedAt = DateTimeOffset.UtcNow;
                 context.Grades.Update(existingGrade);
             }
             else
             {
-                // Создаем новую запись об оценке с бонусным баллом
                 var grade = new Grade
                 {
                     StudentId = studentId,
@@ -404,7 +381,6 @@ public class LessonService(DataContext context) : ILessonService
                 await context.Grades.AddAsync(grade);
             }
 
-            // Также можно добавить запись в таблицу посещаемости, если она есть
             var attendance = new Attendance
             {
                 Status = Domain.Enums.AttendanceStatus.Present,
@@ -417,7 +393,6 @@ public class LessonService(DataContext context) : ILessonService
             
             await context.Attendances.AddAsync(attendance);
             
-            // Сохраняем изменения
             var result = await context.SaveChangesAsync();
 
             return result > 0 

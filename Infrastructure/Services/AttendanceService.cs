@@ -103,8 +103,8 @@ public class AttendanceService(DataContext context) : IAttendanceService
                 LessonId = attendance.LessonId,
                 StudentId = attendance.StudentId,
                 GroupId = attendance.GroupId,
-                StudentName = attendance.Student?.User?.FullName ?? "Неизвестно",
-                GroupName = attendance.Group?.Name ?? "Неизвестно",
+                StudentName = attendance.Student.User.FullName ,
+                GroupName = attendance.Group.Name ,
                 LessonStartTime = attendance.Lesson?.StartTime ?? DateTime.UtcNow,
                 WeekIndex = attendance.Lesson?.WeekIndex ?? 0,
                 DayOfWeekIndex = (int)(attendance.Lesson?.StartTime.DayOfWeek ?? 0),
@@ -314,7 +314,6 @@ public class AttendanceService(DataContext context) : IAttendanceService
     {
         try
         {
-            // Проверка входных данных
             if (editAttendanceDto == null)
             {
                 return new Response<string>
@@ -323,8 +322,6 @@ public class AttendanceService(DataContext context) : IAttendanceService
                     Message = "Данные для обновления посещаемости не предоставлены"
                 };
             }
-
-            // Проверка существования посещаемости
             var attendance = await context.Attendances
                 .FirstOrDefaultAsync(a => a.Id == editAttendanceDto.Id && !a.IsDeleted);
 
@@ -336,8 +333,7 @@ public class AttendanceService(DataContext context) : IAttendanceService
                     Message = $"Посещаемость с ID {editAttendanceDto.Id} не найдена"
                 };
             }
-
-            // Проверка существования студента
+            
             var student = await context.Students
                 .FirstOrDefaultAsync(s => s.Id == editAttendanceDto.StudentId && !s.IsDeleted);
 
@@ -349,8 +345,7 @@ public class AttendanceService(DataContext context) : IAttendanceService
                     Message = $"Студент с ID {editAttendanceDto.StudentId} не найден"
                 };
             }
-
-            // Проверка существования урока
+            
             var lesson = await context.Lessons
                 .FirstOrDefaultAsync(l => l.Id == editAttendanceDto.LessonId && !l.IsDeleted);
 
@@ -362,8 +357,7 @@ public class AttendanceService(DataContext context) : IAttendanceService
                     Message = $"Урок с ID {editAttendanceDto.LessonId} не найден"
                 };
             }
-
-            // Проверка существования группы
+            
             var group = await context.Groups
                 .FirstOrDefaultAsync(g => g.Id == editAttendanceDto.GroupId && !g.IsDeleted);
 
@@ -376,7 +370,6 @@ public class AttendanceService(DataContext context) : IAttendanceService
                 };
             }
 
-            // Обновление полей
             attendance.Status = editAttendanceDto.Status;
             attendance.LessonId = editAttendanceDto.LessonId;
             attendance.StudentId = editAttendanceDto.StudentId;

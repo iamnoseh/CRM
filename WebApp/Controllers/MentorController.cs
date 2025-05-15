@@ -15,21 +15,21 @@ public class MentorController(IMentorService mentorService) : ControllerBase
     public async Task<ActionResult<Response<List<GetMentorDto>>>> GetMentors()
     {
         var response = await mentorService.GetMentors();
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
     
     [HttpGet("{id}")]
     public async Task<ActionResult<Response<GetMentorDto>>> GetMentorById(int id)
     {
         var response = await mentorService.GetMentorByIdAsync(id);
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
     
     [HttpGet("paginated")]
     public async Task<ActionResult<PaginationResponse<List<GetMentorDto>>>> GetMentorsPagination([FromQuery] MentorFilter filter)
     {
         var response = await mentorService.GetMentorsPagination(filter);
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
     
     [HttpPost]
@@ -37,7 +37,7 @@ public class MentorController(IMentorService mentorService) : ControllerBase
     public async Task<ActionResult<Response<string>>> CreateMentor([FromForm] CreateMentorDto createMentorDto)
     {
         var response = await mentorService.CreateMentorAsync(createMentorDto);
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
 
 
@@ -46,7 +46,7 @@ public class MentorController(IMentorService mentorService) : ControllerBase
     public async Task<ActionResult<Response<string>>> UpdateMentor(int id, [FromForm] UpdateMentorDto updateMentorDto)
     {
         var response = await mentorService.UpdateMentorAsync(id, updateMentorDto);
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
 
 
@@ -55,7 +55,7 @@ public class MentorController(IMentorService mentorService) : ControllerBase
     public async Task<ActionResult<Response<string>>> DeleteMentor(int id)
     {
         var response = await mentorService.DeleteMentorAsync(id);
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
 
 
@@ -64,14 +64,14 @@ public class MentorController(IMentorService mentorService) : ControllerBase
     public async Task<ActionResult<Response<string>>> UpdateProfileImage(int id, IFormFile profileImage)
     {
         var response = await mentorService.UpdateUserProfileImageAsync(id, profileImage);
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
 
     [HttpGet("by-group/{groupId}")]
     public async Task<ActionResult<Response<List<GetMentorDto>>>> GetMentorsByGroup(int groupId)
     {
         var response = await mentorService.GetMentorsByGroupAsync(groupId);
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
 
     
@@ -79,6 +79,6 @@ public class MentorController(IMentorService mentorService) : ControllerBase
     public async Task<ActionResult<Response<List<GetMentorDto>>>> GetMentorsByCourse(int courseId)
     {
         var response = await mentorService.GetMentorsByCourseAsync(courseId);
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
 }

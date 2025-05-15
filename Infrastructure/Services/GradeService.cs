@@ -236,7 +236,6 @@ public class GradeService(DataContext context) : IGradeService
             if (group == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Group not found");
 
-            // Проверка существующей оценки
             var existingGrade = await context.Grades
                 .FirstOrDefaultAsync(g => g.StudentId == grade.StudentId &&
                                           g.LessonId == grade.LessonId &&
@@ -288,25 +287,22 @@ public class GradeService(DataContext context) : IGradeService
             if (lesson == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Lesson not found");
 
-            // Проверяем существующую оценку
             var existingGrade = await context.Grades
                 .FirstOrDefaultAsync(g => g.StudentId == studentId && g.LessonId == lessonId && !g.IsDeleted);
 
             if (existingGrade != null)
             {
-                // Если оценка существует, добавляем бонусный балл
                 existingGrade.BonusPoints = (existingGrade.BonusPoints ?? 0) + 1;
                 existingGrade.UpdatedAt = DateTime.UtcNow;
             }
             else
             {
-                // Если оценки нет, создаем новую с бонусным баллом
                 var newGrade = new Grade
                 {
                     StudentId = studentId,
                     GroupId = lesson.GroupId,
                     LessonId = lessonId,
-                    BonusPoints = 1, // Устанавливаем 1 бонусный балл
+                    BonusPoints = 1, 
                     WeekIndex = lesson.WeekIndex,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
@@ -464,7 +460,6 @@ public class GradeService(DataContext context) : IGradeService
             if (grade == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Grade not found");
 
-            // Используем мягкое удаление
             grade.IsDeleted = true;
             grade.UpdatedAt = DateTime.UtcNow;
 
@@ -492,11 +487,9 @@ public class GradeService(DataContext context) : IGradeService
             if (student == null)
                 return new Response<double>(HttpStatusCode.NotFound, "Student not found");
 
-            // Базовый запрос
             IQueryable<Grade> gradesQuery = context.Grades
                 .Where(g => g.StudentId == studentId && !g.IsDeleted && g.Value.HasValue);
 
-            // Если указан groupId, фильтруем по группе
             if (groupId.HasValue)
             {
                 var group = await context.Groups.FirstOrDefaultAsync(g => g.Id == groupId.Value && !g.IsDeleted);
@@ -505,35 +498,29 @@ public class GradeService(DataContext context) : IGradeService
 
                 gradesQuery = gradesQuery.Where(g => g.GroupId == groupId.Value);
             }
-
-            // Получаем оценки
+            
             var grades = await gradesQuery.ToListAsync();
 
             if (!grades.Any())
                 return new Response<double>(HttpStatusCode.NotFound, "No grades found for this student");
 
-            // Вычисляем средний балл, учитывая основные оценки и бонусные баллы
             double totalGradePoints = 0;
             int gradeCount = 0;
 
             foreach (var grade in grades)
             {
-                // Учитываем основную оценку
                 if (grade.Value.HasValue)
                 {
                     totalGradePoints += grade.Value.Value;
                     gradeCount++;
                 }
 
-                // Учитываем бонусные баллы, если они есть
                 if (grade.BonusPoints.HasValue && grade.BonusPoints.Value > 0)
                 {
                     totalGradePoints += grade.BonusPoints.Value;
-                    // Не увеличиваем gradeCount, так как бонусные баллы - это дополнение к основной оценке
                 }
             }
 
-            // Возвращаем средний балл или 0, если нет оценок
             double averageGrade = (gradeCount > 0) ? Math.Round(totalGradePoints / gradeCount, 2) : 0;
             return new Response<double>(averageGrade);
         }

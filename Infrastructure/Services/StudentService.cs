@@ -60,7 +60,7 @@ public class StudentService(
         return new string(chars.ToArray());
     }
 
-    private async Task SendLoginDetailsEmail(string email, string username, string password)
+    public async Task SendLoginDetailsEmail(string email, string username, string password)
     {
         try
         {

@@ -16,28 +16,28 @@ public class LessonController(ILessonService lessonService) : ControllerBase
     public async Task<ActionResult<Response<List<GetLessonDto>>>> GetAllLessons()
     {
         var response = await lessonService.GetLessons();
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
 
     [HttpGet("{id}")]
     public async Task<ActionResult<Response<GetLessonDto>>> GetLessonById(int id)
     {
         var response = await lessonService.GetLessonById(id);
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
     
     [HttpGet("paginated")]
     public async Task<ActionResult<PaginationResponse<List<GetLessonDto>>>> GetLessonsPaginated([FromQuery] BaseFilter filter)
     {
         var response = await lessonService.GetLessonsPaginated(filter);
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
     
     [HttpGet("group/{groupId}")]
     public async Task<ActionResult<Response<List<GetLessonDto>>>> GetLessonsByGroup(int groupId)
     {
         var response = await lessonService.GetLessonsByGroup(groupId);
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
     
     [HttpPost]
@@ -45,7 +45,7 @@ public class LessonController(ILessonService lessonService) : ControllerBase
     public async Task<ActionResult<Response<string>>> CreateLesson([FromBody] CreateLessonDto createLessonDto)
     {
         var response = await lessonService.CreateLesson(createLessonDto);
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
     
     [HttpPost("weekly")]
@@ -53,7 +53,7 @@ public class LessonController(ILessonService lessonService) : ControllerBase
     public async Task<ActionResult<Response<string>>> CreateWeeklyLessons(int groupId, int weekIndex, [FromBody] DateTimeOffset startDate)
     {
         var response = await lessonService.CreateWeeklyLessons(groupId, weekIndex, startDate);
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
     
     [HttpPut]
@@ -61,7 +61,7 @@ public class LessonController(ILessonService lessonService) : ControllerBase
     public async Task<ActionResult<Response<string>>> UpdateLesson([FromBody] UpdateLessonDto updateLessonDto)
     {
         var response = await lessonService.UpdateLesson(updateLessonDto);
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
     
     [HttpDelete("{id}")]
@@ -69,7 +69,7 @@ public class LessonController(ILessonService lessonService) : ControllerBase
     public async Task<ActionResult<Response<string>>> DeleteLesson(int id)
     {
         var response = await lessonService.DeleteLesson(id);
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
     
     [HttpPost("{lessonId}/mark-student-present/{studentId}")]
@@ -77,6 +77,6 @@ public class LessonController(ILessonService lessonService) : ControllerBase
     public async Task<ActionResult<Response<string>>> MarkStudentPresent(int lessonId, int studentId)
     {
         var response = await lessonService.MarkStudentPresent(lessonId, studentId);
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
 }

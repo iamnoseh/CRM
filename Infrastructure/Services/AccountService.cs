@@ -7,7 +7,6 @@ using Microsoft.Extensions.Configuration;
 using System.Net;
 using Domain.DTOs.Account;
 using Domain.DTOs.EmailDTOs;
-using Domain.Filters;
 using Domain.Responses;
 using Infrastructure.Data;
 using Infrastructure.Interfaces;
@@ -29,7 +28,7 @@ public class AccountService(
     string uploadPath) : IAccountService
 {
     private readonly string[] _allowedImageExtensions = [".jpg", ".jpeg", ".png", ".gif"];
-    private const long MaxImageSize = 10 * 1024 * 1024; // 10MB
+    private const long MaxImageSize = 50 * 1024 * 1024; 
 
     #region Register
     private static int CalculateAge(DateTime birthDate)
@@ -92,8 +91,7 @@ public class AccountService(
             var errors = string.Join("; ", result.Errors.Select(e => e.Description));
             return new Response<string>(HttpStatusCode.BadRequest, errors);
         }
-
-        // Send login credentials to user's email
+        
         await SendLoginCredentialsEmail(newUser.Email, newUser.UserName, password);
         
         return new Response<string>("User registered successfully. Login credentials sent to user's email.");
@@ -101,31 +99,25 @@ public class AccountService(
 
     private string GenerateRandomPassword()
     {
-        // Generate a random password with at least one uppercase, one lowercase, one digit, and one special character
-        const string uppercaseChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        const string lowercaseChars = "abcdefghijklmnopqrstuvwxyz";
+        const string uppercaseChars = "ABCDEFGHKLM";
+        const string lowercaseChars = "abcdefghklm";
         const string digitChars = "0123456789";
-        const string specialChars = "&-.";
+        const string specialChars = "-.";
         
         var random = new Random();
         var password = new StringBuilder();
 
-        // Ensure at least one uppercase letter
         password.Append(uppercaseChars[random.Next(uppercaseChars.Length)]);
         
-        // Ensure at least one lowercase letter
         password.Append(lowercaseChars[random.Next(lowercaseChars.Length)]);
         
-        // Add more digits (at least 4 digits)
         for (int i = 0; i < 4; i++)
         {
             password.Append(digitChars[random.Next(digitChars.Length)]);
         }
         
-        // Add one special character
         password.Append(specialChars[random.Next(specialChars.Length)]);
-        
-        // Fill the rest with lowercase letters to make it 8 characters long
+
         while (password.Length < 8)
         {
             password.Append(lowercaseChars[random.Next(lowercaseChars.Length)]);
@@ -146,7 +138,7 @@ public class AccountService(
             <p>Please keep this information secure and change your password after your first login.</p>
             <p>Thank you for using our system!</p>
         ";
-
+    
         await emailService.SendEmail(
             new EmailMessageDto(new[] { email }, emailSubject, emailContent),
             TextFormat.Html
@@ -284,8 +276,7 @@ public class AccountService(
             var timeElapsed = DateTimeOffset.UtcNow - existingUser.CodeDate;
             if (timeElapsed.TotalMinutes > 3)
                 return new Response<string>(HttpStatusCode.BadRequest, "Code expired");
-
-            // Генерация токена для сброса пароля
+            
             var resetToken = await userManager.GeneratePasswordResetTokenAsync(existingUser);
 
             // Сброс пароля
@@ -364,8 +355,7 @@ public class AccountService(
             var existingUser = await userManager.Users.FirstOrDefaultAsync(x => x.Id == userId);
             if (existingUser == null)
                 return new Response<string>(HttpStatusCode.BadRequest, "User not found");
-
-            // Истифодаи UserManager барои иваз кардани парол
+            
             var changePassResult = await userManager.ChangePasswordAsync(existingUser, passwordDto.OldPassword, passwordDto.Password);
             if (!changePassResult.Succeeded)
             {

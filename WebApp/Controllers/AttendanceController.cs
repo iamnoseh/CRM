@@ -15,7 +15,7 @@ public class AttendanceController(IAttendanceService attendanceService) : Contro
     public async Task<ActionResult<Response<List<GetAttendanceDto>>>> GetAttendances()
     {
         var response = await attendanceService.GetAttendances();
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
     
     [HttpGet("{id}")]
@@ -23,7 +23,7 @@ public class AttendanceController(IAttendanceService attendanceService) : Contro
     public async Task<ActionResult<Response<GetAttendanceDto>>> GetAttendanceById(int id)
     {
         var response = await attendanceService.GetAttendanceById(id);
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
     
     [HttpGet("student/{studentId}")]
@@ -31,7 +31,7 @@ public class AttendanceController(IAttendanceService attendanceService) : Contro
     public async Task<ActionResult<Response<List<GetAttendanceDto>>>> GetAttendancesByStudent(int studentId)
     {
         var response = await attendanceService.GetAttendancesByStudent(studentId);
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
     
     [HttpGet("group/{groupId}")]
@@ -39,7 +39,7 @@ public class AttendanceController(IAttendanceService attendanceService) : Contro
     public async Task<ActionResult<Response<List<GetAttendanceDto>>>> GetAttendancesByGroup(int groupId)
     {
         var response = await attendanceService.GetAttendancesByGroup(groupId);
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
     
     [HttpGet("lesson/{lessonId}")]
@@ -47,7 +47,7 @@ public class AttendanceController(IAttendanceService attendanceService) : Contro
     public async Task<ActionResult<Response<List<GetAttendanceDto>>>> GetAttendancesByLesson(int lessonId)
     {
         var response = await attendanceService.GetAttendancesByLesson(lessonId);
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
     
     
@@ -56,7 +56,7 @@ public class AttendanceController(IAttendanceService attendanceService) : Contro
     public async Task<ActionResult<Response<string>>> CreateAttendance([FromBody] AddAttendanceDto addAttendanceDto)
     {
         var response = await attendanceService.CreateAttendance(addAttendanceDto);
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
     
     [HttpPut]
@@ -64,7 +64,7 @@ public class AttendanceController(IAttendanceService attendanceService) : Contro
     public async Task<ActionResult<Response<string>>> UpdateAttendance([FromBody] EditAttendanceDto editAttendanceDto)
     {
         var response = await attendanceService.EditAttendance(editAttendanceDto);
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
     
     [HttpDelete("{id}")]
@@ -72,6 +72,6 @@ public class AttendanceController(IAttendanceService attendanceService) : Contro
     public async Task<ActionResult<Response<string>>> DeleteAttendance(int id)
     {
         var response = await attendanceService.DeleteAttendanceById(id);
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
 }

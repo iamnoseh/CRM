@@ -1,5 +1,4 @@
 using Domain.DTOs.Exam;
-using Domain.Entities;
 using Domain.Responses;
 using Infrastructure.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -18,7 +17,7 @@ public class ExamController(IExamService examService) : ControllerBase
     public async Task<ActionResult<Response<List<GetExamDto>>>> GetAllExams()
     {
         var response = await examService.GetExams();
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
 
     [HttpGet("{id}")]
@@ -26,7 +25,7 @@ public class ExamController(IExamService examService) : ControllerBase
     public async Task<ActionResult<Response<GetExamDto>>> GetExamById(int id)
     {
         var response = await examService.GetExamById(id);
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
     
     [HttpGet("group/{groupId}")]
@@ -34,7 +33,7 @@ public class ExamController(IExamService examService) : ControllerBase
     public async Task<ActionResult<Response<List<GetExamDto>>>> GetExamsByGroup(int groupId)
     {
         var response = await examService.GetExamsByGroup(groupId);
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
     
     [HttpPost]
@@ -42,7 +41,7 @@ public class ExamController(IExamService examService) : ControllerBase
     public async Task<ActionResult<Response<string>>> CreateExam([FromBody] CreateExamDto createExamDto)
     {
         var response = await examService.CreateExam(createExamDto);
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
     
     [HttpPut("{id}")]
@@ -50,7 +49,7 @@ public class ExamController(IExamService examService) : ControllerBase
     public async Task<ActionResult<Response<string>>> UpdateExam(int id, [FromBody] UpdateExamDto updateExamDto)
     {
         var response = await examService.UpdateExam(id, updateExamDto);
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
     
     [HttpDelete("{id}")]
@@ -58,7 +57,7 @@ public class ExamController(IExamService examService) : ControllerBase
     public async Task<ActionResult<Response<string>>> DeleteExam(int id)
     {
         var response = await examService.DeleteExam(id);
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
     
     #endregion
@@ -70,7 +69,7 @@ public class ExamController(IExamService examService) : ControllerBase
     public async Task<ActionResult<Response<GetExamGradeDto>>> GetExamGradeById(int id)
     {
         var response = await examService.GetExamGradeById(id);
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
     
     [HttpGet("{examId}/grades")]
@@ -78,7 +77,7 @@ public class ExamController(IExamService examService) : ControllerBase
     public async Task<ActionResult<Response<List<GetExamGradeDto>>>> GetExamGradesByExam(int examId)
     {
         var response = await examService.GetExamGradesByExam(examId);
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
     
     [HttpGet("student/{studentId}/grades")]
@@ -86,7 +85,7 @@ public class ExamController(IExamService examService) : ControllerBase
     public async Task<ActionResult<Response<List<GetExamGradeDto>>>> GetExamGradesByStudent(int studentId)
     {
         var response = await examService.GetExamGradesByStudent(studentId);
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
     
     [HttpPost("grade")]
@@ -94,15 +93,15 @@ public class ExamController(IExamService examService) : ControllerBase
     public async Task<ActionResult<Response<string>>> CreateExamGrade([FromBody] CreateExamGradeDto createExamGradeDto)
     {
         var response = await examService.CreateExamGrade(createExamGradeDto);
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
     
-    [HttpPut("grade/{id}")]
+    [HttpPut("grade")]
     [Authorize(Roles = "Admin,Teacher")]
     public async Task<ActionResult<Response<string>>> UpdateExamGrade(int id, [FromBody] UpdateExamGradeDto updateExamGradeDto)
     {
         var response = await examService.UpdateExamGrade(id, updateExamGradeDto);
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
     
     [HttpDelete("grade/{id}")]
@@ -110,7 +109,7 @@ public class ExamController(IExamService examService) : ControllerBase
     public async Task<ActionResult<Response<string>>> DeleteExamGrade(int id)
     {
         var response = await examService.DeleteExamGrade(id);
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
     
     [HttpPost("grade/{examGradeId}/bonus")]
@@ -118,7 +117,7 @@ public class ExamController(IExamService examService) : ControllerBase
     public async Task<ActionResult<Response<string>>> AddBonusPoint(int examGradeId, [FromBody] int bonusPoints)
     {
         var response = await examService.AddBonusPoint(examGradeId, bonusPoints);
-        return StatusCode((int)response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
     
     #endregion

@@ -16,7 +16,6 @@ builder.Services.AddIdentityServices(builder.Configuration);
 builder.Services.AddCorsServices();
 
 
-// Настройка конфигурации электронной почты
 var emailConfig = builder.Configuration.GetSection("EmailConfiguration").Get<EmailConfiguration>();
 builder.Services.AddSingleton(emailConfig);
 
@@ -38,7 +37,7 @@ app.UseStaticFilesConfiguration(uploadPath);
 
 app.UseCors("AllowFrontend");
 
-// Swagger дар ҳамаи муҳитҳо фаъол аст
+
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {  
@@ -54,7 +53,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-// Фоновые службы работают автоматически через механизм BackgroundService
- app.ConfigureHangfireJobs(); // отключено, чтобы избежать ошибок инициализации Hangfire
+
+ app.ConfigureHangfireJobs(); 
 
 app.Run();

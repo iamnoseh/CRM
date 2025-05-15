@@ -25,8 +25,6 @@ public class NotificationService(DataContext context, ILogger<NotificationServic
         {
             // Create email message using EmailService
             var emailMessage = new EmailMessageDto(new List<string> { toEmail }, subject, message);
-            
-            // Send email using EmailService (true for HTML format)
             await emailService.SendEmail(emailMessage, TextFormat.Html);
             
             logger.LogInformation("Email sent successfully to {Email}", toEmail);
@@ -444,7 +442,6 @@ public class NotificationService(DataContext context, ILogger<NotificationServic
         }
     }
 
-    // История уведомлений
     public async Task<Response<List<NotificationDto>>> GetNotificationsAsync()
     {
         try

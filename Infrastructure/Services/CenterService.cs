@@ -25,8 +25,6 @@ public class CenterService(DataContext context, string uploadPath) : ICenterServ
         try
         {
             string imagePath = string.Empty;
-            
-            // Обработка изображения, если оно предоставлено
             if (createCenterDto.ImageFile != null && createCenterDto.ImageFile.Length > 0)
             {
                 var fileExtension = Path.GetExtension(createCenterDto.ImageFile.FileName).ToLowerInvariant();
@@ -105,9 +103,8 @@ public class CenterService(DataContext context, string uploadPath) : ICenterServ
 
                 if (updateCenterDto.ImageFile.Length > MaxImageSize)
                     return new Response<string>(HttpStatusCode.BadRequest, 
-                        "Image size must be less than 10MB");
-
-                // Удаление старого изображения, если оно существует
+                        "Image size must be less than 50MB");
+                
                 if (!string.IsNullOrEmpty(center.Image))
                 {
                     var oldImagePath = Path.Combine(uploadPath, center.Image.TrimStart('/'));

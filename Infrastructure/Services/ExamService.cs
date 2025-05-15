@@ -117,7 +117,6 @@ public class ExamService(DataContext context) : IExamService
             if (group == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Группа не найдена");
 
-            // Проверяем, существует ли экзамен с такими параметрами
             var existingExam = await context.Exams
                 .FirstOrDefaultAsync(x =>
                     x.GroupId == examDto.GroupId &&
@@ -159,8 +158,7 @@ public class ExamService(DataContext context) : IExamService
             var exam = await context.Exams.FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted);
             if (exam == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Экзамен не найден");
-
-            // Обновляем только заданные свойства
+            
             if (examDto.ExamDate.HasValue)
                 exam.ExamDate = examDto.ExamDate.Value;
 
@@ -194,11 +192,9 @@ public class ExamService(DataContext context) : IExamService
             if (exam == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Экзамен не найден");
 
-            // Мягкое удаление
             exam.IsDeleted = true;
             exam.UpdatedAt = DateTime.UtcNow;
-
-            // Также удаляем все оценки за экзамен
+            
             var examGrades = await context.ExamGrades
                 .Where(g => g.ExamId == id && !g.IsDeleted)
                 .ToListAsync();
@@ -353,7 +349,6 @@ public class ExamService(DataContext context) : IExamService
             if (student == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Студент не найден");
 
-            // Проверяем, есть ли уже оценка у этого студента за этот экзамен
             var existingGrade = await context.ExamGrades
                 .FirstOrDefaultAsync(x =>
                     x.ExamId == gradeDto.ExamId &&
@@ -364,7 +359,6 @@ public class ExamService(DataContext context) : IExamService
                 return new Response<string>(HttpStatusCode.BadRequest,
                     "Оценка для этого студента за данный экзамен уже существует");
 
-            // Проверяем, что количество баллов не превышает максимум
             if (gradeDto.Points > exam.MaxPoints)
                 return new Response<string>(HttpStatusCode.BadRequest,
                     $"Количество баллов не может превышать максимум для экзамена ({exam.MaxPoints})");
@@ -406,12 +400,10 @@ public class ExamService(DataContext context) : IExamService
             if (grade == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Оценка за экзамен не найдена");
 
-            // Проверяем, что новые баллы не превышают максимум
             if (gradeDto.Points.HasValue && gradeDto.Points.Value > grade.Exam.MaxPoints)
                 return new Response<string>(HttpStatusCode.BadRequest,
                     $"Количество баллов не может превышать максимум для экзамена ({grade.Exam.MaxPoints})");
 
-            // Обновляем только заданные свойства
             if (gradeDto.Points.HasValue)
                 grade.Points = gradeDto.Points.Value;
 
@@ -448,7 +440,6 @@ public class ExamService(DataContext context) : IExamService
             if (grade == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Оценка за экзамен не найдена");
 
-            // Мягкое удаление
             grade.IsDeleted = true;
             grade.UpdatedAt = DateTime.UtcNow;
 
@@ -474,7 +465,6 @@ public class ExamService(DataContext context) : IExamService
             if (grade == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Оценка за экзамен не найдена");
 
-            // Добавляем бонусные баллы к существующим
             grade.BonusPoint = grade.BonusPoint + bonusPoints;
             grade.UpdatedAt = DateTime.UtcNow;
 

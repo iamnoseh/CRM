@@ -16,17 +16,14 @@ public class MentorGroupService(DataContext context) : IMentorGroupService
     {
         try
         {
-            // Проверка существования ментора
             var mentor = await context.Mentors.FirstOrDefaultAsync(m => m.Id == request.MentorId && !m.IsDeleted);
             if (mentor == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Mentor not found");
-
-            // Проверка существования группы
+            
             var group = await context.Groups.FirstOrDefaultAsync(g => g.Id == request.GroupId && !g.IsDeleted);
             if (group == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Group not found");
 
-            // Проверка, не назначен ли уже ментор в эту группу
             var existingMentorGroup = await context.MentorGroups
                 .FirstOrDefaultAsync(mg => mg.MentorId == request.MentorId &&
                                           mg.GroupId == request.GroupId &&
@@ -35,7 +32,6 @@ public class MentorGroupService(DataContext context) : IMentorGroupService
             if (existingMentorGroup != null)
                 return new Response<string>(HttpStatusCode.BadRequest, "Mentor is already assigned to this group");
 
-            // Создание новой записи MentorGroup
             var mentorGroup = new MentorGroup
             {
                 MentorId = request.MentorId,
@@ -64,14 +60,12 @@ public class MentorGroupService(DataContext context) : IMentorGroupService
     {
         try
         {
-            // Находим запись MentorGroup по ID
             var mentorGroup = await context.MentorGroups
                 .FirstOrDefaultAsync(mg => mg.Id == id && !mg.IsDeleted);
 
             if (mentorGroup == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Mentor group assignment not found");
 
-            // Проверяем ментора, если ID ментора был изменен
             if (request.MentorId.HasValue && request.MentorId.Value != mentorGroup.MentorId)
             {
                 var mentor = await context.Mentors
@@ -83,7 +77,6 @@ public class MentorGroupService(DataContext context) : IMentorGroupService
                 mentorGroup.MentorId = request.MentorId.Value;
             }
 
-            // Проверяем группу, если ID группы был изменен
             if (request.GroupId.HasValue && request.GroupId.Value != mentorGroup.GroupId)
             {
                 var group = await context.Groups
@@ -95,7 +88,6 @@ public class MentorGroupService(DataContext context) : IMentorGroupService
                 mentorGroup.GroupId = request.GroupId.Value;
             }
 
-            // Проверяем, не назначен ли уже ментор в эту группу (если оба ID изменены)
             if (request.MentorId.HasValue && request.GroupId.HasValue)
             {
                 var existingMentorGroup = await context.MentorGroups
@@ -108,7 +100,6 @@ public class MentorGroupService(DataContext context) : IMentorGroupService
                     return new Response<string>(HttpStatusCode.BadRequest, "Mentor is already assigned to this group");
             }
 
-            // Обновляем статус активности, если он был изменен
             if (request.IsActive.HasValue)
                 mentorGroup.IsActive = request.IsActive.Value;
 
@@ -133,14 +124,12 @@ public class MentorGroupService(DataContext context) : IMentorGroupService
     {
         try
         {
-            // Находим запись MentorGroup по ID
             var mentorGroup = await context.MentorGroups
                 .FirstOrDefaultAsync(mg => mg.Id == id && !mg.IsDeleted);
 
             if (mentorGroup == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Mentor group assignment not found");
 
-            // Выполняем мягкое удаление
             mentorGroup.IsDeleted = true;
             mentorGroup.UpdatedAt = DateTime.UtcNow;
 
@@ -163,7 +152,6 @@ public class MentorGroupService(DataContext context) : IMentorGroupService
     {
         try
         {
-            // Находим запись MentorGroup по ID со связанными данными
             var mentorGroup = await context.MentorGroups
                 .Include(mg => mg.Mentor)
                 .Include(mg => mg.Group)
@@ -172,7 +160,6 @@ public class MentorGroupService(DataContext context) : IMentorGroupService
             if (mentorGroup == null)
                 return new Response<GetMentorGroupDto>(HttpStatusCode.NotFound, "Mentor group assignment not found");
 
-            // Преобразуем в DTO
             var dto = new GetMentorGroupDto
             {
                 Id = mentorGroup.Id,
@@ -233,17 +220,14 @@ public class MentorGroupService(DataContext context) : IMentorGroupService
     {
         try
         {
-            // Базовый запрос
             var query = context.MentorGroups
                 .Include(mg => mg.Mentor)
                 .Include(mg => mg.Group)
                 .Where(mg => !mg.IsDeleted)
                 .AsQueryable();
 
-            // Получаем общее количество записей для пагинации
             var totalCount = await query.CountAsync();
 
-            // Применяем пагинацию
             var mentorGroups = await query
                 .OrderByDescending(mg => mg.CreatedAt)
                 .Skip((filter.PageNumber - 1) * filter.PageSize)
@@ -283,14 +267,11 @@ public class MentorGroupService(DataContext context) : IMentorGroupService
     {
         try
         {
-            // Проверяем существование ментора
             var mentor = await context.Mentors
                 .FirstOrDefaultAsync(m => m.Id == mentorId && !m.IsDeleted);
 
             if (mentor == null)
                 return new Response<List<GetMentorGroupDto>>(HttpStatusCode.NotFound, "Mentor not found");
-
-            // Получаем группы ментора
             var mentorGroups = await context.MentorGroups
                 .Include(mg => mg.Group)
                 .Where(mg => mg.MentorId == mentorId && !mg.IsDeleted)
@@ -324,14 +305,12 @@ public class MentorGroupService(DataContext context) : IMentorGroupService
     {
         try
         {
-            // Проверяем существование группы
             var group = await context.Groups
                 .FirstOrDefaultAsync(g => g.Id == groupId && !g.IsDeleted);
 
             if (group == null)
                 return new Response<List<GetMentorGroupDto>>(HttpStatusCode.NotFound, "Group not found");
-
-            // Получаем менторов группы
+            
             var mentorGroups = await context.MentorGroups
                 .Include(mg => mg.Mentor)
                 .Where(mg => mg.GroupId == groupId && !mg.IsDeleted)
@@ -367,15 +346,13 @@ public class MentorGroupService(DataContext context) : IMentorGroupService
         {
             if (mentorIds == null || !mentorIds.Any())
                 return new Response<string>(HttpStatusCode.BadRequest, "No mentors specified");
-
-            // Проверяем существование группы
+            
             var group = await context.Groups
                 .FirstOrDefaultAsync(g => g.Id == groupId && !g.IsDeleted);
 
             if (group == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Group not found");
-
-            // Проверяем существование всех менторов
+            
             var existingMentors = await context.Mentors
                 .Where(m => mentorIds.Contains(m.Id) && !m.IsDeleted)
                 .Select(m => m.Id)
@@ -389,13 +366,11 @@ public class MentorGroupService(DataContext context) : IMentorGroupService
             var existingMentorGroups = await context.MentorGroups
                 .Where(mg => mg.GroupId == groupId && mentorIds.Contains(mg.MentorId) && !mg.IsDeleted)
                 .ToListAsync();
-
-            // Определяем, каких менторов нужно добавить
+            
             var mentorsToAdd = mentorIds
                 .Except(existingMentorGroups.Select(mg => mg.MentorId))
                 .ToList();
-
-            // Создаем новые записи для менторов, которых еще нет в группе
+            
             var newMentorGroups = mentorsToAdd.Select(mentorId => new MentorGroup
             {
                 MentorId = mentorId,
