@@ -185,7 +185,7 @@ public static class Register
     }
         public static void AddCorsServices(this IServiceCollection services)
     {
-        var defaultOrigins = new string[]
+        var defaultOrigins = new[]
         {
             "http://localhost:5173",
             "http://localhost:5174",
@@ -252,7 +252,7 @@ public static class Register
             await seedService.SeedAllData();
 
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             //
         }

@@ -18,14 +18,10 @@ using MimeKit.Text;
 
 namespace Infrastructure.Services;
 
-public class AccountService(
-    UserManager<User> userManager,
-    RoleManager<IdentityRole<int>> roleManager,
-    IConfiguration configuration,
-    DataContext context,
-    IEmailService emailService,
-    IHashService hashService,
-    string uploadPath) : IAccountService
+public class AccountService(UserManager<User> userManager, 
+    RoleManager<IdentityRole<int>> roleManager, IConfiguration configuration,
+    DataContext context, IEmailService emailService,
+    IHashService hashService, string uploadPath) : IAccountService
 {
     private readonly string[] _allowedImageExtensions = [".jpg", ".jpeg", ".png", ".gif"];
     private const long MaxImageSize = 50 * 1024 * 1024; 
@@ -122,8 +118,7 @@ public class AccountService(
         {
             password.Append(lowercaseChars[random.Next(lowercaseChars.Length)]);
         }
-
-        // Shuffle the password characters
+        
         return new string(password.ToString().OrderBy(c => random.Next()).ToArray());
     }
 

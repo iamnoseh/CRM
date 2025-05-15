@@ -8,10 +8,8 @@ using Microsoft.Extensions.Logging;
 
 namespace Infrastructure.BackgroundTasks;
 
-public class StudentStatusUpdaterService(
-    ILogger<StudentStatusUpdaterService> logger,
-    IServiceProvider serviceProvider)
-    : BackgroundService
+public class StudentStatusUpdaterService(ILogger<StudentStatusUpdaterService> logger,
+    IServiceProvider serviceProvider) : BackgroundService
 {
     public async Task Run()
     {

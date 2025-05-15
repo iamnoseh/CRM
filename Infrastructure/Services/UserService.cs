@@ -12,7 +12,8 @@ using System.Security.Claims;
 
 namespace Infrastructure.Services;
 
-public class UserService(DataContext context, UserManager<User> userManager, IHttpContextAccessor httpContextAccessor) : IUserService
+public class UserService(DataContext context, UserManager<User> userManager,
+    IHttpContextAccessor httpContextAccessor) : IUserService
 {
     #region GetUsersPagination
     

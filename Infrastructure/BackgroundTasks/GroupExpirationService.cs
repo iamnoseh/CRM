@@ -1,4 +1,3 @@
-using Domain.Entities;
 using Domain.Enums;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -40,9 +39,6 @@ public class GroupExpirationService(
             {
                 logger.LogError(ex, "Error occurred while checking expired groups");
             }
-            
-            // Ждем некоторое время перед следующей итерацией цикла
-            // Это предотвращает слишком частые проверки, если произошла ошибка
             try
             {
                 await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
@@ -98,7 +94,7 @@ public class GroupExpirationService(
                 
                 var mentorGroups = await context.MentorGroups
                     .Where(mg => mg.GroupId == group.Id && 
-                               (bool)mg.IsActive && 
+                               (bool)mg.IsActive! && 
                                !mg.IsDeleted)
                     .ToListAsync();
                 

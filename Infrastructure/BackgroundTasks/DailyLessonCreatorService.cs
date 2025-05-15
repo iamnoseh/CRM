@@ -339,7 +339,7 @@ public class DailyLessonCreatorService(
                     logger.LogInformation($"Создан экзамен для группы {group.Id} на неделе {weekIndex}");
                 }
                 startDayIndex = 1;
-                weekIndex = weekIndex < 4 ? weekIndex + 1 : 1; // Переходим к следующей неделе или начинаем цикл заново
+                weekIndex = weekIndex < 4 ? weekIndex + 1 : 1; 
             }
         }
         
@@ -471,7 +471,7 @@ public class DailyLessonCreatorService(
                     }
                     
                     nextDayIndex = 1;
-                    weekIndex = weekIndex < 4 ? weekIndex + 1 : 1; // Увеличиваем неделю, с циклом 1-4
+                    weekIndex = weekIndex < 4 ? weekIndex + 1 : 1;
                 }
                 
                 var nextLessonExists = await context.Lessons

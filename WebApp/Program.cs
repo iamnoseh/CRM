@@ -43,7 +43,7 @@ app.UseSwaggerUI(c =>
 {  
     c.AddThemes(app);  
 });
-app.UseHangfireDashboard("/hangfire");
+app.UseHangfireDashboard();
 app.UseHangfireServer();
 
 

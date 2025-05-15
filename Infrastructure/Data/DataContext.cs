@@ -30,7 +30,6 @@ public class DataContext(DbContextOptions<DataContext> options) : IdentityDbCont
     {
         base.OnConfiguring(optionsBuilder);
         
-        // Установка преобразования DateTimeOffset в UTC для PostgreSQL
         AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
     }
 
