@@ -32,6 +32,7 @@ public class LessonService(DataContext context) : ILessonService
                 StartTime = x.StartTime,
                 WeekIndex = x.WeekIndex,
                 DayOfWeekIndex = x.DayOfWeekIndex,
+                DayIndex = x.DayIndex,
                 GroupName = x.Group?.Name ?? "Unknown"
             }).ToList();
             
@@ -63,6 +64,7 @@ public class LessonService(DataContext context) : ILessonService
                 StartTime = lesson.StartTime,
                 WeekIndex = lesson.WeekIndex,
                 DayOfWeekIndex = lesson.DayOfWeekIndex,
+                DayIndex = lesson.DayIndex,
                 GroupName = lesson.Group?.Name ?? "Unknown"
             };
             
@@ -96,12 +98,16 @@ public class LessonService(DataContext context) : ILessonService
             if (existingLesson)
                 return new Response<string>(HttpStatusCode.BadRequest, "Lesson with this schedule already exists");
 
+            // Ҳисоб кардани DayIndex аз рӯи индексҳои ҳафта ва рӯз
+            int dayIndex = (createLessonDto.WeekIndex - 1) * 5 + createLessonDto.DayOfWeekIndex;
+            
             var lesson = new Lesson
             {
                 GroupId = createLessonDto.GroupId,
                 StartTime = createLessonDto.StartTime,
                 WeekIndex = createLessonDto.WeekIndex,
                 DayOfWeekIndex = createLessonDto.DayOfWeekIndex,
+                DayIndex = createLessonDto.DayIndex > 0 ? createLessonDto.DayIndex : dayIndex, // Истифодаи қимати додашуда ё ҳисобкардашуда
                 CreatedAt = DateTimeOffset.UtcNow,
                 UpdatedAt = DateTimeOffset.UtcNow
             };
@@ -145,6 +151,18 @@ public class LessonService(DataContext context) : ILessonService
             lesson.StartTime = updateLessonDto.StartTime;
             lesson.WeekIndex = updateLessonDto.WeekIndex;
             lesson.DayOfWeekIndex = updateLessonDto.DayOfWeekIndex;
+            
+            // Ҳисоб кардани DayIndex нав ё истифодаи қимати додашуда
+            if (updateLessonDto.DayIndex > 0)
+            {
+                lesson.DayIndex = updateLessonDto.DayIndex;
+            }
+            else
+            {
+                // Ҳисоб кардани DayIndex аз рӯи индексҳои ҳафта ва рӯз
+                lesson.DayIndex = (updateLessonDto.WeekIndex - 1) * 5 + updateLessonDto.DayOfWeekIndex;
+            }
+            
             lesson.UpdatedAt = DateTimeOffset.UtcNow;
 
             context.Lessons.Update(lesson);
@@ -255,6 +273,7 @@ public class LessonService(DataContext context) : ILessonService
                     StartTime = l.StartTime,
                     WeekIndex = l.WeekIndex,
                     DayOfWeekIndex = l.DayOfWeekIndex,
+                    DayIndex = l.DayIndex,
                     GroupName = group.Name ?? "Unknown"
                 })
                 .ToListAsync();
@@ -296,6 +315,9 @@ public class LessonService(DataContext context) : ILessonService
             {
                 var lessonDay = startOfWeek.AddDays(template.DayOfWeekIndex);
                 
+                // Ҳисоби индекси умумии рӯз барои дарс
+                int dayIndex = (template.WeekIndex - 1) * 5 + template.DayOfWeekIndex;
+                
                 var newLesson = new Lesson
                 {
                     GroupId = template.GroupId,
@@ -305,6 +327,7 @@ public class LessonService(DataContext context) : ILessonService
                         template.StartTime.Offset),
                     WeekIndex = template.WeekIndex,
                     DayOfWeekIndex = template.DayOfWeekIndex,
+                    DayIndex = template.DayIndex > 0 ? template.DayIndex : dayIndex, // Истифодаи қимати мавҷуда ё ҳисобшуда
                     CreatedAt = DateTimeOffset.UtcNow,
                     UpdatedAt = DateTimeOffset.UtcNow
                 };
@@ -374,6 +397,7 @@ public class LessonService(DataContext context) : ILessonService
                     BonusPoints = 1, // Ставим 1 бонусный балл
                     Comment = "Бонусный балл за присутствие на уроке",
                     WeekIndex = lesson.WeekIndex,
+                    DayIndex = lesson.DayIndex, // Добавляем индекс дня из урока
                     CreatedAt = DateTimeOffset.UtcNow,
                     UpdatedAt = DateTimeOffset.UtcNow
                 };

@@ -31,10 +31,15 @@ public class GradeService(DataContext context) : IGradeService
                 GroupId = grade.GroupId,
                 Comment = grade.Comment,
                 StudentId = grade.StudentId,
+                StudentName = grade.Student?.FullName,
                 Value = grade.Value,
                 BonusPoints = grade.BonusPoints,
                 LessonId = grade.LessonId,
-                WeekIndex = grade.WeekIndex
+                ExamId = grade.ExamId,
+                WeekIndex = grade.WeekIndex,
+                DayIndex = grade.DayIndex,
+                CreatedAt = grade.CreatedAt
+                // GradeType вычисляется автоматически через свойство в DTO
             };
 
             return new Response<GetGradeDto>(dto);
@@ -69,10 +74,15 @@ public class GradeService(DataContext context) : IGradeService
                 GroupId = x.GroupId,
                 Comment = x.Comment,
                 StudentId = x.StudentId,
+                StudentName = x.Student?.FullName,
                 Value = x.Value,
                 BonusPoints = x.BonusPoints,
                 LessonId = x.LessonId,
-                WeekIndex = x.WeekIndex
+                ExamId = x.ExamId,
+                WeekIndex = x.WeekIndex,
+                DayIndex = x.DayIndex,
+                CreatedAt = x.CreatedAt
+                // GradeType вычисляется автоматически через свойство в DTO
             }).ToList();
 
             return new Response<List<GetGradeDto>>(dto);
@@ -113,10 +123,15 @@ public class GradeService(DataContext context) : IGradeService
                 GroupId = x.GroupId,
                 Comment = x.Comment,
                 StudentId = x.StudentId,
+                StudentName = x.Student?.FullName,
                 Value = x.Value,
                 BonusPoints = x.BonusPoints,
                 LessonId = x.LessonId,
-                WeekIndex = x.WeekIndex
+                ExamId = x.ExamId,
+                WeekIndex = x.WeekIndex,
+                DayIndex = x.DayIndex,
+                CreatedAt = x.CreatedAt
+                // GradeType вычисляется автоматически через свойство в DTO
             }).ToList();
 
             return new Response<List<GetGradeDto>>(dto);
@@ -157,10 +172,15 @@ public class GradeService(DataContext context) : IGradeService
                 GroupId = x.GroupId,
                 Comment = x.Comment,
                 StudentId = x.StudentId,
+                StudentName = x.Student?.FullName,
                 Value = x.Value,
                 BonusPoints = x.BonusPoints,
                 LessonId = x.LessonId,
-                WeekIndex = x.WeekIndex
+                ExamId = x.ExamId,
+                WeekIndex = x.WeekIndex,
+                DayIndex = x.DayIndex,
+                CreatedAt = x.CreatedAt
+                // GradeType вычисляется автоматически через свойство в DTO
             }).ToList();
 
             return new Response<List<GetGradeDto>>(dto);
@@ -201,10 +221,15 @@ public class GradeService(DataContext context) : IGradeService
                 GroupId = x.GroupId,
                 Comment = x.Comment,
                 StudentId = x.StudentId,
+                StudentName = x.Student?.FullName,
                 Value = x.Value,
                 BonusPoints = x.BonusPoints,
                 LessonId = x.LessonId,
-                WeekIndex = x.WeekIndex
+                ExamId = x.ExamId,
+                WeekIndex = x.WeekIndex,
+                DayIndex = x.DayIndex,
+                CreatedAt = x.CreatedAt
+                // GradeType вычисляется автоматически через свойство в DTO
             }).ToList();
 
             return new Response<List<GetGradeDto>>(dto);
@@ -353,10 +378,15 @@ public class GradeService(DataContext context) : IGradeService
                 GroupId = x.GroupId,
                 Comment = x.Comment,
                 StudentId = x.StudentId,
+                StudentName = x.Student?.FullName,
                 Value = x.Value,
                 BonusPoints = x.BonusPoints,
                 LessonId = x.LessonId,
-                WeekIndex = x.WeekIndex
+                ExamId = x.ExamId,
+                WeekIndex = x.WeekIndex,
+                DayIndex = x.DayIndex,
+                CreatedAt = x.CreatedAt
+                // GradeType вычисляется автоматически через свойство в DTO
             }).ToList();
 
             return new Response<List<GetGradeDto>>(dto);
@@ -404,10 +434,15 @@ public class GradeService(DataContext context) : IGradeService
                 GroupId = x.GroupId,
                 Comment = x.Comment,
                 StudentId = x.StudentId,
+                StudentName = x.Student?.FullName,
                 Value = x.Value,
                 BonusPoints = x.BonusPoints,
                 LessonId = x.LessonId,
-                WeekIndex = x.WeekIndex
+                ExamId = x.ExamId,
+                WeekIndex = x.WeekIndex,
+                DayIndex = x.DayIndex,
+                CreatedAt = x.CreatedAt
+                // GradeType вычисляется автоматически через свойство в DTO
             }).ToList();
 
             return new Response<List<GetGradeDto>>(dto);
@@ -531,5 +566,151 @@ public class GradeService(DataContext context) : IGradeService
         }
     }
 
+    #endregion
+    
+    #region GetGradesByExamAsync
+    
+    /// <summary>
+    /// Возвращает все оценки за определенный экзамен
+    /// </summary>
+    public async Task<Response<List<GetGradeDto>>> GetGradesByExamAsync(int examId)
+    {
+        try
+        {
+            var exam = await context.Exams
+                .FirstOrDefaultAsync(e => e.Id == examId && !e.IsDeleted);
+                
+            if (exam == null)
+                return new Response<List<GetGradeDto>>(HttpStatusCode.NotFound, "Экзамен не найден");
+                
+            var grades = await context.Grades
+                .Include(g => g.Student)
+                .Include(g => g.Exam)
+                .Where(g => g.ExamId == examId && !g.IsDeleted)
+                .OrderByDescending(g => g.CreatedAt)
+                .ToListAsync();
+            
+            if (grades.Count == 0)
+                return new Response<List<GetGradeDto>>(HttpStatusCode.NotFound, "Оценки за этот экзамен не найдены");
+
+            var dto = grades.Select(x => new GetGradeDto
+            {
+                Id = x.Id,
+                GroupId = x.GroupId,
+                StudentId = x.StudentId,
+                ExamId = x.ExamId,
+                Value = x.Value,
+                BonusPoints = x.BonusPoints,
+                Comment = x.Comment,
+                WeekIndex = x.WeekIndex,
+                DayIndex = x.DayIndex,
+                CreatedAt = x.CreatedAt,
+                StudentName = x.Student.User.FullName
+            }).ToList();
+
+            return new Response<List<GetGradeDto>>(dto);
+        }
+        catch (Exception ex)
+        {
+            return new Response<List<GetGradeDto>>(HttpStatusCode.InternalServerError, 
+                $"Ошибка при получении оценок за экзамен: {ex.Message}");
+        }
+    }
+    
+    #endregion
+    
+    #region CreateExamGradeAsync
+    
+    /// <summary>
+    /// Создает оценку за экзамен
+    /// </summary>
+    public async Task<Response<string>> CreateExamGradeAsync(CreateGradeDto gradeDto)
+    {
+        try
+        {
+            var exam = await context.Exams
+                .FirstOrDefaultAsync(e => e.Id == gradeDto.ExamId && !e.IsDeleted);
+                
+            if (exam == null)
+                return new Response<string>(HttpStatusCode.NotFound, "Экзамен не найден");
+                
+            var student = await context.Students
+                .FirstOrDefaultAsync(s => s.Id == gradeDto.StudentId && !s.IsDeleted);
+                
+            if (student == null)
+                return new Response<string>(HttpStatusCode.NotFound, "Студент не найден");
+                
+            var existingGrade = await context.Grades
+                .FirstOrDefaultAsync(g => g.ExamId == gradeDto.ExamId && 
+                                     g.StudentId == gradeDto.StudentId && 
+                                     !g.IsDeleted);
+                
+            if (existingGrade != null)
+                return new Response<string>(HttpStatusCode.BadRequest, "Оценка за этот экзамен уже существует для данного студента");
+                
+            var grade = new Grade
+            {
+                GroupId = gradeDto.GroupId,
+                StudentId = gradeDto.StudentId,
+                ExamId = gradeDto.ExamId,
+                LessonId = null, // Это оценка за экзамен, а не за урок
+                Value = gradeDto.Value,
+                Comment = gradeDto.Comment,
+                BonusPoints = gradeDto.BonusPoints,
+                WeekIndex = gradeDto.WeekIndex,
+                DayIndex = gradeDto.DayIndex,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            
+            await context.Grades.AddAsync(grade);
+            var result = await context.SaveChangesAsync();
+            
+            return result > 0
+                ? new Response<string>(HttpStatusCode.Created, "Оценка за экзамен успешно добавлена")
+                : new Response<string>(HttpStatusCode.InternalServerError, "Не удалось добавить оценку за экзамен");
+        }
+        catch (Exception ex)
+        {
+            return new Response<string>(HttpStatusCode.InternalServerError, $"Ошибка при создании оценки за экзамен: {ex.Message}");
+        }
+    }
+    
+    #endregion
+    
+    #region GetStudentExamAverageAsync
+    
+    /// <summary>
+    /// Получает среднюю оценку студента за экзамены
+    /// </summary>
+    public async Task<Response<double>> GetStudentExamAverageAsync(int studentId, int? groupId = null)
+    {
+        try
+        {
+            var student = await context.Students.FirstOrDefaultAsync(s => s.Id == studentId && !s.IsDeleted);
+            if (student == null)
+                return new Response<double>(HttpStatusCode.NotFound, "Студент не найден");
+
+            var gradesQuery = context.Grades
+                .Where(g => g.StudentId == studentId && g.ExamId != null && !g.IsDeleted);
+
+            if (groupId.HasValue)
+                gradesQuery = gradesQuery.Where(g => g.GroupId == groupId.Value);
+
+            var grades = await gradesQuery.ToListAsync();
+
+            if (grades.Count == 0)
+                return new Response<double>(0);
+
+            var average = grades.Where(g => g.Value.HasValue).Average(g => g.Value.Value);
+            return new Response<double>(average);
+        }
+        catch (Exception ex)
+        {
+            return new Response<double>(HttpStatusCode.InternalServerError, 
+                $"Ошибка при расчете средней оценки за экзамены: {ex.Message}");
+        }
+    }
+    
     #endregion
 }

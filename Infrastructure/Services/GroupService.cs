@@ -6,6 +6,7 @@ using Domain.Enums;
 using Domain.Filters;
 using Domain.Responses;
 using Infrastructure.Data;
+using Infrastructure.Extensions;
 using Infrastructure.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -60,8 +61,8 @@ public class GroupService(DataContext context, string uploadPath) : IGroupServic
 
                 imagePath = $"/uploads/groups/{uniqueFileName}";
             }
-
-            var totalWeeks = request.DurationMonth * 4; 
+            var approximateTotalDays = request.DurationMonth * 30.44;
+            var totalWeeks = (int)Math.Ceiling(approximateTotalDays / 7);
             
             var group = new Group
             {
@@ -72,13 +73,13 @@ public class GroupService(DataContext context, string uploadPath) : IGroupServic
                 LessonInWeek = request.LessonInWeek,
                 HasWeeklyExam = request.HasWeeklyExam,
                 TotalWeeks = totalWeeks,
-                Started = request.Started,
-                Status = request.Status,
-                StartDate = request.StartDate,
-                EndDate = request.EndDate,
+                Started = false, // Always false until activation
+                Status = ActiveStatus.Inactive, // Always inactive until activation
                 MentorId = request.MentorId,
                 PhotoPath = imagePath,
-                CurrentWeek = request.CurrentWeek
+                CurrentWeek = 1, 
+                StartDate = DateTimeOffset.MinValue, 
+                EndDate = DateTimeOffset.MinValue    
             };
 
             await context.Groups.AddAsync(group);
@@ -156,7 +157,11 @@ public class GroupService(DataContext context, string uploadPath) : IGroupServic
                 group.PhotoPath = $"/uploads/groups/{uniqueFileName}";
             }
 
-            var totalWeeks = request.DurationMonth * 4; 
+            // Calculate approximate total weeks based on average days per month
+            // Average month length is approximately 30.44 days (365.25 / 12)
+            var approximateTotalDays = request.DurationMonth * 30.44;
+            var totalWeeks = (int)Math.Ceiling(approximateTotalDays / 7);
+            
             group.Name = request.Name;
             group.Description = request.Description;
             group.CourseId = request.CourseId;
@@ -164,12 +169,11 @@ public class GroupService(DataContext context, string uploadPath) : IGroupServic
             group.LessonInWeek = request.LessonInWeek;
             group.HasWeeklyExam = request.HasWeeklyExam;
             group.TotalWeeks = totalWeeks;
-            group.Started = request.Started;
-            group.Status = request.Status;
-            group.StartDate = request.StartDate;
-            group.EndDate = request.EndDate;
             group.MentorId = request.MentorId;
-            group.CurrentWeek = request.CurrentWeek;
+            
+            // Don't change status, started, start date, end date, or current week
+            // These are managed by the activation service
+            // The status and started values remain unchanged during update
             
             context.Groups.Update(group);
             var result = await context.SaveChangesAsync();
@@ -257,6 +261,9 @@ public class GroupService(DataContext context, string uploadPath) : IGroupServic
 
             if (group == null)
                 return new Response<GetGroupDto>(HttpStatusCode.NotFound, "Group not found");
+
+            // Ensure DayOfWeek and CurrentWeek have valid values
+            group = group.EnsureValidValues();
 
             return new Response<GetGroupDto>(group);
         }
@@ -437,7 +444,7 @@ public class GroupService(DataContext context, string uploadPath) : IGroupServic
             foreach (var weekAttendance in attendancesByWeek)
             {
                 int weekNumber = weekAttendance.Key;
-                if (weekNumber == 0) continue; // Пропускаем занятия без номера недели
+                if (weekNumber == 0) continue; 
 
                 var presentCount = weekAttendance.Value.Count(a => a.Status == AttendanceStatus.Present);
                 var absentCount = weekAttendance.Value.Count(a => a.Status == AttendanceStatus.Absent);

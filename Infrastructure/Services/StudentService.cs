@@ -497,7 +497,7 @@ public class StudentService(
                     StudentId = g.StudentId
                 })
                 .ToListAsync();
-            var recentExams = await context.ExamGrades
+            var recentExams = await context.Grades
                 .Include(eg => eg.Exam)
                 .ThenInclude(e => e.Group)
                 .Where(eg => eg.StudentId == id && !eg.IsDeleted)
@@ -511,7 +511,6 @@ public class StudentService(
                 GroupId = eg.Exam.GroupId,
                 WeekIndex = eg.Exam.WeekIndex,
                 ExamDate = eg.Exam.ExamDate,
-                MaxPoints = eg.Points,
             }).ToList();
             
             double averageGrade = 0;

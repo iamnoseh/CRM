@@ -6,6 +6,11 @@ namespace Domain.DTOs.Exam;
 public class UpdateExamDto
 {
     /// <summary>
+    /// Идентификатор экзамена
+    /// </summary>
+    public int Id { get; set; }
+    
+    /// <summary>
     /// Дата проведения экзамена
     /// </summary>
     public DateTimeOffset? ExamDate { get; set; }
@@ -14,9 +19,4 @@ public class UpdateExamDto
     /// Индекс недели
     /// </summary>
     public int? WeekIndex { get; set; }
-    
-    /// <summary>
-    /// Максимально возможное количество баллов за экзамен
-    /// </summary>
-    public int? MaxPoints { get; set; }
 }

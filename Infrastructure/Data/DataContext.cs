@@ -20,7 +20,6 @@ public class DataContext(DbContextOptions<DataContext> options) : IdentityDbCont
     public DbSet<Comment> Comments { get; set; }
     public DbSet<Center> Centers { get; set; }
     public DbSet<Payment> Payments { get; set; }
-    public DbSet<ExamGrade> ExamGrades { get; set; }
     public DbSet<StudentPerformance> StudentPerformances { get; set; }
     public DbSet<StudentStatistics> StudentStatistics { get; set; }
     public DbSet<MonthlySummary> MonthlySummaries { get; set; }
@@ -77,30 +76,19 @@ public class DataContext(DbContextOptions<DataContext> options) : IdentityDbCont
             .HasForeignKey(g => g.GroupId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        //  Exam и ExamGrade
+        // Exam связь с Group
         modelBuilder.Entity<Exam>()
             .HasOne(e => e.Group)
             .WithMany(g => g.Exams)
             .HasForeignKey(e => e.GroupId)
             .OnDelete(DeleteBehavior.Cascade);
-            
-        modelBuilder.Entity<ExamGrade>()
-            .HasOne(eg => eg.Exam)
-            .WithMany(e => e.ExamGrades)
-            .HasForeignKey(eg => eg.ExamId)
-            .OnDelete(DeleteBehavior.Cascade);
-            
-        modelBuilder.Entity<ExamGrade>()
-            .HasOne(eg => eg.Student)
-            .WithMany()
-            .HasForeignKey(eg => eg.StudentId)
-            .OnDelete(DeleteBehavior.Restrict);
-            
-        modelBuilder.Entity<ExamGrade>()
-            .HasIndex(eg => eg.ExamId);
-            
-        modelBuilder.Entity<ExamGrade>()
-            .HasIndex(eg => eg.StudentId);
+
+        // Связь Grade с Exam 
+        modelBuilder.Entity<Grade>()
+            .HasOne(g => g.Exam)
+            .WithMany(e => e.Grades)
+            .HasForeignKey(g => g.ExamId)
+            .OnDelete(DeleteBehavior.SetNull);
 
         //  Attendance vs Lesson, Student, Group
         modelBuilder.Entity<Attendance>()

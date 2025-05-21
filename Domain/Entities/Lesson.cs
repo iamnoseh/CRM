@@ -9,5 +9,12 @@ public class Lesson : BaseEntity
     public List<Attendance> Attendances { get; set; } = new();
     public List<Comment> Comments { get; set; } = new();
     public int WeekIndex { get; set; }
-    public int DayOfWeekIndex { get; set; } 
+    public int DayOfWeekIndex { get; set; }
+    
+    /// <summary>
+    /// Индекси умумии рӯз барои дарс (бе вобастагӣ аз ҳафта)
+    /// Формулаи ҳисоб: (WeekIndex - 1) * 5 + DayOfWeekIndex
+    /// Барои пайвасткунии дуруст бо модели Grade истифода мешавад
+    /// </summary>
+    public int DayIndex { get; set; }
 }

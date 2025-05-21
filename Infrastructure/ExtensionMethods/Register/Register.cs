@@ -134,6 +134,8 @@ public static class Register
                 uploadPath
             ));
             
+        services.AddScoped<IGroupActivationService, GroupActivationService>();
+            
         services.AddScoped<IStudentGroupService, StudentGroupService>();
         
         services.AddScoped<IMentorGroupService, MentorGroupService>();

@@ -184,7 +184,7 @@ public class MentorService(
                     string.Join(", ", result.Errors.Select(e => e.Description)));
 
             // Назначаем роль ментора
-            await userManager.AddToRoleAsync(user, Role.Teacher.ToString());
+            await userManager.AddToRoleAsync(user, Roles.Teacher);
 
             if (!string.IsNullOrEmpty(createMentorDto.Email))
             {

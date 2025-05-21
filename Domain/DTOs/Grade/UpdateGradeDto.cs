@@ -1,9 +1,9 @@
 namespace Domain.DTOs.Grade;
 
-public class UpdateGradeDto
+/// <summary>
+/// Универсальный DTO для обновления оценки (как для урока, так и для экзамена)
+/// </summary>
+public class UpdateGradeDto:CreateGradeDto
 {
     public int Id { get; set; }
-    public int? Value {get; set;}
-    public string? Comment {get; set;}
-    public int? BonusPoints {get; set;}
 }

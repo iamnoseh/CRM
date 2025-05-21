@@ -498,8 +498,6 @@ public class CenterService(DataContext context, string uploadPath) : ICenterServ
                         ImagePath = c.ImagePath,
                         Price = c.Price,
                         Status = c.Status,
-                        StartDate = c.StartDate,
-                        EndDate = c.EndDate,
                         CenterId = c.CenterId,
                         CenterName = c.CourseName,
                        

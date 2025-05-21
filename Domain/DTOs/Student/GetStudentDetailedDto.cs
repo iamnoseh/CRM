@@ -24,9 +24,9 @@ public class GetStudentDetailedDto
     // Статистика
     public double AverageGrade { get; set; }
     public int GroupsCount { get; set; }
-    public List<GroupInfo> Groups { get; set; } = new List<GroupInfo>();
-    public List<GetGradeDto> RecentGrades { get; set; } = new List<GetGradeDto>();
-    public List<GetExamDto> RecentExams { get; set; } = new List<GetExamDto>();
+    public List<GroupInfo> Groups { get; set; } = new();
+    public List<GetGradeDto> RecentGrades { get; set; } = new ();
+    public List<GetExamDto> RecentExams { get; set; } = new();
     
     public class GroupInfo
     {

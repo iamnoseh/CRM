@@ -40,8 +40,6 @@ public class CourseService(DataContext context, string uploadPath) : ICourseServ
                 DurationInMonth = createCourseDto.DurationInMonth,
                 Price = createCourseDto.Price,
                 Status = createCourseDto.Status,
-                StartDate = createCourseDto.StartDate,
-                EndDate = createCourseDto.EndDate,
                 CenterId = createCourseDto.CenterId
             };
 
@@ -127,8 +125,6 @@ public class CourseService(DataContext context, string uploadPath) : ICourseServ
             course.DurationInMonth = updateCourseDto.DurationInMonth;
             course.Price = updateCourseDto.Price;
             course.Status = updateCourseDto.Status;
-            course.StartDate = updateCourseDto.StartDate;
-            course.EndDate = updateCourseDto.EndDate;
             course.CenterId = updateCourseDto.CenterId;
             course.UpdatedAt = DateTime.UtcNow;
 
@@ -195,8 +191,6 @@ public class CourseService(DataContext context, string uploadPath) : ICourseServ
                     DurationInMonth = c.DurationInMonth,
                     Price = c.Price,
                     Status = c.Status,
-                    StartDate = c.StartDate,
-                    EndDate = c.EndDate,
                     ImagePath = c.ImagePath,
                     CenterId = c.CenterId,
                     CenterName = c.Center.Name
@@ -234,8 +228,6 @@ public class CourseService(DataContext context, string uploadPath) : ICourseServ
                 DurationInMonth = course.DurationInMonth,
                 Price = course.Price,
                 Status = course.Status,
-                StartDate = course.StartDate,
-                EndDate = course.EndDate,
                 ImagePath = course.ImagePath,
                 CenterId = course.CenterId,
                 CenterName = course.Center.Name
@@ -287,8 +279,6 @@ public class CourseService(DataContext context, string uploadPath) : ICourseServ
                     DurationInMonth = c.DurationInMonth,
                     Price = c.Price,
                     Status = c.Status,
-                    StartDate = c.StartDate,
-                    EndDate = c.EndDate,
                     ImagePath = c.ImagePath,
                     CenterId = c.CenterId,
                     CenterName = c.Center.Name
@@ -333,8 +323,6 @@ public class CourseService(DataContext context, string uploadPath) : ICourseServ
                     DurationInMonth = c.DurationInMonth,
                     Price = c.Price,
                     Status = c.Status,
-                    StartDate = c.StartDate,
-                    EndDate = c.EndDate,
                     ImagePath = c.ImagePath,
                     CenterId = c.CenterId,
                     CenterName = c.Center.Name
