@@ -6,6 +6,7 @@ using Domain.Enums;
 using Domain.Filters;
 using Domain.Responses;
 using Infrastructure.Data;
+using Infrastructure.Helpers;
 using Infrastructure.Interfaces;
 using Infrastructure.Services.EmailService;
 using Microsoft.AspNetCore.Http;
@@ -60,48 +61,26 @@ public class MentorService(
 
         return new string(chars.ToArray());
     }
+
     public async Task SendLoginDetailsEmail(string email, string username, string password)
     {
         try
         {
-            var emailContent = $@"
-                <html>
-                <head>
-                    <style>
-                        body {{ font-family: Arial, sans-serif; line-height: 1.6; }}
-                        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-                        .header {{ background-color: #4CAF50; color: white; padding: 10px; text-align: center; }}
-                        .content {{ padding: 20px; background-color: #f9f9f9; }}
-                        .credentials {{ background-color: #efefef; padding: 15px; margin: 15px 0; border-left: 4px solid #4CAF50; }}
-                        .footer {{ text-align: center; margin-top: 20px; font-size: 12px; color: #777; }}
-                    </style>
-                </head>
-                <body>
-                    <div class='container'>
-                        <div class='header'>
-                            <h2>Welcome to Our CRM System</h2>
-                        </div>
-                        <div class='content'>
-                            <p>Dear {email.Split('@')[0]},</p>
-                            <p>Your mentor account has been successfully created in our CRM system. Below are your login credentials:</p>
-                            
-
-                            <div class='credentials'>
-                                <p><strong>Username:</strong> {username}</p>
-                                <p><strong>Password:</strong> {password}</p>
-                            </div>
-                            
-
-                            <p>Please keep this information secure and change your password after the first login.</p>
-                            <p>If you have any questions, please contact our support team.</p>
-                            <p>Thank you!</p>
-                        </div>
-                        <div class='footer'>
-                            <p>This is an automated message, please do not reply to this email.</p>
-                        </div>
-                    </div>
-                </body>
-                </html>";
+            // Используем общий метод из EmailTemplateHelper для генерации HTML-шаблона письма
+            string messageText = "Аккаунти шумо дар системаи мо сохта шуд. Барои Ворид ба система, аз чунин маълумоти воридшавӣ истифода кунед:";
+            
+            // Для менторов используем фиолетово-синюю цветовую схему
+            string primaryColor = "#4776E6";
+            string accentColor = "#8E54E9";
+            
+            var emailContent = Infrastructure.Helpers.EmailTemplateHelperNew.GenerateLoginEmailTemplate(
+                username,
+                password,
+                messageText,
+                primaryColor,
+                accentColor,
+                "Mentor"
+            );
 
             var emailMessage = new EmailMessageDto(
                 new List<string> { email },
@@ -113,7 +92,8 @@ public class MentorService(
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Failed to send email: {ex.Message}");
+            // Логируем ошибку отправки email
+            Console.WriteLine($"Error sending login details email: {ex.Message}");
         }
     }
 
@@ -123,9 +103,7 @@ public class MentorService(
     {
         try
         {
-            var existingUser = await userManager.FindByEmailAsync(createMentorDto.Email);
-            if (existingUser != null)
-                return new Response<string>(HttpStatusCode.BadRequest, "Пользователь с таким email уже существует");
+            // Убираем проверку на существование email, чтобы можно было создать несколько аккаунтов с одним email
             var center =
                 await context.Centers.FirstOrDefaultAsync(c => c.Id == createMentorDto.CenterId && !c.IsDeleted);
             if (center == null)
@@ -161,9 +139,30 @@ public class MentorService(
             var age = CalculateAge(createMentorDto.Birthday);
 
            
+            // Формирование имени пользователя на основе номера телефона
+            string username = createMentorDto.PhoneNumber.Replace("(", "").Replace(")", "").Replace("-", "").Replace(" ", "");
+            // Удаление международного кода, если он есть
+            if (username.StartsWith("+"))
+            {
+                username = username.Substring(1);
+            }
+            
+            // Проверка и обеспечение уникальности имени пользователя
+            var existingUserWithSameUsername = await userManager.FindByNameAsync(username);
+            int counter = 0;
+            string originalUsername = username;
+            
+            // Если имя пользователя уже существует, добавляем цифры
+            while (existingUserWithSameUsername != null)
+            {
+                counter++;
+                username = originalUsername + counter;
+                existingUserWithSameUsername = await userManager.FindByNameAsync(username);
+            }
+            
             var user = new User
             {
-                UserName = createMentorDto.Email,
+                UserName = username, // Используем номер телефона как имя пользователя
                 Email = createMentorDto.Email,
                 PhoneNumber = createMentorDto.PhoneNumber,
                 FullName = createMentorDto.FullName,
@@ -188,7 +187,8 @@ public class MentorService(
 
             if (!string.IsNullOrEmpty(createMentorDto.Email))
             {
-                await SendLoginDetailsEmail(createMentorDto.Email, createMentorDto.Email, password);
+                // Отправляем письмо с новым username на основе телефона
+                await SendLoginDetailsEmail(createMentorDto.Email, username, password);
             }
             
             var mentor = new Mentor
