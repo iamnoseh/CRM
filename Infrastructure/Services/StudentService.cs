@@ -1,5 +1,4 @@
 using System.Net;
-using Domain.DTOs.EmailDTOs;
 using Domain.DTOs.Exam;
 using Domain.DTOs.Grade;
 using Domain.DTOs.Student;
@@ -13,208 +12,116 @@ using Infrastructure.Services.EmailService;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using MimeKit.Text;
 
 namespace Infrastructure.Services;
 
 public class StudentService(
-    DataContext context, IHttpContextAccessor httpContextAccessor,
-    UserManager<User> userManager, string uploadPath,
+    DataContext context,
+    IHttpContextAccessor httpContextAccessor,
+    UserManager<User> userManager,
+    string uploadPath,
     IEmailService emailService) : IStudentService
 {
-    private readonly string[] _allowedImageExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif",".svg" };
-    private const long MaxImageSize = 50 * 1024 * 1024; 
-    
-    
-
-    public async Task SendLoginDetailsEmail(string email, string username, string password)
+    public async Task<Response<string>> CreateStudentAsync(CreateStudentDto createStudentDto)
     {
         try
         {
-            // Используем общий метод из EmailTemplateHelper для генерации HTML-шаблона письма
-            string messageText = "Аккаунти шумо дар системаи мо сохта шуд. Барои Ворид ба система, аз чунин маълумоти воридшавӣ истифода кунед:";
-            
-            // Для студентов используем голубую цветовую схему
-            string primaryColor = "#5E60CE";
-            string accentColor = "#4EA8DE";
-            
-            var emailContent = Infrastructure.Helpers.EmailTemplateHelperNew.GenerateLoginEmailTemplate(
-                username,
-                password,
-                messageText,
-                primaryColor,
-                accentColor,
-                "Student"
-            );
+            // Загрузка изображения профиля
+            string profileImagePath = string.Empty;
+            if (createStudentDto.ProfilePhoto != null)
+            {
+                var imageResult = await FileUploadHelper.UploadFileAsync(
+                    createStudentDto.ProfilePhoto, uploadPath, "student", "profile");
+                if (imageResult.StatusCode != 200)
+                    return new Response<string>((HttpStatusCode)imageResult.StatusCode, imageResult.Message);
+                profileImagePath = imageResult.Data;
+            }
 
-            var emailMessage = new EmailMessageDto(
-                new List<string> { email },
-                "Your Account Details",
-                emailContent
-            );
-            
-            await emailService.SendEmail(emailMessage, TextFormat.Html);
+            // Загрузка документа
+            string documentPath = string.Empty;
+            if (createStudentDto.DocumentFile != null)
+            {
+                var docResult = await FileUploadHelper.UploadFileAsync(
+                    createStudentDto.DocumentFile, uploadPath, "student", "document");
+                if (docResult.StatusCode != 200)
+                    return new Response<string>((HttpStatusCode)docResult.StatusCode, docResult.Message);
+                documentPath = docResult.Data;
+            }
+
+            // Создание пользователя
+            var userResult = await UserManagementHelper.CreateUserAsync(
+                createStudentDto,
+                userManager,
+                Roles.Student,
+                dto => dto.PhoneNumber,
+                dto => dto.Email,
+                dto => dto.FullName,
+                dto => dto.Birthday,
+                dto => dto.Gender,
+                dto => dto.Address,
+                dto => dto.CenterId,
+                _ => profileImagePath);
+            if (userResult.StatusCode != 200)
+                return new Response<string>((HttpStatusCode)userResult.StatusCode, userResult.Message);
+
+            var (user, password, username) = userResult.Data;
+
+            // Отправка email
+            if (!string.IsNullOrEmpty(createStudentDto.Email))
+            {
+                await EmailHelper.SendLoginDetailsEmailAsync(
+                    emailService,
+                    createStudentDto.Email,
+                    username,
+                    password,
+                    "Student",
+                    "#5E60CE",
+                    "#4EA8DE");
+            }
+
+            // Создание студента
+            var student = new Student
+            {
+                FullName = createStudentDto.FullName,
+                Email = createStudentDto.Email,
+                Address = createStudentDto.Address,
+                PhoneNumber = createStudentDto.PhoneNumber,
+                Birthday = createStudentDto.Birthday,
+                Age = DateUtils.CalculateAge(createStudentDto.Birthday),
+                Gender = createStudentDto.Gender,
+                CenterId = createStudentDto.CenterId,
+                UserId = user.Id,
+                ProfileImage = profileImagePath,
+                Document = documentPath,
+                ActiveStatus = Domain.Enums.ActiveStatus.Active,
+                PaymentStatus = Domain.Enums.PaymentStatus.Completed
+            };
+
+            await context.Students.AddAsync(student);
+            var res = await context.SaveChangesAsync();
+
+            return res > 0
+                ? new Response<string>(HttpStatusCode.Created, "Student Created Successfully")
+                : new Response<string>(HttpStatusCode.BadRequest, "Student Creation Failed");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Failed to send email: {ex.Message}");
+            return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
 
-    #region CreateStudentAsync
-    public async Task<Response<string>> CreateStudentAsync(CreateStudentDto createStudentDto)
-    {
-        // Формирование имени пользователя на основе номера телефона
-        string username = createStudentDto.PhoneNumber.Replace("(", "").Replace(")", "").Replace("-", "").Replace(" ", "");
-        // Удаление международного кода, если он есть
-        if (username.StartsWith("+"))
-        {
-            username = username.Substring(1);
-        }
-        
-        // Проверка и обеспечение уникальности имени пользователя
-        var existingUserWithSameUsername = await userManager.FindByNameAsync(username);
-        int counter = 0;
-        string originalUsername = username;
-        
-        // Если имя пользователя уже существует, добавляем цифры
-        while (existingUserWithSameUsername != null)
-        {
-            counter++;
-            username = originalUsername + counter;
-            existingUserWithSameUsername = await userManager.FindByNameAsync(username);
-        }
-
-        var profileImagePath = string.Empty;
-        if (createStudentDto.ProfilePhoto != null && createStudentDto.ProfilePhoto.Length > 0)
-        {
-            var fileExtension = Path.GetExtension(createStudentDto.ProfilePhoto.FileName).ToLowerInvariant();
-            if (!_allowedImageExtensions.Contains(fileExtension))
-                return new Response<string>(HttpStatusCode.BadRequest,
-                    "Invalid profile image format. Allowed formats: .jpg, .jpeg, .png, .gif");
-
-            if (createStudentDto.ProfilePhoto.Length > MaxImageSize)
-                return new Response<string>(HttpStatusCode.BadRequest, "Profile image size must be less than 10MB");
-
-            var profilesFolder = Path.Combine(uploadPath, "uploads", "student");
-            if (!Directory.Exists(profilesFolder))
-                Directory.CreateDirectory(profilesFolder);
-
-            var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
-            var filePath = Path.Combine(profilesFolder, uniqueFileName);
-
-            await using (var fileStream = new FileStream(filePath, FileMode.Create))
-            {
-                await createStudentDto.ProfilePhoto.CopyToAsync(fileStream);
-            }
-
-            profileImagePath = $"/uploads/student/{uniqueFileName}";
-        }
-        
-        // Handle document file upload
-        string documentPath = string.Empty;
-        if (createStudentDto.DocumentFile != null && createStudentDto.DocumentFile.Length > 0)
-        {
-            var fileExtension = Path.GetExtension(createStudentDto.DocumentFile.FileName).ToLowerInvariant();
-            // Allowed document formats: .pdf, .doc, .docx, .jpg, .jpeg, .png
-            string[] allowedDocumentExtensions = { ".pdf", ".doc", ".docx", ".jpg", ".jpeg", ".png" };
-            
-            if (!allowedDocumentExtensions.Contains(fileExtension))
-                return new Response<string>(HttpStatusCode.BadRequest,
-                    "Invalid document format. Allowed formats: .pdf, .doc, .docx, .jpg, .jpeg, .png");
-
-            // Maximum document size: 20 MB
-            const long maxDocumentSize = 20 * 1024 * 1024;
-            if (createStudentDto.DocumentFile.Length > maxDocumentSize)
-                return new Response<string>(HttpStatusCode.BadRequest, "Document size must be less than 20MB");
-
-            var documentsFolder = Path.Combine(uploadPath, "uploads", "documents", "student");
-            if (!Directory.Exists(documentsFolder))
-                Directory.CreateDirectory(documentsFolder);
-
-            var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
-            var filePath = Path.Combine(documentsFolder, uniqueFileName);
-
-            await using (var fileStream = new FileStream(filePath, FileMode.Create))
-            {
-                await createStudentDto.DocumentFile.CopyToAsync(fileStream);
-            }
-
-            documentPath = $"/uploads/documents/student/{uniqueFileName}";
-        }
-
-        var age = DateUtils.CalculateAge(createStudentDto.Birthday);
-
-        
-        var user = new User
-        {
-            UserName = username, // Используем сгенерированное имя пользователя на основе телефона
-            PhoneNumber = createStudentDto.PhoneNumber,
-            FullName = createStudentDto.FullName,
-            Birthday = createStudentDto.Birthday,
-            Age = age,
-            Gender = createStudentDto.Gender,
-            Address = createStudentDto.Address,
-            Email = createStudentDto.Email,
-            CenterId = createStudentDto.CenterId,
-            ProfileImagePath = profileImagePath
-        };
-        var password = PasswordUtils.GenerateRandomPassword();
-        var result = await userManager.CreateAsync(user, password);
-        if (!result.Succeeded)
-            return new Response<string>(HttpStatusCode.BadRequest, 
-                string.Join(", ", result.Errors.Select(e => e.Description)));
-        
-        // Назначаем роль студента
-        await userManager.AddToRoleAsync(user, Roles.Student);
-
-       
-        if (!string.IsNullOrEmpty(createStudentDto.Email))
-        {
-            // Отправляем письмо с новым username на основе телефона
-            await SendLoginDetailsEmail(createStudentDto.Email, username, password);
-        }
-
-        var student = new Student
-        {
-            FullName = createStudentDto.FullName,
-            Email = createStudentDto.Email,
-            Address = createStudentDto.Address,
-            PhoneNumber = createStudentDto.PhoneNumber,
-            Birthday = createStudentDto.Birthday,
-            Age = age, 
-            Gender = createStudentDto.Gender,
-            CenterId = createStudentDto.CenterId,
-            UserId = user.Id,
-            ProfileImage = profileImagePath,
-            Document = documentPath,
-            ActiveStatus = Domain.Enums.ActiveStatus.Active,
-            PaymentStatus = Domain.Enums.PaymentStatus.Completed
-        };
-
-        await context.Students.AddAsync(student);
-        var res = await context.SaveChangesAsync();
-
-        return res > 0
-            ? new Response<string>(HttpStatusCode.Created, "Student Created Successfully")
-            : new Response<string>(HttpStatusCode.BadRequest, "Student Creation Failed");
-    }
-    #endregion
-
-    #region UpdateStudentAsync
     public async Task<Response<string>> UpdateStudentAsync(int id, UpdateStudentDto updateStudentDto)
     {
         var student = await context.Students.FirstOrDefaultAsync(s => s.Id == id && !s.IsDeleted);
         if (student == null)
             return new Response<string>(HttpStatusCode.NotFound, "Student not found");
-        var age = DateUtils.CalculateAge(updateStudentDto.Birthday);
 
         student.FullName = updateStudentDto.FullName;
         student.Email = updateStudentDto.Email;
         student.Address = updateStudentDto.Address;
         student.PhoneNumber = updateStudentDto.PhoneNumber;
         student.Birthday = updateStudentDto.Birthday;
-        student.Age = age; 
+        student.Age = DateUtils.CalculateAge(updateStudentDto.Birthday);
         student.Gender = updateStudentDto.Gender;
         student.ActiveStatus = updateStudentDto.ActiveStatus;
         student.PaymentStatus = updateStudentDto.PaymentStatus;
@@ -225,15 +132,21 @@ public class StudentService(
             var user = await userManager.FindByIdAsync(student.UserId.ToString());
             if (user != null)
             {
-                user.FullName = updateStudentDto.FullName;
-                user.PhoneNumber = updateStudentDto.PhoneNumber;
-                user.Email = updateStudentDto.Email;
-                user.Address = updateStudentDto.Address;
-                user.Birthday = updateStudentDto.Birthday;
-                user.Age = age;
-                user.Gender = updateStudentDto.Gender;
-                
-                await userManager.UpdateAsync(user);
+                var updateResult = await UserManagementHelper.UpdateUserAsync(
+                    user,
+                    updateStudentDto,
+                    userManager,
+                    dto => dto.Email,
+                    dto => dto.FullName,
+                    dto => dto.PhoneNumber,
+                    dto => dto.Birthday,
+                    dto => dto.Gender,
+                    dto => dto.Address,
+                    dto => dto.ActiveStatus,
+                    dto => student.CenterId,
+                    dto => dto.PaymentStatus);
+                if (updateResult.StatusCode != 200)
+                    return updateResult;
             }
         }
 
@@ -244,9 +157,7 @@ public class StudentService(
             ? new Response<string>(HttpStatusCode.OK, "Student Updated Successfully")
             : new Response<string>(HttpStatusCode.BadRequest, "Student Update Failed");
     }
-    #endregion
 
-    #region DeleteStudentAsync
     public async Task<Response<string>> DeleteStudentAsync(int id)
     {
         var student = await context.Students.FirstOrDefaultAsync(s => s.Id == id && !s.IsDeleted);
@@ -273,15 +184,13 @@ public class StudentService(
             ? new Response<string>(HttpStatusCode.OK, "Student Deleted Successfully")
             : new Response<string>(HttpStatusCode.BadRequest, "Student Deletion Failed");
     }
-    #endregion
 
-    #region GetStudents
     public async Task<Response<List<GetStudentDto>>> GetStudents()
     {
         var studentsQuery = context.Students
             .Where(s => !s.IsDeleted)
             .Select(s => new GetStudentDto
-            { 
+            {
                 Id = s.Id,
                 FullName = s.FullName,
                 Email = s.Email,
@@ -292,14 +201,13 @@ public class StudentService(
                 Gender = s.Gender,
                 ActiveStatus = s.ActiveStatus,
                 PaymentStatus = s.PaymentStatus,
-                UserId = s.UserId ,
+                UserId = s.UserId,
                 ImagePath = s.ProfileImage,
                 Document = s.Document
             });
-            
+
         var students = await studentsQuery.ToListAsync();
-        
-        // Добавление ролей для каждого студента
+
         foreach (var student in students)
         {
             if (student.UserId > 0)
@@ -308,7 +216,7 @@ public class StudentService(
                 if (user != null)
                 {
                     var roles = await userManager.GetRolesAsync(user);
-                    student.Role = roles.FirstOrDefault() ?? "Student"; // По умолчанию Student
+                    student.Role = roles.FirstOrDefault() ?? "Student";
                 }
             }
         }
@@ -317,9 +225,7 @@ public class StudentService(
             ? new Response<List<GetStudentDto>>(students)
             : new Response<List<GetStudentDto>>(HttpStatusCode.NotFound, "No students found");
     }
-    #endregion
 
-    #region GetStudentByIdAsync
     public async Task<Response<GetStudentDto>> GetStudentByIdAsync(int id)
     {
         var student = await context.Students
@@ -345,9 +251,6 @@ public class StudentService(
             ? new Response<GetStudentDto>(student)
             : new Response<GetStudentDto>(HttpStatusCode.NotFound, "Student not found");
     }
-    #endregion
-
-    #region GetStudentsPagination
 
     public async Task<Response<string>> UpdateStudentDocumentAsync(int studentId, IFormFile? documentFile)
     {
@@ -355,65 +258,12 @@ public class StudentService(
         if (student == null)
             return new Response<string>(HttpStatusCode.NotFound, "Student not found");
 
-        if (documentFile == null)
-            return new Response<string>(HttpStatusCode.BadRequest, "No document file provided");
+        var docResult = await FileUploadHelper.UploadFileAsync(
+            documentFile, uploadPath, "student", "document", true, student.Document);
+        if (docResult.StatusCode != 200)
+            return new Response<string>((HttpStatusCode)docResult.StatusCode, docResult.Message);
 
-        var fileExtension = Path.GetExtension(documentFile.FileName).ToLowerInvariant();
-        // Allowed document formats: .pdf, .doc, .docx, .jpg, .jpeg, .png
-        string[] allowedDocumentExtensions = { ".pdf", ".doc", ".docx", ".jpg", ".jpeg", ".png" };
-            
-        if (!allowedDocumentExtensions.Contains(fileExtension))
-            return new Response<string>(HttpStatusCode.BadRequest,
-                "Invalid document format. Allowed formats: .pdf, .doc, .docx, .jpg, .jpeg, .png");
-
-        // Maximum document size: 20 MB
-        const long maxDocumentSize = 20 * 1024 * 1024;
-        if (documentFile.Length > maxDocumentSize)
-            return new Response<string>(HttpStatusCode.BadRequest, "Document size must be less than 20MB");
-            
-        // Delete old document if it exists
-        if (!string.IsNullOrEmpty(student.Document))
-        {
-            string oldDocumentPath;
-            if (!Path.IsPathRooted(student.Document))
-            {
-                var relativePath = student.Document.TrimStart('/');
-                oldDocumentPath = Path.Combine(uploadPath, relativePath);
-            }
-            else
-            {
-                oldDocumentPath = student.Document;
-            }
-
-            if (File.Exists(oldDocumentPath))
-            {
-                try
-                {
-                    File.Delete(oldDocumentPath);
-                }
-                catch
-                {
-                    // Ignore error if file can't be deleted
-                }
-            }
-        }
-
-        // Create directory for documents if it doesn't exist
-        var documentsFolder = Path.Combine(uploadPath, "uploads", "documents", "student");
-        if (!Directory.Exists(documentsFolder))
-            Directory.CreateDirectory(documentsFolder);
-
-        // Save new document
-        var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
-        var filePath = Path.Combine(documentsFolder, uniqueFileName);
-
-        await using (var fileStream = new FileStream(filePath, FileMode.Create))
-        {
-            await documentFile.CopyToAsync(fileStream);
-        }
-
-        // Update document path in database
-        student.Document = $"/uploads/documents/student/{uniqueFileName}";
+        student.Document = docResult.Data;
         student.UpdatedAt = DateTime.UtcNow;
         context.Students.Update(student);
         var res = await context.SaveChangesAsync();
@@ -426,7 +276,7 @@ public class StudentService(
     public async Task<PaginationResponse<List<GetStudentDto>>> GetStudentsPagination(StudentFilter filter)
     {
         var studentsQuery = context.Students.Where(s => !s.IsDeleted).AsQueryable();
-        
+
         if (!string.IsNullOrEmpty(filter.FullName))
             studentsQuery = studentsQuery.Where(s => s.FullName.Contains(filter.FullName));
 
@@ -444,6 +294,7 @@ public class StudentService(
 
         if (filter.PaymentStatus.HasValue)
             studentsQuery = studentsQuery.Where(s => s.PaymentStatus == filter.PaymentStatus.Value);
+
         var totalRecords = await studentsQuery.CountAsync();
         var skip = (filter.PageNumber - 1) * filter.PageSize;
         var students = await studentsQuery
@@ -467,82 +318,36 @@ public class StudentService(
             .ToListAsync();
 
         return new PaginationResponse<List<GetStudentDto>>(
-            students, 
-            totalRecords, 
-            filter.PageNumber, 
+            students,
+            totalRecords,
+            filter.PageNumber,
             filter.PageSize);
     }
 
     public async Task<Response<byte[]>> GetStudentDocument(int studentId)
     {
-        try
-        {
-            // Find the student in database
-            var student = await context.Students
-                .AsNoTracking()
-                .FirstOrDefaultAsync(s => s.Id == studentId && !s.IsDeleted);
-            
-            if (student == null)
-                return new Response<byte[]>(HttpStatusCode.NotFound, "Student not found");
-                
-            // Check if the student has a document
-            if (string.IsNullOrEmpty(student.Document))
-                return new Response<byte[]>(HttpStatusCode.NotFound, "Student document not found");
-            
-            var filePath = Path.Combine(uploadPath, student.Document.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
-            
-            if (!File.Exists(filePath))
-                return new Response<byte[]>(HttpStatusCode.NotFound, "Document file not found on server");
-                
-            var fileBytes = await File.ReadAllBytesAsync(filePath);
-            return new Response<byte[]>(fileBytes);
-        }
-        catch (Exception ex)
-        {
-            return new Response<byte[]>(HttpStatusCode.InternalServerError, $"Error retrieving document: {ex.Message}");
-        }
+        var student = await context.Students
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Id == studentId && !s.IsDeleted);
+
+        if (student == null)
+            return new Response<byte[]>(HttpStatusCode.NotFound, "Student not found");
+
+        return await FileUploadHelper.GetFileAsync(student.Document, uploadPath);
     }
 
-    #endregion
-
-    #region UpdateUserProfileImageAsync
     public async Task<Response<string>> UpdateUserProfileImageAsync(int studentId, IFormFile? profileImage)
     {
         var student = await context.Students.FirstOrDefaultAsync(s => s.Id == studentId && !s.IsDeleted);
         if (student == null)
             return new Response<string>(HttpStatusCode.NotFound, "Student not found");
 
-        if (profileImage == null)
-            return new Response<string>(HttpStatusCode.BadRequest, "No profile image provided");
+        var imageResult = await FileUploadHelper.UploadFileAsync(
+            profileImage, uploadPath, "student", "profile", true, student.ProfileImage);
+        if (imageResult.StatusCode != 200)
+            return new Response<string>((HttpStatusCode)imageResult.StatusCode, imageResult.Message);
 
-        var fileExtension = Path.GetExtension(profileImage.FileName).ToLowerInvariant();
-        if (!_allowedImageExtensions.Contains(fileExtension))
-            return new Response<string>(HttpStatusCode.BadRequest,
-                "Invalid profile image format. Allowed formats: .jpg, .jpeg, .png, .gif");
-
-        if (profileImage.Length > MaxImageSize)
-            return new Response<string>(HttpStatusCode.BadRequest, "Profile image size must be less than 10MB");
-        
-        if (!string.IsNullOrEmpty(student.ProfileImage))
-        {
-            var oldImagePath = Path.Combine(uploadPath, student.ProfileImage.TrimStart('/'));
-            if (File.Exists(oldImagePath))
-                File.Delete(oldImagePath);
-        }
-        var profilesFolder = Path.Combine(uploadPath, "uploads", "student");
-        if (!Directory.Exists(profilesFolder))
-            Directory.CreateDirectory(profilesFolder);
-
-        var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
-        var filePath = Path.Combine(profilesFolder, uniqueFileName);
-
-        await using (var fileStream = new FileStream(filePath, FileMode.Create))
-        {
-            await profileImage.CopyToAsync(fileStream);
-        }
-
-        var newProfileImagePath = $"/uploads/student/{uniqueFileName}";
-        student.ProfileImage = newProfileImagePath;
+        student.ProfileImage = imageResult.Data;
         student.UpdatedAt = DateTime.UtcNow;
 
         if (student.UserId != null)
@@ -550,7 +355,7 @@ public class StudentService(
             var user = await userManager.FindByIdAsync(student.UserId.ToString());
             if (user != null)
             {
-                user.ProfileImagePath = newProfileImagePath;
+                user.ProfileImagePath = student.ProfileImage;
                 await userManager.UpdateAsync(user);
             }
         }
@@ -562,9 +367,7 @@ public class StudentService(
             ? new Response<string>(HttpStatusCode.OK, "Profile image updated successfully")
             : new Response<string>(HttpStatusCode.BadRequest, "Failed to update profile image");
     }
-    #endregion
 
-    #region GetStudentDetailedAsync
     public async Task<Response<GetStudentDetailedDto>> GetStudentDetailedAsync(int id)
     {
         try
@@ -579,12 +382,12 @@ public class StudentService(
                     StatusCode = (int)HttpStatusCode.NotFound,
                     Message = "Студент не найден"
                 };
-            
+
             var studentGroups = await context.StudentGroups
                 .Include(sg => sg.Group)
                 .Where(sg => sg.StudentId == id && (bool)sg.IsActive && !sg.IsDeleted)
                 .ToListAsync();
-            
+
             var recentGrades = await context.Grades
                 .Include(g => g.Lesson)
                 .ThenInclude(l => l.Group)
@@ -603,6 +406,7 @@ public class StudentService(
                     StudentId = g.StudentId
                 })
                 .ToListAsync();
+
             var recentExams = await context.Grades
                 .Include(eg => eg.Exam)
                 .ThenInclude(e => e.Group)
@@ -610,7 +414,7 @@ public class StudentService(
                 .OrderByDescending(eg => eg.CreatedAt)
                 .Take(1)
                 .ToListAsync();
-            
+
             var examDtos = recentExams.Select(eg => new GetExamDto
             {
                 Id = eg.ExamId,
@@ -618,7 +422,7 @@ public class StudentService(
                 WeekIndex = eg.Exam.WeekIndex,
                 ExamDate = eg.Exam.ExamDate,
             }).ToList();
-            
+
             double averageGrade = 0;
             var allGrades = await context.Grades
                 .Where(g => g.StudentId == id && g.Value.HasValue && !g.IsDeleted)
@@ -629,13 +433,13 @@ public class StudentService(
             {
                 averageGrade = Math.Round(allGrades.Average(), 2);
             }
-            
+
             var groupInfos = new List<GetStudentDetailedDto.GroupInfo>();
             foreach (var group in studentGroups)
             {
                 var groupGrades = await context.Grades
-                    .Where(g => g.StudentId == id && 
-                               g.GroupId == group.GroupId && 
+                    .Where(g => g.StudentId == id &&
+                               g.GroupId == group.GroupId &&
                                g.Value.HasValue &&
                                !g.IsDeleted)
                     .Select(g => g.Value.Value)
@@ -665,7 +469,7 @@ public class StudentService(
             {
                 paymentStatus = latestPayment.Status;
             }
-            
+
             var studentDetailed = new GetStudentDetailedDto
             {
                 Id = student.Id,
@@ -702,5 +506,4 @@ public class StudentService(
             };
         }
     }
-    #endregion
 }

@@ -1,4 +1,3 @@
-using System;
 using System.Drawing;
 
 namespace Infrastructure.Helpers;
@@ -15,6 +14,18 @@ public static class EmailTemplateHelperNew
     /// <param name="accentColor">Акцентный цвет темы (#HEX)</param>
     /// <param name="userType">Тип пользователя (например, "student" или "mentor")</param>
     /// <returns>HTML-разметка письма</returns>
+    public static string GenerateResetCodeEmailTemplate(string code, string messageText, string primaryColor, string accentColor)
+    {
+        return $@"
+        <html>
+            <body style='font-family: Arial, sans-serif; color: #333;'>
+                <h2 style='color: {primaryColor};'>Password Reset Code</h2>
+                <p>{messageText}</p>
+                <p style='font-size: 24px; font-weight: bold; color: {accentColor};'>{code}</p>
+                <p>This code is valid for 3 minutes.</p>
+            </body>
+        </html>";
+    }
     public static string GenerateLoginEmailTemplate(
         string username, 
         string password, 

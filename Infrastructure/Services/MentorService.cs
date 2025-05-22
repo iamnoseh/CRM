@@ -1,5 +1,4 @@
 using System.Net;
-using Domain.DTOs.EmailDTOs;
 using Domain.DTOs.Mentor;
 using Domain.Entities;
 using Domain.Enums;
@@ -12,7 +11,6 @@ using Infrastructure.Services.EmailService;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using MimeKit.Text;
 
 namespace Infrastructure.Services;
 
@@ -23,170 +21,68 @@ public class MentorService(
     IEmailService emailService,
     IHttpContextAccessor httpContextAccessor) : IMentorService
 {
-    private readonly string[] _allowedImageExtensions = { ".jpg", ".jpeg", ".png", ".gif" };
-    private readonly string[] _allowedDocumentExtensions = { ".pdf", ".doc", ".docx", ".jpg", ".jpeg", ".png" };
-    private const long MaxImageSize = 50 * 1024 * 1024;
-    private const long MaxDocumentSize = 20 * 1024 * 1024; 
-   
-    public async Task SendLoginDetailsEmail(string email, string username, string password)
-    {
-        try
-        {
-            // Используем общий метод из EmailTemplateHelper для генерации HTML-шаблона письма
-            string messageText = "Аккаунти шумо дар системаи мо сохта шуд. Барои Ворид ба система, аз чунин маълумоти воридшавӣ истифода кунед:";
-            
-            // Для менторов используем фиолетово-синюю цветовую схему
-            string primaryColor = "#4776E6";
-            string accentColor = "#8E54E9";
-            
-            var emailContent = Infrastructure.Helpers.EmailTemplateHelperNew.GenerateLoginEmailTemplate(
-                username,
-                password,
-                messageText,
-                primaryColor,
-                accentColor,
-                "Mentor"
-            );
-
-            var emailMessage = new EmailMessageDto(
-                new List<string> { email },
-                "Your Mentor Account Details",
-                emailContent
-            );
-
-            await emailService.SendEmail(emailMessage, TextFormat.Html);
-        }
-        catch (Exception ex)
-        {
-            // Логируем ошибку отправки email
-            Console.WriteLine($"Error sending login details email: {ex.Message}");
-        }
-    }
-
-    #region CreateMentorAsync
-
     public async Task<Response<string>> CreateMentorAsync(CreateMentorDto createMentorDto)
     {
         try
         {
-            // Убираем проверку на существование email, чтобы можно было создать несколько аккаунтов с одним email
-            var center =
-                await context.Centers.FirstOrDefaultAsync(c => c.Id == createMentorDto.CenterId && !c.IsDeleted);
+            var center = await context.Centers.FirstOrDefaultAsync(c => c.Id == createMentorDto.CenterId && !c.IsDeleted);
             if (center == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Центр не найден");
 
+            // Загрузка изображения профиля
             string profileImagePath = string.Empty;
-            if (createMentorDto.ProfileImage != null && createMentorDto.ProfileImage.Length > 0)
+            if (createMentorDto.ProfileImage != null)
             {
-                var fileExtension = Path.GetExtension(createMentorDto.ProfileImage.FileName).ToLowerInvariant();
-                if (!_allowedImageExtensions.Contains(fileExtension))
-                    return new Response<string>(HttpStatusCode.BadRequest,
-                        "Недопустимый формат изображения. Разрешенные форматы: .jpg, .jpeg, .png, .gif");
-
-                if (createMentorDto.ProfileImage.Length > MaxImageSize)
-                    return new Response<string>(HttpStatusCode.BadRequest,
-                        "Размер изображения не должен превышать 10МБ");
-
-                var profilesFolder = Path.Combine(uploadPath, "uploads", "mentor");
-                if (!Directory.Exists(profilesFolder))
-                    Directory.CreateDirectory(profilesFolder);
-
-                var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
-                var filePath = Path.Combine(profilesFolder, uniqueFileName);
-
-                await using (var fileStream = new FileStream(filePath, FileMode.Create))
-                {
-                    await createMentorDto.ProfileImage.CopyToAsync(fileStream);
-                }
-
-                profileImagePath = $"/uploads/mentor/{uniqueFileName}";
+                var imageResult = await FileUploadHelper.UploadFileAsync(
+                    createMentorDto.ProfileImage, uploadPath, "mentor", "profile");
+                if (imageResult.StatusCode != 200)
+                    return new Response<string>((HttpStatusCode)imageResult.StatusCode, imageResult.Message);
+                profileImagePath = imageResult.Data;
             }
-            
-            // Обработка загрузки документов
+
+            // Загрузка документа
             string documentPath = string.Empty;
-            if (createMentorDto.DocumentFile != null && createMentorDto.DocumentFile.Length > 0)
+            if (createMentorDto.DocumentFile != null)
             {
-                var fileExtension = Path.GetExtension(createMentorDto.DocumentFile.FileName).ToLowerInvariant();
-                string[] allowedDocumentExtensions = { ".pdf", ".doc", ".docx", ".jpg", ".jpeg", ".png" };
-                
-                if (!allowedDocumentExtensions.Contains(fileExtension))
-                    return new Response<string>(HttpStatusCode.BadRequest,
-                        "Недопустимый формат документов. Разрешенные форматы: .pdf, .doc, .docx, .jpg, .jpeg, .png");
-
-                const long maxDocumentSize = 20 * 1024 * 1024;
-                if (createMentorDto.DocumentFile.Length > maxDocumentSize)
-                    return new Response<string>(HttpStatusCode.BadRequest, "Размер документов не должен превышать 20МБ");
-
-                var documentsFolder = Path.Combine(uploadPath, "uploads", "documents", "mentor");
-                if (!Directory.Exists(documentsFolder))
-                    Directory.CreateDirectory(documentsFolder);
-
-                var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
-                var filePath = Path.Combine(documentsFolder, uniqueFileName);
-
-                await using (var fileStream = new FileStream(filePath, FileMode.Create))
-                {
-                    await createMentorDto.DocumentFile.CopyToAsync(fileStream);
-                }
-
-                documentPath = $"/uploads/documents/mentor/{uniqueFileName}";
+                var docResult = await FileUploadHelper.UploadFileAsync(
+                    createMentorDto.DocumentFile, uploadPath, "mentor", "document");
+                if (docResult.StatusCode != 200)
+                    return new Response<string>((HttpStatusCode)docResult.StatusCode, docResult.Message);
+                documentPath = docResult.Data;
             }
-            
-            var age = DateUtils.CalculateAge(createMentorDto.Birthday);
 
-           
-            // Формирование имени пользователя на основе номера телефона
-            string username = createMentorDto.PhoneNumber.Replace("(", "").Replace(")", "").Replace("-", "").Replace(" ", "");
-            // Удаление международного кода, если он есть
-            if (username.StartsWith("+"))
-            {
-                username = username.Substring(1);
-            }
-            
-            // Проверка и обеспечение уникальности имени пользователя
-            var existingUserWithSameUsername = await userManager.FindByNameAsync(username);
-            int counter = 0;
-            string originalUsername = username;
-            
-            // Если имя пользователя уже существует, добавляем цифры
-            while (existingUserWithSameUsername != null)
-            {
-                counter++;
-                username = originalUsername + counter;
-                existingUserWithSameUsername = await userManager.FindByNameAsync(username);
-            }
-            
-            var user = new User
-            {
-                UserName = username, // Используем номер телефона как имя пользователя
-                Email = createMentorDto.Email,
-                PhoneNumber = createMentorDto.PhoneNumber,
-                FullName = createMentorDto.FullName,
-                Birthday = createMentorDto.Birthday,
-                Age = age,
-                Gender = createMentorDto.Gender,
-                Address = createMentorDto.Address,
-                CenterId = createMentorDto.CenterId,
-                ProfileImagePath = profileImagePath,
-                ActiveStatus = ActiveStatus.Active,
-                PaymentStatus = createMentorDto.PaymentStatus,
-            };
-            
-            var password = PasswordUtils.GenerateRandomPassword();
-            var result = await userManager.CreateAsync(user, password);
-            if (!result.Succeeded)
-                return new Response<string>(HttpStatusCode.BadRequest,
-                    string.Join(", ", result.Errors.Select(e => e.Description)));
+            // Создание пользователя
+            var userResult = await UserManagementHelper.CreateUserAsync(
+                createMentorDto,
+                userManager,
+                Roles.Teacher,
+                dto => dto.PhoneNumber,
+                dto => dto.Email,
+                dto => dto.FullName,
+                dto => dto.Birthday,
+                dto => dto.Gender,
+                dto => dto.Address,
+                dto => dto.CenterId,
+                _ => profileImagePath);
+            if (userResult.StatusCode != 200)
+                return new Response<string>((HttpStatusCode)userResult.StatusCode, userResult.Message);
 
-            // Назначаем роль ментора
-            await userManager.AddToRoleAsync(user, Roles.Teacher);
+            var (user, password, username) = userResult.Data;
 
+            // Отправка email
             if (!string.IsNullOrEmpty(createMentorDto.Email))
             {
-                // Отправляем письмо с новым username на основе телефона
-                await SendLoginDetailsEmail(createMentorDto.Email, username, password);
+                await EmailHelper.SendLoginDetailsEmailAsync(
+                    emailService,
+                    createMentorDto.Email,
+                    username,
+                    password,
+                    "Mentor",
+                    "#4776E6",
+                    "#8E54E9");
             }
-            
+
+            // Создание ментора
             var mentor = new Mentor
             {
                 FullName = createMentorDto.FullName,
@@ -194,7 +90,7 @@ public class MentorService(
                 Address = createMentorDto.Address,
                 PhoneNumber = createMentorDto.PhoneNumber,
                 Birthday = createMentorDto.Birthday,
-                Age = age,
+                Age = DateUtils.CalculateAge(createMentorDto.Birthday),
                 Gender = createMentorDto.Gender,
                 CenterId = createMentorDto.CenterId,
                 UserId = user.Id,
@@ -205,7 +101,7 @@ public class MentorService(
                 ActiveStatus = ActiveStatus.Active,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
-                PaymentStatus = createMentorDto.PaymentStatus,
+                PaymentStatus = createMentorDto.PaymentStatus
             };
 
             await context.Mentors.AddAsync(mentor);
@@ -217,109 +113,78 @@ public class MentorService(
         }
         catch (Exception ex)
         {
-            return new Response<string>(HttpStatusCode.InternalServerError,
-                $"Ошибка при создании ментора: {ex.Message}");
+            return new Response<string>(HttpStatusCode.InternalServerError, $"Ошибка при создании ментора: {ex.Message}");
         }
     }
-
-    #endregion
 
     public async Task<Response<string>> UpdateMentorAsync(int id, UpdateMentorDto updateMentorDto)
     {
         try
         {
-            // Находим пользователя по ID
-            var user = await context.Users
-                .FirstOrDefaultAsync(u => u.Id == id && !u.IsDeleted);
-
-            if (user == null)
+            var mentor = await context.Mentors.FirstOrDefaultAsync(m => m.Id == id && !m.IsDeleted);
+            if (mentor == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Ментор не найден");
 
-            if (user.Email != updateMentorDto.Email)
-            {
-                var existingUser = await userManager.FindByEmailAsync(updateMentorDto.Email);
-                if (existingUser != null && existingUser.Id != id)
-                    return new Response<string>(HttpStatusCode.BadRequest, "Пользователь с таким email уже существует");
+            var center = await context.Centers.FirstOrDefaultAsync(c => c.Id == updateMentorDto.CenterId && !c.IsDeleted);
+            if (center == null)
+                return new Response<string>(HttpStatusCode.NotFound, "Центр не найден");
 
-                user.Email = updateMentorDto.Email;
-                user.UserName = updateMentorDto.Email;
+            // Обновление изображения профиля
+            if (updateMentorDto.ProfileImage != null)
+            {
+                var imageResult = await FileUploadHelper.UploadFileAsync(
+                    updateMentorDto.ProfileImage, uploadPath, "mentor", "profile", true, mentor.ProfileImage);
+                if (imageResult.StatusCode != 200)
+                    return new Response<string>((HttpStatusCode)imageResult.StatusCode, imageResult.Message);
+                mentor.ProfileImage = imageResult.Data;
             }
-            
-            if (user.CenterId != updateMentorDto.CenterId)
+
+            mentor.FullName = updateMentorDto.FullName;
+            mentor.Email = updateMentorDto.Email;
+            mentor.PhoneNumber = updateMentorDto.PhoneNumber;
+            mentor.Address = updateMentorDto.Address;
+            mentor.Birthday = updateMentorDto.Birthday;
+            mentor.Age = DateUtils.CalculateAge(updateMentorDto.Birthday);
+            mentor.Gender = updateMentorDto.Gender;
+            mentor.Experience = updateMentorDto.Experience;
+            mentor.Salary = updateMentorDto.Salary;
+            mentor.ActiveStatus = updateMentorDto.ActiveStatus;
+            mentor.PaymentStatus = updateMentorDto.PaymentStatus;
+            mentor.UpdatedAt = DateTime.UtcNow;
+
+            if (mentor.UserId != null)
             {
-                var center =
-                    await context.Centers.FirstOrDefaultAsync(c => c.Id == updateMentorDto.CenterId && !c.IsDeleted);
-                if (center == null)
-                    return new Response<string>(HttpStatusCode.NotFound, "Центр не найден");
-
-                user.CenterId = updateMentorDto.CenterId;
-            }
-            
-            user.PhoneNumber = updateMentorDto.PhoneNumber;
-            user.FullName = updateMentorDto.FullName;
-            user.Address = updateMentorDto.Address;
-            user.Birthday = updateMentorDto.Birthday;
-            user.Gender = updateMentorDto.Gender;
-            user.ActiveStatus = updateMentorDto.ActiveStatus;
-            user.PaymentStatus = updateMentorDto.PaymentStatus;
-            user.Salary = updateMentorDto.Salary;
-            user.UpdatedAt = DateTime.UtcNow;
-
-            if (updateMentorDto.ProfileImage != null && updateMentorDto.ProfileImage.Length > 0)
-            {
-                var fileExtension = Path.GetExtension(updateMentorDto.ProfileImage.FileName).ToLowerInvariant();
-                if (!_allowedImageExtensions.Contains(fileExtension))
-                    return new Response<string>(HttpStatusCode.BadRequest,
-                        "Недопустимый формат изображения. Разрешенные форматы: .jpg, .jpeg, .png, .gif");
-
-                if (updateMentorDto.ProfileImage.Length > MaxImageSize)
-                    return new Response<string>(HttpStatusCode.BadRequest, "Размер изображения не должен превышать 10МБ");
-
-                if (!string.IsNullOrEmpty(user.ProfileImagePath))
+                var user = await userManager.FindByIdAsync(mentor.UserId.ToString());
+                if (user != null)
                 {
-                    var oldImagePath = Path.Combine(uploadPath, user.ProfileImagePath.TrimStart('/'));
-                    if (File.Exists(oldImagePath))
-                    {
-                        try
-                        {
-                            File.Delete(oldImagePath);
-                        }
-                        catch
-                        {
-                            
-                        }
-                    }
+                    var updateResult = await UserManagementHelper.UpdateUserAsync(
+                        user,
+                        updateMentorDto,
+                        userManager,
+                        dto => dto.Email,
+                        dto => dto.FullName,
+                        dto => dto.PhoneNumber,
+                        dto => dto.Birthday,
+                        dto => dto.Gender,
+                        dto => dto.Address,
+                        dto => dto.ActiveStatus,
+                        dto => updateMentorDto.CenterId,
+                        dto => dto.PaymentStatus);
+                    if (updateResult.StatusCode != 200)
+                        return updateResult;
                 }
-
-       
-                var profilesFolder = Path.Combine(uploadPath, "uploads", "mentor");
-                if (!Directory.Exists(profilesFolder))
-                    Directory.CreateDirectory(profilesFolder);
-
-                var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
-                var filePath = Path.Combine(profilesFolder, uniqueFileName);
-
-                await using (var fileStream = new FileStream(filePath, FileMode.Create))
-                {
-                    await updateMentorDto.ProfileImage.CopyToAsync(fileStream);
-                }
-
-                var profileImagePath = $"/uploads/mentor/{uniqueFileName}";
-                user.ProfileImagePath = profileImagePath;
             }
 
-            context.Users.Update(user);
-            var result = await context.SaveChangesAsync();
+            context.Mentors.Update(mentor);
+            var res = await context.SaveChangesAsync();
 
-            if (result > 0)
-                return new Response<string>(HttpStatusCode.OK, "Ментор успешно обновлен");
-            else
-                return new Response<string>(HttpStatusCode.InternalServerError, "Не удалось обновить ментора");
+            return res > 0
+                ? new Response<string>(HttpStatusCode.OK, "Ментор успешно обновлен")
+                : new Response<string>(HttpStatusCode.InternalServerError, "Не удалось обновить ментора");
         }
         catch (Exception ex)
         {
-            return new Response<string>(HttpStatusCode.InternalServerError,
-                $"Ошибка при обновлении ментора: {ex.Message}");
+            return new Response<string>(HttpStatusCode.InternalServerError, $"Ошибка при обновлении ментора: {ex.Message}");
         }
     }
 
@@ -327,26 +192,22 @@ public class MentorService(
     {
         try
         {
-            var mentor = await context.Mentors
-                .FirstOrDefaultAsync(m => m.Id == id && !m.IsDeleted);
-
+            var mentor = await context.Mentors.FirstOrDefaultAsync(m => m.Id == id && !m.IsDeleted);
             if (mentor == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Ментор не найден");
-            
+
             mentor.IsDeleted = true;
             mentor.UpdatedAt = DateTime.UtcNow;
             context.Mentors.Update(mentor);
-            
-            var user = await context.Users
-                .FirstOrDefaultAsync(u => u.Id == mentor.UserId && !u.IsDeleted);
 
+            var user = await context.Users.FirstOrDefaultAsync(u => u.Id == mentor.UserId && !u.IsDeleted);
             if (user != null)
             {
                 user.IsDeleted = true;
                 user.UpdatedAt = DateTime.UtcNow;
                 context.Users.Update(user);
             }
-            
+
             var mentorGroups = await context.MentorGroups
                 .Where(mg => mg.MentorId == id && !mg.IsDeleted)
                 .ToListAsync();
@@ -369,12 +230,9 @@ public class MentorService(
         }
         catch (Exception ex)
         {
-            return new Response<string>(HttpStatusCode.InternalServerError,
-                $"Ошибка при удалении ментора: {ex.Message}");
+            return new Response<string>(HttpStatusCode.InternalServerError, $"Ошибка при удалении ментора: {ex.Message}");
         }
     }
-
-    #region Get Methods
 
     public async Task<Response<List<GetMentorDto>>> GetMentors()
     {
@@ -400,9 +258,9 @@ public class MentorService(
                     CenterId = m.CenterId,
                     UserId = m.UserId
                 });
-            
+
             var mentors = await mentorsQuery.ToListAsync();
-            
+
             foreach (var mentor in mentors)
             {
                 if (mentor.UserId > 0)
@@ -423,8 +281,7 @@ public class MentorService(
         }
         catch (Exception ex)
         {
-            return new Response<List<GetMentorDto>>(HttpStatusCode.InternalServerError,
-                $"Ошибка при получении менторов: {ex.Message}");
+            return new Response<List<GetMentorDto>>(HttpStatusCode.InternalServerError, $"Ошибка при получении менторов: {ex.Message}");
         }
     }
 
@@ -462,123 +319,60 @@ public class MentorService(
         }
         catch (Exception ex)
         {
-            return new Response<GetMentorDto>(HttpStatusCode.InternalServerError,
-                $"Ошибка при получении ментора: {ex.Message}");
+            return new Response<GetMentorDto>(HttpStatusCode.InternalServerError, $"Ошибка при получении ментора: {ex.Message}");
         }
     }
 
-
-    #endregion
-
-    #region UpdateUserProfileImageAsync
-
-    public async Task<Response<string>> UpdateUserProfileImageAsync(int id, IFormFile? profileImage)
+    public async Task<Response<string>> UpdateMentorDocumentAsync(int mentorId, IFormFile? documentFile)
     {
-        try
-        {
-            // Находим ментора по ID
-            var mentor = await context.Mentors.FirstOrDefaultAsync(m => m.Id == id && !m.IsDeleted);
-            if (mentor == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Ментор не найден");
+        var mentor = await context.Mentors.FirstOrDefaultAsync(s => s.Id == mentorId && !s.IsDeleted);
+        if (mentor == null)
+            return new Response<string>(HttpStatusCode.NotFound, "Ментор не найден");
 
-            // Проверяем, что изображение предоставлено
-            if (profileImage == null || profileImage.Length == 0)
-                return new Response<string>(HttpStatusCode.BadRequest, "Изображение не предоставлено");
-                
-            // Проверка формата и размера изображения
-            var fileExtension = Path.GetExtension(profileImage.FileName).ToLowerInvariant();
-            if (!_allowedImageExtensions.Contains(fileExtension))
-                return new Response<string>(HttpStatusCode.BadRequest,
-                    "Недопустимый формат изображения. Разрешенные форматы: .jpg, .jpeg, .png, .gif");
+        var docResult = await FileUploadHelper.UploadFileAsync(
+            documentFile, uploadPath, "mentor", "document", true, mentor.Document);
+        if (docResult.StatusCode != 200)
+            return new Response<string>((HttpStatusCode)docResult.StatusCode, docResult.Message);
 
-            if (profileImage.Length > MaxImageSize)
-                return new Response<string>(HttpStatusCode.BadRequest, "Размер изображения не должен превышать 10МБ");
-                
-            // Создаем директорию, если она не существует
-            var profilesFolder = Path.Combine(uploadPath, "uploads", "mentor");
-            if (!Directory.Exists(profilesFolder))
-                Directory.CreateDirectory(profilesFolder);
-                
-            // Удаляем старое изображение, если оно существует
-            if (!string.IsNullOrEmpty(mentor.ProfileImage))
-            {
-                var oldImagePath = Path.Combine(uploadPath, mentor.ProfileImage.TrimStart('/'));
-                if (File.Exists(oldImagePath))
-                {
-                    try
-                    {
-                        File.Delete(oldImagePath);
-                    }
-                    catch
-                    {
-                        // Игнорируем ошибки при удалении старого файла
-                    }
-                }
-            }
-            
-            // Сохраняем новое изображение
-            var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
-            var filePath = Path.Combine(profilesFolder, uniqueFileName);
-            
-            await using (var fileStream = new FileStream(filePath, FileMode.Create))
-            {
-                await profileImage.CopyToAsync(fileStream);
-            }
-            
-            var profileImagePath = $"/uploads/mentor/{uniqueFileName}";
+        mentor.Document = docResult.Data;
+        mentor.UpdatedAt = DateTime.UtcNow;
+        context.Mentors.Update(mentor);
+        var res = await context.SaveChangesAsync();
 
-            // Обновляем ментора
-            mentor.ProfileImage = profileImagePath;
-            mentor.UpdatedAt = DateTime.UtcNow;
-            context.Mentors.Update(mentor);
-            
-            // Обновляем связанного пользователя
-            var user = await context.Users.FirstOrDefaultAsync(u => u.Id == mentor.UserId && !u.IsDeleted);
-            if (user != null)
-            {
-                user.ProfileImagePath = profileImagePath;
-                user.UpdatedAt = DateTime.UtcNow;
-                context.Users.Update(user);
-            }
-            
-            var result = await context.SaveChangesAsync();
-            
-            return result > 0
-                ? new Response<string>(HttpStatusCode.OK, "Изображение профиля успешно обновлено")
-                : new Response<string>(HttpStatusCode.InternalServerError, "Не удалось обновить изображение профиля");
-        }
-        catch (Exception ex)
-        {
-            return new Response<string>(HttpStatusCode.InternalServerError, $"Ошибка при обновлении изображения профиля: {ex.Message}");
-        }
+        return res > 0
+            ? new Response<string>(HttpStatusCode.OK, "Mentor document updated successfully")
+            : new Response<string>(HttpStatusCode.BadRequest, "Failed to update mentor document");
     }
 
-    #endregion
+    public async Task<Response<byte[]>> GetMentorDocument(int mentorId)
+    {
+        var mentor = await context.Mentors.FirstOrDefaultAsync(s => s.Id == mentorId && !s.IsDeleted);
+        if (mentor == null)
+            return new Response<byte[]>(HttpStatusCode.NotFound, "Ментор не найден");
+
+        return await FileUploadHelper.GetFileAsync(mentor.Document, uploadPath);
+    }
 
     public async Task<PaginationResponse<List<GetMentorDto>>> GetMentorsPagination(MentorFilter filter)
     {
         try
         {
-            var query = context.Mentors
-                .Where(u =>
-                    !u.IsDeleted);
+            var query = context.Mentors.Where(u => !u.IsDeleted);
 
- 
             if (!string.IsNullOrEmpty(filter.FullName))
                 query = query.Where(s => s.FullName.Contains(filter.FullName));
 
             if (!string.IsNullOrEmpty(filter.PhoneNumber))
-                query = query.Where(s => s.Email.Contains(filter.PhoneNumber));
-            
+                query = query.Where(s => s.PhoneNumber.Contains(filter.PhoneNumber));
 
             if (filter.Age.HasValue)
-                query = query.Where(s => s.CenterId == filter.Age.Value);
+                query = query.Where(s => s.Age == filter.Age.Value);
 
             if (filter.Gender.HasValue)
                 query = query.Where(s => s.Gender == filter.Gender.Value);
-            
+
             var totalCount = await query.CountAsync();
-            
+
             var mentors = await query
                 .OrderBy(u => u.FullName)
                 .Skip((filter.PageNumber - 1) * filter.PageSize)
@@ -607,7 +401,6 @@ public class MentorService(
             if (mentors.Count == 0 && filter.PageNumber > 1)
                 return new PaginationResponse<List<GetMentorDto>>(HttpStatusCode.NotFound, "Менторы не найдены");
 
-            // Создаем ответ с пагинацией
             return new PaginationResponse<List<GetMentorDto>>
             {
                 Data = mentors,
@@ -619,8 +412,7 @@ public class MentorService(
         }
         catch (Exception ex)
         {
-            return new PaginationResponse<List<GetMentorDto>>(HttpStatusCode.InternalServerError,
-                $"Ошибка при получении менторов: {ex.Message}");
+            return new PaginationResponse<List<GetMentorDto>>(HttpStatusCode.InternalServerError, $"Ошибка при получении менторов: {ex.Message}");
         }
     }
 
@@ -638,8 +430,7 @@ public class MentorService(
                 .ToListAsync();
 
             if (mentorIds.Count == 0)
-                return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound,
-                    "Менторы не найдены для данной группы");
+                return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound, "Менторы не найдены для данной группы");
 
             var mentors = await context.Mentors
                 .Where(u => mentorIds.Contains(u.Id) && !u.IsDeleted)
@@ -668,8 +459,7 @@ public class MentorService(
         }
         catch (Exception ex)
         {
-            return new Response<List<GetMentorDto>>(HttpStatusCode.InternalServerError,
-                $"Ошибка при получении менторов группы: {ex.Message}");
+            return new Response<List<GetMentorDto>>(HttpStatusCode.InternalServerError, $"Ошибка при получении менторов группы: {ex.Message}");
         }
     }
 
@@ -680,6 +470,7 @@ public class MentorService(
             var course = await context.Courses.FirstOrDefaultAsync(c => c.Id == courseId && !c.IsDeleted);
             if (course == null)
                 return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound, "Курс не найден");
+
             var groupIds = await context.Groups
                 .Where(g => g.CourseId == courseId && !g.IsDeleted)
                 .Select(g => g.Id)
@@ -695,8 +486,7 @@ public class MentorService(
                 .ToListAsync();
 
             if (mentorIds.Count == 0)
-                return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound,
-                    "Менторы не найдены для данного курса");
+                return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound, "Менторы не найдены для данного курса");
 
             var mentors = await context.Mentors
                 .Where(u => mentorIds.Contains(u.Id) && !u.IsDeleted)
@@ -725,90 +515,39 @@ public class MentorService(
         }
         catch (Exception ex)
         {
-            return new Response<List<GetMentorDto>>(HttpStatusCode.InternalServerError,
-                $"Ошибка при получении менторов курса: {ex.Message}");
-        }
-    }
-    
-    public async Task<Response<string>> UpdateMentorDocumentAsync(int mentorId, IFormFile? documentFile)
-    {
-        try
-        {
-            var mentor = await context.Mentors.FirstOrDefaultAsync(s => s.Id == mentorId && !s.IsDeleted);
-            if (mentor == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Ментор не найден");
-
-            if (documentFile == null || documentFile.Length == 0)
-                return new Response<string>(HttpStatusCode.BadRequest, "Файл документа не предоставлен");
-
-            var fileExtension = Path.GetExtension(documentFile.FileName).ToLowerInvariant();
-            if (!_allowedDocumentExtensions.Contains(fileExtension))
-                return new Response<string>(HttpStatusCode.BadRequest, 
-                    "Недопустимый формат документа. Разрешенные форматы: .pdf, .doc, .docx, .jpg, .jpeg, .png");
-
-            if (documentFile.Length > MaxDocumentSize)
-                return new Response<string>(HttpStatusCode.BadRequest, "Размер документа не должен превышать 20МБ");
-
-            // Удаляем старый документ, если он существует
-            if (!string.IsNullOrEmpty(mentor.Document))
-            {
-                var oldDocumentPath = Path.Combine(uploadPath, mentor.Document.TrimStart('/'));
-                if (File.Exists(oldDocumentPath))
-                    File.Delete(oldDocumentPath);
-            }
-
-            // Создаем папку для документов, если она не существует
-            var documentsFolder = Path.Combine(uploadPath, "uploads", "documents", "mentor");
-            if (!Directory.Exists(documentsFolder))
-                Directory.CreateDirectory(documentsFolder);
-
-            // Создаем уникальное имя файла
-            var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
-            var filePath = Path.Combine(documentsFolder, uniqueFileName);
-
-            // Сохраняем файл
-            await using (var fileStream = new FileStream(filePath, FileMode.Create))
-            {
-                await documentFile.CopyToAsync(fileStream);
-            }
-
-            // Обновляем путь к документу в БД
-            mentor.Document = $"/uploads/documents/mentor/{uniqueFileName}";
-            mentor.UpdatedAt = DateTime.UtcNow;
-
-            await context.SaveChangesAsync();
-
-            return new Response<string>(HttpStatusCode.OK, "Документ успешно обновлен");
-        }
-        catch (Exception ex)
-        {
-            return new Response<string>(HttpStatusCode.InternalServerError, $"Ошибка при обновлении документа: {ex.Message}");
+            return new Response<List<GetMentorDto>>(HttpStatusCode.InternalServerError, $"Ошибка при получении менторов курса: {ex.Message}");
         }
     }
 
-    public async Task<Response<byte[]>> GetMentorDocument(int mentorId)
+    public async Task<Response<string>> UpdateUserProfileImageAsync(int id, IFormFile? profileImage)
     {
-        try
+        var mentor = await context.Mentors.FirstOrDefaultAsync(m => m.Id == id && !m.IsDeleted);
+        if (mentor == null)
+            return new Response<string>(HttpStatusCode.NotFound, "Ментор не найден");
+
+        var imageResult = await FileUploadHelper.UploadFileAsync(
+            profileImage, uploadPath, "mentor", "profile", true, mentor.ProfileImage);
+        if (imageResult.StatusCode != 200)
+            return new Response<string>((HttpStatusCode)imageResult.StatusCode, imageResult.Message);
+
+        mentor.ProfileImage = imageResult.Data;
+        mentor.UpdatedAt = DateTime.UtcNow;
+
+        if (mentor.UserId != null)
         {
-            var mentor = await context.Mentors.FirstOrDefaultAsync(s => s.Id == mentorId && !s.IsDeleted);
-            if (mentor == null)
-                return new Response<byte[]>(HttpStatusCode.NotFound, "Ментор не найден");
-
-            if (string.IsNullOrEmpty(mentor.Document))
-                return new Response<byte[]>(HttpStatusCode.NotFound, "У ментора нет документа");
-
-            // Преобразуем путь к документу в абсолютный путь в файловой системе
-            var filePath = Path.Combine(uploadPath, mentor.Document.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
-
-            if (!File.Exists(filePath))
-                return new Response<byte[]>(HttpStatusCode.NotFound, $"Файл не найден: {filePath}");
-            
-            var fileBytes = await File.ReadAllBytesAsync(filePath);
-            return new Response<byte[]>(fileBytes);
+            var user = await userManager.FindByIdAsync(mentor.UserId.ToString());
+            if (user != null)
+            {
+                user.ProfileImagePath = mentor.ProfileImage;
+                await userManager.UpdateAsync(user);
+            }
         }
-        catch (Exception ex)
-        {
-            return new Response<byte[]>(HttpStatusCode.InternalServerError, $"Ошибка при получении документа: {ex.Message}");
-        }
+
+        context.Mentors.Update(mentor);
+        var res = await context.SaveChangesAsync();
+
+        return res > 0
+            ? new Response<string>(HttpStatusCode.OK, "Profile image updated successfully")
+            : new Response<string>(HttpStatusCode.BadRequest, "Failed to update profile image");
     }
 }

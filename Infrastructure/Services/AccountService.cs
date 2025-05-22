@@ -1,116 +1,90 @@
 using System.IdentityModel.Tokens.Jwt;
+using System.Net;
 using System.Security.Claims;
 using System.Text;
-using Domain.Entities;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Configuration;
-using System.Net;
 using Domain.DTOs.Account;
-using Domain.DTOs.EmailDTOs;
+using Domain.Entities;
+using Domain.Enums;
 using Domain.Responses;
 using Infrastructure.Data;
+using Infrastructure.Helpers;
 using Infrastructure.Interfaces;
 using Infrastructure.Services.EmailService;
 using Infrastructure.Services.HashService;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
-using MimeKit.Text;
-
-using Infrastructure.Helpers;
 
 namespace Infrastructure.Services;
 
-public class AccountService(UserManager<User> userManager, 
-    RoleManager<IdentityRole<int>> roleManager, IConfiguration configuration,
-    DataContext context, IEmailService emailService,
-    IHashService hashService, string uploadPath) : IAccountService
+public class AccountService(
+    UserManager<User> userManager,
+    RoleManager<IdentityRole<int>> roleManager,
+    IConfiguration configuration,
+    DataContext context,
+    IEmailService emailService,
+    IHashService hashService,
+    string uploadPath) : IAccountService
 {
-    private readonly string[] _allowedImageExtensions = [".jpg", ".jpeg", ".png", ".gif"];
-    private const long MaxImageSize = 50 * 1024 * 1024; 
-
-    #region Register
-    
-
     public async Task<Response<string>> Register(RegisterDto model)
     {
-        var existingUser = await userManager.FindByNameAsync(model.PhoneNumber);
-        if (existingUser != null)
-            return new Response<string>(HttpStatusCode.BadRequest, "Phone Number already exists");
-        string profileImagePath = string.Empty;
-        if (model.ProfileImage != null && model.ProfileImage.Length > 0)
+        try
         {
-            var fileExtension = Path.GetExtension(model.ProfileImage.FileName).ToLowerInvariant();
-            if (!_allowedImageExtensions.Contains(fileExtension))
-                return new Response<string>(HttpStatusCode.BadRequest,
-                    "Invalid profile image format. Allowed formats: .jpg, .jpeg, .png, .gif");
+            var existingUser = await userManager.FindByNameAsync(model.UserName);
+            if (existingUser != null)
+                return new Response<string>(HttpStatusCode.BadRequest, "Username already exists");
 
-            if (model.ProfileImage.Length > MaxImageSize)
-                return new Response<string>(HttpStatusCode.BadRequest, "Profile image size must be less than 10MB");
-
-            var profilesFolder = Path.Combine(uploadPath, "uploads", "profiles");
-            if (!Directory.Exists(profilesFolder))
-                Directory.CreateDirectory(profilesFolder);
-
-            var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
-            var filePath = Path.Combine(profilesFolder, uniqueFileName);
-
-            await using (var fileStream = new FileStream(filePath, FileMode.Create))
+            // Загрузка изображения профиля
+            string profileImagePath = string.Empty;
+            if (model.ProfileImage != null)
             {
-                await model.ProfileImage.CopyToAsync(fileStream);
+                var imageResult = await FileUploadHelper.UploadFileAsync(
+                    model.ProfileImage, uploadPath, "profiles", "profile");
+                if (imageResult.StatusCode != 200)
+                    return new Response<string>((HttpStatusCode)imageResult.StatusCode, imageResult.Message);
+                profileImagePath = imageResult.Data;
             }
 
-            profileImagePath = $"/uploads/profiles/{uniqueFileName}";
+            // Создание пользователя
+            var userResult = await UserManagementHelper.CreateUserAsync(
+                model,
+                userManager,
+                Roles.Student.ToString(),
+                dto => dto.UserName,
+                dto => dto.Email,
+                dto => dto.FullName,
+                dto => dto.Birthday,
+                dto => dto.Gender,
+                dto => dto.Address,
+                dto => dto.CenterId,
+                _ => profileImagePath,
+                false); // Не использовать номер телефона как имя пользователя
+            if (userResult.StatusCode != 200)
+                return new Response<string>((HttpStatusCode)userResult.StatusCode, userResult.Message);
+
+            var (_, password, username) = userResult.Data;
+
+            // Отправка email
+            if (!string.IsNullOrEmpty(model.Email))
+            {
+                await EmailHelper.SendLoginDetailsEmailAsync(
+                    emailService,
+                    model.Email,
+                    username,
+                    password,
+                    "User",
+                    "#5E60CE",
+                    "#4EA8DE");
+            }
+
+            return new Response<string>("User registered successfully. Login credentials sent to user's email.");
         }
-
-        
-        string password = PasswordUtils.GenerateRandomPassword();
-
-        var newUser = new User
+        catch (Exception ex)
         {
-            FullName = model.FullName,
-            UserName = model.UserName,
-            Email = model.Email,
-            Birthday = model.Birthday,
-            Age = DateUtils.CalculateAge(model.Birthday),
-            ProfileImagePath = profileImagePath,
-            Address = model.Address,
-            PhoneNumber = model.PhoneNumber,
-        };
-
-        var result = await userManager.CreateAsync(newUser, password);
-        if (!result.Succeeded)
-        {
-            var errors = string.Join("; ", result.Errors.Select(e => e.Description));
-            return new Response<string>(HttpStatusCode.BadRequest, errors);
+            return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
         }
-        
-        await SendLoginCredentialsEmail(newUser.Email, newUser.UserName, password);
-        
-        return new Response<string>("User registered successfully. Login credentials sent to user's email.");
     }
-
-    private async Task SendLoginCredentialsEmail(string email, string username, string password)
-    {
-        string emailSubject = "Your CRM Account Login Credentials";
-        string emailContent = $@"
-            <h1>Welcome to our CRM System</h1>
-            <p>Your account has been created successfully. Below are your login credentials:</p>
-            <p><strong>Username:</strong> {username}</p>
-            <p><strong>Password:</strong> {password}</p>
-            <p>Please keep this information secure and change your password after your first login.</p>
-            <p>Thank you for using our system!</p>
-        ";
-    
-        await emailService.SendEmail(
-            new EmailMessageDto(new[] { email }, emailSubject, emailContent),
-            TextFormat.Html
-        );
-    }
-
-    #endregion
-
-
-    #region Login
 
     public async Task<Response<string>> Login(LoginDto login)
     {
@@ -126,10 +100,6 @@ public class AccountService(UserManager<User> userManager,
         return new Response<string>(token) { Message = "Login successful" };
     }
 
-    #endregion
-
-    #region AddRoleToUser
-
     public async Task<Response<string>> AddRoleToUser(RoleDto userRole)
     {
         var user = await userManager.FindByIdAsync(userRole.UserId);
@@ -141,10 +111,7 @@ public class AccountService(UserManager<User> userManager,
 
         var result = await userManager.AddToRoleAsync(user, userRole.RoleName);
         if (!result.Succeeded)
-        {
-            var errors = string.Join("; ", result.Errors.Select(e => e.Description));
-            return new Response<string>(HttpStatusCode.BadRequest, errors);
-        }
+            return new Response<string>(HttpStatusCode.BadRequest, IdentityHelper.FormatIdentityErrors(result));
 
         return new Response<string>("Role added successfully");
     }
@@ -166,10 +133,6 @@ public class AccountService(UserManager<User> userManager,
         }
     }
 
-    #endregion
-
-    #region RemoveRoleFromUser
-
     public async Task<Response<string>> RemoveRoleFromUser(RoleDto userRole)
     {
         var user = await userManager.FindByIdAsync(userRole.UserId);
@@ -178,17 +141,10 @@ public class AccountService(UserManager<User> userManager,
 
         var result = await userManager.RemoveFromRoleAsync(user, userRole.RoleName);
         if (!result.Succeeded)
-        {
-            var errors = string.Join("; ", result.Errors.Select(e => e.Description));
-            return new Response<string>(HttpStatusCode.BadRequest, errors);
-        }
+            return new Response<string>(HttpStatusCode.BadRequest, IdentityHelper.FormatIdentityErrors(result));
 
         return new Response<string>("Role removed successfully");
     }
-
-    #endregion
-
-    #region GenerateJwtToken
 
     private async Task<string> GenerateJwtToken(User user)
     {
@@ -200,7 +156,7 @@ public class AccountService(UserManager<User> userManager,
             new Claim(JwtRegisteredClaimNames.Name, user.UserName),
             new Claim(JwtRegisteredClaimNames.Email, user.Email),
             new Claim(JwtRegisteredClaimNames.NameId, user.Id.ToString()),
-            new Claim("CenterId",user.CenterId.ToString()!)
+            new Claim("CenterId", user.CenterId.ToString()!)
         };
 
         var roles = await userManager.GetRolesAsync(user);
@@ -218,9 +174,6 @@ public class AccountService(UserManager<User> userManager,
         return tokenString;
     }
 
-    #endregion
-
-    #region ResetPassword
     public async Task<Response<string>> ResetPassword(ResetPasswordDto resetPasswordDto)
     {
         try
@@ -238,18 +191,12 @@ public class AccountService(UserManager<User> userManager,
             var timeElapsed = DateTimeOffset.UtcNow - existingUser.CodeDate;
             if (timeElapsed.TotalMinutes > 3)
                 return new Response<string>(HttpStatusCode.BadRequest, "Code expired");
-            
-            var resetToken = await userManager.GeneratePasswordResetTokenAsync(existingUser);
 
-            // Сброс пароля
+            var resetToken = await userManager.GeneratePasswordResetTokenAsync(existingUser);
             var resetResult = await userManager.ResetPasswordAsync(existingUser, resetToken, resetPasswordDto.Password);
             if (!resetResult.Succeeded)
-            {
-                var errors = string.Join("; ", resetResult.Errors.Select(e => e.Description));
-                return new Response<string>(HttpStatusCode.BadRequest, errors);
-            }
+                return new Response<string>(HttpStatusCode.BadRequest, IdentityHelper.FormatIdentityErrors(resetResult));
 
-            
             existingUser.Code = null;
             existingUser.CodeDate = default;
             await context.SaveChangesAsync();
@@ -258,55 +205,39 @@ public class AccountService(UserManager<User> userManager,
         }
         catch (Exception ex)
         {
-            return new Response<string>(HttpStatusCode.BadRequest, ex.Message);
+            return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
 
-    #endregion
-
-    #region ForgotPasswordCodeGenerator
     public async Task<Response<string>> ForgotPasswordCodeGenerator(ForgotPasswordDto forgotPasswordDto)
     {
         try
         {
             if (forgotPasswordDto == null)
-            {
                 return new Response<string>(HttpStatusCode.BadRequest, "Invalid request data");
-            }
 
             var existingUser = await context.Users.FirstOrDefaultAsync(x => x.Email == forgotPasswordDto.Email);
             if (existingUser == null)
-            {
                 return new Response<string>(HttpStatusCode.NotFound, "User not found");
-            }
 
-            var code = new Random().Next(1000, 9999);
-            var resetToken = code.ToString();
-            existingUser.Code = resetToken;
+            var code = new Random().Next(1000, 9999).ToString();
+            existingUser.Code = code;
             existingUser.CodeDate = DateTime.UtcNow;
 
             var res = await context.SaveChangesAsync();
             if (res <= 0)
-            {
                 return new Response<string>(HttpStatusCode.BadRequest, "Could not generate reset code");
-            }
-            
-            string emailContent = $"<h1>Your password reset code is:</h1><p>{resetToken}</p>";
-            await emailService.SendEmail(
-                new EmailMessageDto(new[] { forgotPasswordDto.Email }, "Reset Password Code", emailContent),
-                TextFormat.Html
-            );
+
+            await EmailHelper.SendResetPasswordCodeEmailAsync(emailService, forgotPasswordDto.Email, code);
 
             return new Response<string>(HttpStatusCode.OK, "Reset code sent successfully");
         }
         catch (Exception ex)
         {
-            return new Response<string>(HttpStatusCode.BadRequest, ex.Message);
+            return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
-    #endregion
-    
-    #region ChangePassword
+
     public async Task<Response<string>> ChangePassword(ChangePasswordDto passwordDto, int userId)
     {
         try
@@ -316,24 +247,17 @@ public class AccountService(UserManager<User> userManager,
 
             var existingUser = await userManager.Users.FirstOrDefaultAsync(x => x.Id == userId);
             if (existingUser == null)
-                return new Response<string>(HttpStatusCode.BadRequest, "User not found");
-            
+                return new Response<string>(HttpStatusCode.NotFound, "User not found");
+
             var changePassResult = await userManager.ChangePasswordAsync(existingUser, passwordDto.OldPassword, passwordDto.Password);
             if (!changePassResult.Succeeded)
-            {
-                var errors = string.Join("; ", changePassResult.Errors.Select(e => e.Description));
-                return new Response<string>(HttpStatusCode.BadRequest, errors);
-            }
+                return new Response<string>(HttpStatusCode.BadRequest, IdentityHelper.FormatIdentityErrors(changePassResult));
 
             return new Response<string>(HttpStatusCode.OK, "Password changed successfully");
         }
         catch (Exception ex)
         {
-            return new Response<string>(HttpStatusCode.BadRequest, ex.Message);
+            return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
-    #endregion
-
-
-    
 }

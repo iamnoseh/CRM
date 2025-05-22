@@ -7,4 +7,5 @@ public enum Role
     Teacher,
     SuperAdmin,
     Student,
+    User
 }

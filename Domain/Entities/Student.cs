@@ -28,7 +28,7 @@ public class Student : BaseEntity
     public decimal TotalPaid { get; set; } = 0;
     public DateTime? LastPaymentDate { get; set; }
     public DateTime? NextPaymentDueDate { get; set; }
-    public int? CenterId { get; set; }
+    public int CenterId { get; set; }
     public Center? Center { get; set; }
     
     public List<StudentGroup> StudentGroups { get; set; } = new();

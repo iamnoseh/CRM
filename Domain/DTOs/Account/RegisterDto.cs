@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Domain.Enums;
 using Microsoft.AspNetCore.Http;
 namespace Domain.DTOs.Account;
 
@@ -13,6 +14,8 @@ public class RegisterDto
     [Required]
     public DateTime Birthday { get; set; }
     public string PhoneNumber { get; set; } = string.Empty; 
+    public Gender Gender { get; set; }
+    public int CenterId { get; set; }
     public string Address { get; set; } = string.Empty;
     [Required]
     [EmailAddress(ErrorMessage = "Invalid email address")]
