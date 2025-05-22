@@ -8,7 +8,6 @@ namespace Domain.DTOs.Student;
 
 public class GetStudentDetailedDto
 {
-    // Основная информация
     public int Id { get; set; }
     public string FullName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;

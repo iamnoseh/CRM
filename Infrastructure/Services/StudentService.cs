@@ -118,7 +118,7 @@ public class StudentService(
             existingUserWithSameUsername = await userManager.FindByNameAsync(username);
         }
 
-        string profileImagePath = string.Empty;
+        var profileImagePath = string.Empty;
         if (createStudentDto.ProfilePhoto != null && createStudentDto.ProfilePhoto.Length > 0)
         {
             var fileExtension = Path.GetExtension(createStudentDto.ProfilePhoto.FileName).ToLowerInvariant();
@@ -142,6 +142,38 @@ public class StudentService(
             }
 
             profileImagePath = $"/uploads/student/{uniqueFileName}";
+        }
+        
+        // Handle document file upload
+        string documentPath = string.Empty;
+        if (createStudentDto.DocumentFile != null && createStudentDto.DocumentFile.Length > 0)
+        {
+            var fileExtension = Path.GetExtension(createStudentDto.DocumentFile.FileName).ToLowerInvariant();
+            // Allowed document formats: .pdf, .doc, .docx, .jpg, .jpeg, .png
+            string[] allowedDocumentExtensions = { ".pdf", ".doc", ".docx", ".jpg", ".jpeg", ".png" };
+            
+            if (!allowedDocumentExtensions.Contains(fileExtension))
+                return new Response<string>(HttpStatusCode.BadRequest,
+                    "Invalid document format. Allowed formats: .pdf, .doc, .docx, .jpg, .jpeg, .png");
+
+            // Maximum document size: 20 MB
+            const long maxDocumentSize = 20 * 1024 * 1024;
+            if (createStudentDto.DocumentFile.Length > maxDocumentSize)
+                return new Response<string>(HttpStatusCode.BadRequest, "Document size must be less than 20MB");
+
+            var documentsFolder = Path.Combine(uploadPath, "uploads", "documents", "student");
+            if (!Directory.Exists(documentsFolder))
+                Directory.CreateDirectory(documentsFolder);
+
+            var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
+            var filePath = Path.Combine(documentsFolder, uniqueFileName);
+
+            await using (var fileStream = new FileStream(filePath, FileMode.Create))
+            {
+                await createStudentDto.DocumentFile.CopyToAsync(fileStream);
+            }
+
+            documentPath = $"/uploads/documents/student/{uniqueFileName}";
         }
 
         var age = CalculateAge(createStudentDto.Birthday);
@@ -188,6 +220,7 @@ public class StudentService(
             CenterId = createStudentDto.CenterId,
             UserId = user.Id,
             ProfileImage = profileImagePath,
+            Document = documentPath,
             ActiveStatus = Domain.Enums.ActiveStatus.Active,
             PaymentStatus = Domain.Enums.PaymentStatus.Completed
         };
@@ -293,7 +326,8 @@ public class StudentService(
                 ActiveStatus = s.ActiveStatus,
                 PaymentStatus = s.PaymentStatus,
                 UserId = s.UserId ,
-                ImagePath = s.ProfileImage
+                ImagePath = s.ProfileImage,
+                Document = s.Document
             });
             
         var students = await studentsQuery.ToListAsync();
@@ -335,7 +369,8 @@ public class StudentService(
                 Gender = s.Gender,
                 ActiveStatus = s.ActiveStatus,
                 PaymentStatus = s.PaymentStatus,
-                ImagePath = s.ProfileImage
+                ImagePath = s.ProfileImage,
+                Document = s.Document
             })
             .FirstOrDefaultAsync();
 
@@ -346,6 +381,81 @@ public class StudentService(
     #endregion
 
     #region GetStudentsPagination
+
+    public async Task<Response<string>> UpdateStudentDocumentAsync(int studentId, IFormFile? documentFile)
+    {
+        var student = await context.Students.FirstOrDefaultAsync(s => s.Id == studentId && !s.IsDeleted);
+        if (student == null)
+            return new Response<string>(HttpStatusCode.NotFound, "Student not found");
+
+        if (documentFile == null)
+            return new Response<string>(HttpStatusCode.BadRequest, "No document file provided");
+
+        var fileExtension = Path.GetExtension(documentFile.FileName).ToLowerInvariant();
+        // Allowed document formats: .pdf, .doc, .docx, .jpg, .jpeg, .png
+        string[] allowedDocumentExtensions = { ".pdf", ".doc", ".docx", ".jpg", ".jpeg", ".png" };
+            
+        if (!allowedDocumentExtensions.Contains(fileExtension))
+            return new Response<string>(HttpStatusCode.BadRequest,
+                "Invalid document format. Allowed formats: .pdf, .doc, .docx, .jpg, .jpeg, .png");
+
+        // Maximum document size: 20 MB
+        const long maxDocumentSize = 20 * 1024 * 1024;
+        if (documentFile.Length > maxDocumentSize)
+            return new Response<string>(HttpStatusCode.BadRequest, "Document size must be less than 20MB");
+            
+        // Delete old document if it exists
+        if (!string.IsNullOrEmpty(student.Document))
+        {
+            string oldDocumentPath;
+            if (!Path.IsPathRooted(student.Document))
+            {
+                var relativePath = student.Document.TrimStart('/');
+                oldDocumentPath = Path.Combine(uploadPath, relativePath);
+            }
+            else
+            {
+                oldDocumentPath = student.Document;
+            }
+
+            if (File.Exists(oldDocumentPath))
+            {
+                try
+                {
+                    File.Delete(oldDocumentPath);
+                }
+                catch
+                {
+                    // Ignore error if file can't be deleted
+                }
+            }
+        }
+
+        // Create directory for documents if it doesn't exist
+        var documentsFolder = Path.Combine(uploadPath, "uploads", "documents", "student");
+        if (!Directory.Exists(documentsFolder))
+            Directory.CreateDirectory(documentsFolder);
+
+        // Save new document
+        var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
+        var filePath = Path.Combine(documentsFolder, uniqueFileName);
+
+        await using (var fileStream = new FileStream(filePath, FileMode.Create))
+        {
+            await documentFile.CopyToAsync(fileStream);
+        }
+
+        // Update document path in database
+        student.Document = $"/uploads/documents/student/{uniqueFileName}";
+        student.UpdatedAt = DateTime.UtcNow;
+        context.Students.Update(student);
+        var res = await context.SaveChangesAsync();
+
+        return res > 0
+            ? new Response<string>(HttpStatusCode.OK, "Student document updated successfully")
+            : new Response<string>(HttpStatusCode.BadRequest, "Failed to update student document");
+    }
+
     public async Task<PaginationResponse<List<GetStudentDto>>> GetStudentsPagination(StudentFilter filter)
     {
         var studentsQuery = context.Students.Where(s => !s.IsDeleted).AsQueryable();
@@ -395,6 +505,37 @@ public class StudentService(
             filter.PageNumber, 
             filter.PageSize);
     }
+
+    public async Task<Response<byte[]>> GetStudentDocument(int studentId)
+    {
+        try
+        {
+            // Find the student in database
+            var student = await context.Students
+                .AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Id == studentId && !s.IsDeleted);
+            
+            if (student == null)
+                return new Response<byte[]>(HttpStatusCode.NotFound, "Student not found");
+                
+            // Check if the student has a document
+            if (string.IsNullOrEmpty(student.Document))
+                return new Response<byte[]>(HttpStatusCode.NotFound, "Student document not found");
+            
+            var filePath = Path.Combine(uploadPath, student.Document.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+            
+            if (!File.Exists(filePath))
+                return new Response<byte[]>(HttpStatusCode.NotFound, "Document file not found on server");
+                
+            var fileBytes = await File.ReadAllBytesAsync(filePath);
+            return new Response<byte[]>(fileBytes);
+        }
+        catch (Exception ex)
+        {
+            return new Response<byte[]>(HttpStatusCode.InternalServerError, $"Error retrieving document: {ex.Message}");
+        }
+    }
+
     #endregion
 
     #region UpdateUserProfileImageAsync

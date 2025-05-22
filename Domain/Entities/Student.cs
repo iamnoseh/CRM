@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Domain.Enums;
+using Microsoft.AspNetCore.Http;
 
 namespace Domain.Entities;
 public class Student : BaseEntity
@@ -17,6 +18,9 @@ public class Student : BaseEntity
     public required string PhoneNumber { get; set; }
     public DateTime Birthday { get; set; }
     public int Age { get; set; }
+    public string? Document { get; set; }
+    [NotMapped]
+    public IFormFile DocumentFile { get; set; }
     public Gender Gender { get; set; }
     public ActiveStatus ActiveStatus { get; set; }
     public PaymentStatus PaymentStatus { get; set; }

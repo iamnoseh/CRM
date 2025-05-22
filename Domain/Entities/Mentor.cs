@@ -25,6 +25,7 @@ public class Mentor : BaseEntity
     public ActiveStatus ActiveStatus { get; set; }
     public PaymentStatus PaymentStatus { get; set; }
     public string? ProfileImage { get; set; }
+    public string? Document { get; set; }
     
     public int UserId { get; set; }
     public int CenterId { get; set; }

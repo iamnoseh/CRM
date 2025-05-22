@@ -16,5 +16,6 @@ public class CreateMentorDto
     public ActiveStatus ActiveStatus { get; set; } = ActiveStatus.Active;
     public PaymentStatus PaymentStatus { get; set; }
     public IFormFile? ProfileImage { get; set; }
+    public IFormFile? DocumentFile { get; set; }
     public int CenterId { get; set; }
 }

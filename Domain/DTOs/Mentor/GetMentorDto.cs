@@ -16,6 +16,7 @@ public class GetMentorDto
     public ActiveStatus ActiveStatus { get; set; }
     public PaymentStatus PaymentStatus { get; set; }
     public string? ImagePath { get; set; }
+    public string? Document { get; set; }
     public decimal? Salary { get; set; }
     public int? CenterId { get; set; }
     public string? Role { get; set; }

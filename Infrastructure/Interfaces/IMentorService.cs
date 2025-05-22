@@ -13,6 +13,8 @@ public interface IMentorService
     Task<Response<List<GetMentorDto>>> GetMentors();
     Task<Response<GetMentorDto>> GetMentorByIdAsync(int id);
     Task<Response<string>> UpdateUserProfileImageAsync(int Id, IFormFile? profileImage);
+    Task<Response<string>> UpdateMentorDocumentAsync(int mentorId, IFormFile? documentFile);
+    Task<Response<byte[]>> GetMentorDocument(int mentorId);
     Task<PaginationResponse<List<GetMentorDto>>> GetMentorsPagination(MentorFilter filter);
     Task<Response<List<GetMentorDto>>> GetMentorsByGroupAsync(int groupId);
     Task<Response<List<GetMentorDto>>> GetMentorsByCourseAsync(int courseId);

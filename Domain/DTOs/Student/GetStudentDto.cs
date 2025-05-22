@@ -15,6 +15,7 @@ public class GetStudentDto
     public ActiveStatus ActiveStatus { get; set; }
     public PaymentStatus PaymentStatus { get; set; }
     public string? ImagePath { get; set; }
+    public string? Document { get; set; }
     public string? Role { get; set; }
     public int UserId { get; set; }
 }

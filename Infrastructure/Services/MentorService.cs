@@ -24,7 +24,9 @@ public class MentorService(
     IHttpContextAccessor httpContextAccessor) : IMentorService
 {
     private readonly string[] _allowedImageExtensions = { ".jpg", ".jpeg", ".png", ".gif" };
-    private const long MaxImageSize = 50 * 1024 * 1024; 
+    private readonly string[] _allowedDocumentExtensions = { ".pdf", ".doc", ".docx", ".jpg", ".jpeg", ".png" };
+    private const long MaxImageSize = 50 * 1024 * 1024;
+    private const long MaxDocumentSize = 20 * 1024 * 1024; 
 
     private static int CalculateAge(DateTime birthDate)
     {
@@ -136,6 +138,38 @@ public class MentorService(
                 profileImagePath = $"/uploads/mentor/{uniqueFileName}";
             }
             
+            // Обработка загрузки документов
+            string documentPath = string.Empty;
+            if (createMentorDto.DocumentFile != null && createMentorDto.DocumentFile.Length > 0)
+            {
+                var fileExtension = Path.GetExtension(createMentorDto.DocumentFile.FileName).ToLowerInvariant();
+                // Допустимые форматы документов: .pdf, .doc, .docx, .jpg, .jpeg, .png
+                string[] allowedDocumentExtensions = { ".pdf", ".doc", ".docx", ".jpg", ".jpeg", ".png" };
+                
+                if (!allowedDocumentExtensions.Contains(fileExtension))
+                    return new Response<string>(HttpStatusCode.BadRequest,
+                        "Недопустимый формат документов. Разрешенные форматы: .pdf, .doc, .docx, .jpg, .jpeg, .png");
+
+                // Максимальный размер документов: 20 МБ
+                const long maxDocumentSize = 20 * 1024 * 1024;
+                if (createMentorDto.DocumentFile.Length > maxDocumentSize)
+                    return new Response<string>(HttpStatusCode.BadRequest, "Размер документов не должен превышать 20МБ");
+
+                var documentsFolder = Path.Combine(uploadPath, "uploads", "documents", "mentor");
+                if (!Directory.Exists(documentsFolder))
+                    Directory.CreateDirectory(documentsFolder);
+
+                var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
+                var filePath = Path.Combine(documentsFolder, uniqueFileName);
+
+                await using (var fileStream = new FileStream(filePath, FileMode.Create))
+                {
+                    await createMentorDto.DocumentFile.CopyToAsync(fileStream);
+                }
+
+                documentPath = $"/uploads/documents/mentor/{uniqueFileName}";
+            }
+            
             var age = CalculateAge(createMentorDto.Birthday);
 
            
@@ -205,6 +239,7 @@ public class MentorService(
                 Experience = createMentorDto.Experience,
                 Salary = createMentorDto.Salary,
                 ProfileImage = profileImagePath,
+                Document = documentPath,
                 ActiveStatus = ActiveStatus.Active,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
@@ -399,6 +434,7 @@ public class MentorService(
                     Gender = m.Gender,
                     ActiveStatus = m.ActiveStatus,
                     ImagePath = m.ProfileImage,
+                    Document = m.Document,
                     CenterId = m.CenterId,
                     UserId = m.UserId
                 });
@@ -451,6 +487,7 @@ public class MentorService(
                     PaymentStatus = m.PaymentStatus,
                     ActiveStatus = m.ActiveStatus,
                     ImagePath = m.ProfileImage,
+                    Document = m.Document,
                     CenterId = m.CenterId,
                     UserId = m.UserId,
                 })
@@ -598,6 +635,7 @@ public class MentorService(
                     PaymentStatus = u.PaymentStatus,
                     ImagePath = u.ProfileImage,
                     Experience = u.Experience,
+                    Document = u.Document,
                     Salary = u.Salary,
                     UserId = u.UserId,
                     CenterId = u.CenterId,
@@ -657,6 +695,7 @@ public class MentorService(
                     PaymentStatus = u.PaymentStatus,
                     ImagePath = u.ProfileImage,
                     Experience = u.Experience,
+                    Document = u.Document,
                     Salary = u.Salary,
                     UserId = u.UserId,
                     CenterId = u.CenterId
@@ -713,6 +752,7 @@ public class MentorService(
                     PaymentStatus = u.PaymentStatus,
                     ImagePath = u.ProfileImage,
                     Experience = u.Experience,
+                    Document = u.Document,
                     UserId = u.UserId,
                     Salary = u.Salary,
                     CenterId = u.CenterId
@@ -728,4 +768,85 @@ public class MentorService(
         }
     }
     
+    public async Task<Response<string>> UpdateMentorDocumentAsync(int mentorId, IFormFile? documentFile)
+    {
+        try
+        {
+            var mentor = await context.Mentors.FirstOrDefaultAsync(s => s.Id == mentorId && !s.IsDeleted);
+            if (mentor == null)
+                return new Response<string>(HttpStatusCode.NotFound, "Ментор не найден");
+
+            if (documentFile == null || documentFile.Length == 0)
+                return new Response<string>(HttpStatusCode.BadRequest, "Файл документа не предоставлен");
+
+            var fileExtension = Path.GetExtension(documentFile.FileName).ToLowerInvariant();
+            if (!_allowedDocumentExtensions.Contains(fileExtension))
+                return new Response<string>(HttpStatusCode.BadRequest, 
+                    "Недопустимый формат документа. Разрешенные форматы: .pdf, .doc, .docx, .jpg, .jpeg, .png");
+
+            if (documentFile.Length > MaxDocumentSize)
+                return new Response<string>(HttpStatusCode.BadRequest, "Размер документа не должен превышать 20МБ");
+
+            // Удаляем старый документ, если он существует
+            if (!string.IsNullOrEmpty(mentor.Document))
+            {
+                var oldDocumentPath = Path.Combine(uploadPath, mentor.Document.TrimStart('/'));
+                if (File.Exists(oldDocumentPath))
+                    File.Delete(oldDocumentPath);
+            }
+
+            // Создаем папку для документов, если она не существует
+            var documentsFolder = Path.Combine(uploadPath, "uploads", "documents", "mentor");
+            if (!Directory.Exists(documentsFolder))
+                Directory.CreateDirectory(documentsFolder);
+
+            // Создаем уникальное имя файла
+            var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
+            var filePath = Path.Combine(documentsFolder, uniqueFileName);
+
+            // Сохраняем файл
+            await using (var fileStream = new FileStream(filePath, FileMode.Create))
+            {
+                await documentFile.CopyToAsync(fileStream);
+            }
+
+            // Обновляем путь к документу в БД
+            mentor.Document = $"/uploads/documents/mentor/{uniqueFileName}";
+            mentor.UpdatedAt = DateTime.UtcNow;
+
+            await context.SaveChangesAsync();
+
+            return new Response<string>(HttpStatusCode.OK, "Документ успешно обновлен");
+        }
+        catch (Exception ex)
+        {
+            return new Response<string>(HttpStatusCode.InternalServerError, $"Ошибка при обновлении документа: {ex.Message}");
+        }
+    }
+
+    public async Task<Response<byte[]>> GetMentorDocument(int mentorId)
+    {
+        try
+        {
+            var mentor = await context.Mentors.FirstOrDefaultAsync(s => s.Id == mentorId && !s.IsDeleted);
+            if (mentor == null)
+                return new Response<byte[]>(HttpStatusCode.NotFound, "Ментор не найден");
+
+            if (string.IsNullOrEmpty(mentor.Document))
+                return new Response<byte[]>(HttpStatusCode.NotFound, "У ментора нет документа");
+
+            // Преобразуем путь к документу в абсолютный путь в файловой системе
+            var filePath = Path.Combine(uploadPath, mentor.Document.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+
+            if (!File.Exists(filePath))
+                return new Response<byte[]>(HttpStatusCode.NotFound, $"Файл не найден: {filePath}");
+            
+            var fileBytes = await File.ReadAllBytesAsync(filePath);
+            return new Response<byte[]>(fileBytes);
+        }
+        catch (Exception ex)
+        {
+            return new Response<byte[]>(HttpStatusCode.InternalServerError, $"Ошибка при получении документа: {ex.Message}");
+        }
+    }
 }

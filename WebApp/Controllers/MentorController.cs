@@ -81,4 +81,48 @@ public class MentorController(IMentorService mentorService) : ControllerBase
         var response = await mentorService.GetMentorsByCourseAsync(courseId);
         return StatusCode(response.StatusCode, response);
     }
+    
+    [HttpPut("document/{mentorId}")]
+    [Authorize(Roles = "Admin,Teacher")]
+    public async Task<ActionResult<Response<string>>> UpdateMentorDocument(int mentorId, IFormFile documentFile)
+    {
+        var response = await mentorService.UpdateMentorDocumentAsync(mentorId, documentFile);
+        return StatusCode(response.StatusCode, response);
+    }
+    
+    [HttpGet("document/{mentorId}")]
+    [Authorize]
+    public async Task<IActionResult> GetMentorDocument(int mentorId)
+    {
+        var response = await mentorService.GetMentorDocument(mentorId);
+        
+        if (response.StatusCode != (int)System.Net.HttpStatusCode.OK)
+            return StatusCode((int)response.StatusCode, response);
+        
+        // Автоматически определяем тип файла на основе данных из базы
+        var mentor = await mentorService.GetMentorByIdAsync(mentorId);
+        string contentType = "application/octet-stream";
+        string fileName = "document";
+        
+        if (mentor.StatusCode == (int)System.Net.HttpStatusCode.OK && !string.IsNullOrEmpty(mentor.Data.Document))
+        {
+            // Получаем расширение файла из пути
+            string extension = Path.GetExtension(mentor.Data.Document).ToLowerInvariant();
+            fileName = $"document_{mentorId}{extension}";
+            
+            // Определяем правильный MIME-тип на основе расширения
+            contentType = extension switch
+            {
+                ".pdf" => "application/pdf",
+                ".doc" => "application/msword",
+                ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                ".jpg" => "image/jpeg",
+                ".jpeg" => "image/jpeg",
+                ".png" => "image/png",
+                _ => "application/octet-stream"
+            };
+        }
+        
+        return File(response.Data, contentType, fileName);
+    }
 }

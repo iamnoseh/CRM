@@ -13,7 +13,8 @@ public interface IStudentService
     Task<Response<List<GetStudentDto>>> GetStudents();
     Task<Response<GetStudentDto>> GetStudentByIdAsync(int id);
     Task<Response<string>> UpdateUserProfileImageAsync(int studentId, IFormFile? profileImage);
+    Task<Response<string>> UpdateStudentDocumentAsync(int studentId, IFormFile? documentFile);
     Task<PaginationResponse<List<GetStudentDto>>> GetStudentsPagination(StudentFilter filter);
-    
+    Task<Response<byte[]>> GetStudentDocument(int studentId);
     Task<Response<GetStudentDetailedDto>> GetStudentDetailedAsync(int id);
 }
