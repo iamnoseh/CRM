@@ -7,6 +7,7 @@ using Domain.Entities;
 using Domain.Filters;
 using Domain.Responses;
 using Infrastructure.Data;
+using Infrastructure.Helpers;
 using Infrastructure.Interfaces;
 using Infrastructure.Services.EmailService;
 using Microsoft.AspNetCore.Http;
@@ -24,41 +25,7 @@ public class StudentService(
     private readonly string[] _allowedImageExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif",".svg" };
     private const long MaxImageSize = 50 * 1024 * 1024; 
     
-    private static int CalculateAge(DateTime birthDate)
-    {
-        var today = DateTime.Today;
-        var age = today.Year - birthDate.Year;
-        if (birthDate.Date > today.AddYears(-age)) age--;
-        return age;
-    }
-
-    private static string GenerateRandomPassword(int length = 8)
-    {
-        const string upperChars = "ABCDEFGHJKLMNO";
-        const string lowerChars = "abcde";
-        const string numericChars = "0123456789";
-        const string specialChars = "-.";
-        
-        var random = new Random();
-        var chars = new List<char>();
-        chars.Add(upperChars[random.Next(upperChars.Length)]);
-        chars.Add(lowerChars[random.Next(lowerChars.Length)]);
-        chars.Add(numericChars[random.Next(numericChars.Length)]);
-        chars.Add(specialChars[random.Next(specialChars.Length)]);
-        for (int i = chars.Count; i < length; i++)
-        {
-            var allChars = upperChars + lowerChars + numericChars + specialChars;
-            chars.Add(allChars[random.Next(allChars.Length)]);
-        }
-        
-        for (int i = 0; i < chars.Count; i++)
-        {
-            int swapIndex = random.Next(chars.Count);
-            (chars[i], chars[swapIndex]) = (chars[swapIndex], chars[i]);
-        }
-        
-        return new string(chars.ToArray());
-    }
+    
 
     public async Task SendLoginDetailsEmail(string email, string username, string password)
     {
@@ -176,7 +143,7 @@ public class StudentService(
             documentPath = $"/uploads/documents/student/{uniqueFileName}";
         }
 
-        var age = CalculateAge(createStudentDto.Birthday);
+        var age = DateUtils.CalculateAge(createStudentDto.Birthday);
 
         
         var user = new User
@@ -192,7 +159,7 @@ public class StudentService(
             CenterId = createStudentDto.CenterId,
             ProfileImagePath = profileImagePath
         };
-        var password = GenerateRandomPassword();
+        var password = PasswordUtils.GenerateRandomPassword();
         var result = await userManager.CreateAsync(user, password);
         if (!result.Succeeded)
             return new Response<string>(HttpStatusCode.BadRequest, 
@@ -240,7 +207,7 @@ public class StudentService(
         var student = await context.Students.FirstOrDefaultAsync(s => s.Id == id && !s.IsDeleted);
         if (student == null)
             return new Response<string>(HttpStatusCode.NotFound, "Student not found");
-        var age = CalculateAge(updateStudentDto.Birthday);
+        var age = DateUtils.CalculateAge(updateStudentDto.Birthday);
 
         student.FullName = updateStudentDto.FullName;
         student.Email = updateStudentDto.Email;
@@ -707,7 +674,7 @@ public class StudentService(
                 Phone = student.User.PhoneNumber,
                 Address = student.Address,
                 Birthday = student.Birthday,
-                Age = CalculateAge(student.Birthday),
+                Age = DateUtils.CalculateAge(student.Birthday),
                 Gender = student.Gender,
                 ActiveStatus = student.User.ActiveStatus,
                 PaymentStatus = paymentStatus,

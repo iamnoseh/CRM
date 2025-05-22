@@ -185,8 +185,7 @@ public class NotificationService(DataContext context, ILogger<NotificationServic
             return new Response<string>(HttpStatusCode.InternalServerError, $"Failed to send SMS: {ex.Message}");
         }
     }
-
-    // Уведомления для студентов/групп
+    
     public async Task<Response<string>> SendStudentNotificationAsync(int studentId, string subject, string message, bool sendEmail = true, bool sendTelegram = true)
     {
         try

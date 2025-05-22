@@ -16,6 +16,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using MimeKit.Text;
 
+using Infrastructure.Helpers;
+
 namespace Infrastructure.Services;
 
 public class AccountService(UserManager<User> userManager, 
@@ -27,13 +29,7 @@ public class AccountService(UserManager<User> userManager,
     private const long MaxImageSize = 50 * 1024 * 1024; 
 
     #region Register
-    private static int CalculateAge(DateTime birthDate)
-    {
-        var today = DateTime.Today;
-        var age = today.Year - birthDate.Year;
-        if (birthDate.Date > today.AddYears(-age)) age--;
-        return age;
-    }
+    
 
     public async Task<Response<string>> Register(RegisterDto model)
     {
@@ -67,7 +63,7 @@ public class AccountService(UserManager<User> userManager,
         }
 
         
-        string password = GenerateRandomPassword();
+        string password = PasswordUtils.GenerateRandomPassword();
 
         var newUser = new User
         {
@@ -75,7 +71,7 @@ public class AccountService(UserManager<User> userManager,
             UserName = model.UserName,
             Email = model.Email,
             Birthday = model.Birthday,
-            Age = CalculateAge(model.Birthday),
+            Age = DateUtils.CalculateAge(model.Birthday),
             ProfileImagePath = profileImagePath,
             Address = model.Address,
             PhoneNumber = model.PhoneNumber,
@@ -91,35 +87,6 @@ public class AccountService(UserManager<User> userManager,
         await SendLoginCredentialsEmail(newUser.Email, newUser.UserName, password);
         
         return new Response<string>("User registered successfully. Login credentials sent to user's email.");
-    }
-
-    private string GenerateRandomPassword()
-    {
-        const string uppercaseChars = "ABCDEFGHKLM";
-        const string lowercaseChars = "abcdefghklm";
-        const string digitChars = "0123456789";
-        const string specialChars = "-.";
-        
-        var random = new Random();
-        var password = new StringBuilder();
-
-        password.Append(uppercaseChars[random.Next(uppercaseChars.Length)]);
-        
-        password.Append(lowercaseChars[random.Next(lowercaseChars.Length)]);
-        
-        for (int i = 0; i < 4; i++)
-        {
-            password.Append(digitChars[random.Next(digitChars.Length)]);
-        }
-        
-        password.Append(specialChars[random.Next(specialChars.Length)]);
-
-        while (password.Length < 8)
-        {
-            password.Append(lowercaseChars[random.Next(lowercaseChars.Length)]);
-        }
-        
-        return new string(password.ToString().OrderBy(c => random.Next()).ToArray());
     }
 
     private async Task SendLoginCredentialsEmail(string email, string username, string password)

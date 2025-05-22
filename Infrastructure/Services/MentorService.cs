@@ -27,43 +27,7 @@ public class MentorService(
     private readonly string[] _allowedDocumentExtensions = { ".pdf", ".doc", ".docx", ".jpg", ".jpeg", ".png" };
     private const long MaxImageSize = 50 * 1024 * 1024;
     private const long MaxDocumentSize = 20 * 1024 * 1024; 
-
-    private static int CalculateAge(DateTime birthDate)
-    {
-        var today = DateTime.Today;
-        var age = today.Year - birthDate.Year;
-        if (birthDate.Date > today.AddYears(-age)) age--;
-        return age;
-    }
-
-    private static string GenerateRandomPassword(int length = 8)
-    {
-        const string upperChars = "BDFHLNPRSWXZ";
-        const string lowerChars = "abcde";
-        const string numericChars = "0123456789";
-        const string specialChars = "-.";
-
-        var random = new Random();
-        var chars = new List<char>();
-        chars.Add(upperChars[random.Next(upperChars.Length)]);
-        chars.Add(lowerChars[random.Next(lowerChars.Length)]);
-        chars.Add(numericChars[random.Next(numericChars.Length)]);
-        chars.Add(specialChars[random.Next(specialChars.Length)]);
-        for (int i = chars.Count; i < length; i++)
-        {
-            var allChars = upperChars + lowerChars + numericChars + specialChars;
-            chars.Add(allChars[random.Next(allChars.Length)]);
-        }
-
-        for (int i = 0; i < chars.Count; i++)
-        {
-            int swapIndex = random.Next(chars.Count);
-            (chars[i], chars[swapIndex]) = (chars[swapIndex], chars[i]);
-        }
-
-        return new string(chars.ToArray());
-    }
-
+   
     public async Task SendLoginDetailsEmail(string email, string username, string password)
     {
         try
@@ -143,14 +107,12 @@ public class MentorService(
             if (createMentorDto.DocumentFile != null && createMentorDto.DocumentFile.Length > 0)
             {
                 var fileExtension = Path.GetExtension(createMentorDto.DocumentFile.FileName).ToLowerInvariant();
-                // Допустимые форматы документов: .pdf, .doc, .docx, .jpg, .jpeg, .png
                 string[] allowedDocumentExtensions = { ".pdf", ".doc", ".docx", ".jpg", ".jpeg", ".png" };
                 
                 if (!allowedDocumentExtensions.Contains(fileExtension))
                     return new Response<string>(HttpStatusCode.BadRequest,
                         "Недопустимый формат документов. Разрешенные форматы: .pdf, .doc, .docx, .jpg, .jpeg, .png");
 
-                // Максимальный размер документов: 20 МБ
                 const long maxDocumentSize = 20 * 1024 * 1024;
                 if (createMentorDto.DocumentFile.Length > maxDocumentSize)
                     return new Response<string>(HttpStatusCode.BadRequest, "Размер документов не должен превышать 20МБ");
@@ -170,7 +132,7 @@ public class MentorService(
                 documentPath = $"/uploads/documents/mentor/{uniqueFileName}";
             }
             
-            var age = CalculateAge(createMentorDto.Birthday);
+            var age = DateUtils.CalculateAge(createMentorDto.Birthday);
 
            
             // Формирование имени пользователя на основе номера телефона
@@ -210,7 +172,7 @@ public class MentorService(
                 PaymentStatus = createMentorDto.PaymentStatus,
             };
             
-            var password = GenerateRandomPassword();
+            var password = PasswordUtils.GenerateRandomPassword();
             var result = await userManager.CreateAsync(user, password);
             if (!result.Succeeded)
                 return new Response<string>(HttpStatusCode.BadRequest,
@@ -629,7 +591,7 @@ public class MentorService(
                     Phone = u.PhoneNumber,
                     Address = u.Address,
                     Birthday = u.Birthday,
-                    Age = CalculateAge(u.Birthday),
+                    Age = DateUtils.CalculateAge(u.Birthday),
                     Gender = u.Gender,
                     ActiveStatus = u.ActiveStatus,
                     PaymentStatus = u.PaymentStatus,
@@ -689,7 +651,7 @@ public class MentorService(
                     Phone = u.PhoneNumber,
                     Address = u.Address,
                     Birthday = u.Birthday,
-                    Age = CalculateAge(u.Birthday),
+                    Age = DateUtils.CalculateAge(u.Birthday),
                     Gender = u.Gender,
                     ActiveStatus = u.ActiveStatus,
                     PaymentStatus = u.PaymentStatus,
@@ -746,7 +708,7 @@ public class MentorService(
                     Phone = u.PhoneNumber,
                     Address = u.Address,
                     Birthday = u.Birthday,
-                    Age = CalculateAge(u.Birthday),
+                    Age = DateUtils.CalculateAge(u.Birthday),
                     Gender = u.Gender,
                     ActiveStatus = u.ActiveStatus,
                     PaymentStatus = u.PaymentStatus,
