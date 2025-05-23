@@ -14,8 +14,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Npgsql;
 using System.Text;
 using Infrastructure.BackgroundTasks;
 using Microsoft.AspNetCore.Builder;
@@ -243,20 +245,60 @@ public static class Register
     {
         using var scope = app.ApplicationServices.CreateScope();
         var services = scope.ServiceProvider;
+        // var logger = services.GetRequiredService<ILogger<Register>>();
         
         try
         {
             var context = services.GetRequiredService<DataContext>();
-            await context.Database.MigrateAsync();
+            var configuration = services.GetRequiredService<IConfiguration>();
+            var connectionString = configuration.GetConnectionString("DefaultConnection");
             
+            // logger.LogInformation("Проверка соединения с базой данных и создание базы при необходимости");
+            
+            // Создаем новое подключение только для создания базы данных
+            var builder = new NpgsqlConnectionStringBuilder(connectionString);
+            var databaseName = builder.Database;
+            
+            // Временно удаляем имя базы данных из строки подключения для подключения к серверу
+            builder.Database = "postgres";
+            var masterConnectionString = builder.ConnectionString;
+            
+            // Проверяем существование базы данных и создаем её при необходимости
+            using (var connection = new NpgsqlConnection(masterConnectionString))
+            {
+                await connection.OpenAsync();
+                
+                // Проверяем существование базы данных
+                var checkDbCommand = new NpgsqlCommand($"SELECT 1 FROM pg_database WHERE datname = '{databaseName}'", connection);
+                var exists = await checkDbCommand.ExecuteScalarAsync() != null;
+                
+                if (!exists)
+                {
+                    // logger.LogInformation($"База данных {databaseName} не найдена. Создание базы данных...");
+                    var createDbCommand = new NpgsqlCommand($"CREATE DATABASE \"{databaseName}\" WITH OWNER = postgres ENCODING = 'UTF8' CONNECTION LIMIT = -1;", connection);
+                    await createDbCommand.ExecuteNonQueryAsync();
+                    // logger.LogInformation($"База данных {databaseName} успешно создана");
+                }
+                else
+                {
+                    // logger.LogInformation($"База данных {databaseName} уже существует");
+                }
+            }
+            
+            // Теперь применяем миграции к созданной/существующей базе данных
+            // logger.LogInformation("Применение миграций...");
+            await context.Database.MigrateAsync();
+            // logger.LogInformation("Миграции успешно применены");
+            
+            // Заполняем начальными данными
+            // logger.LogInformation("Заполнение базы начальными данными...");
             var seedService = services.GetRequiredService<SeedData>();
-            // Use the new combined method that ensures proper seeding order
             await seedService.SeedAllData();
-
+            // logger.LogInformation("Начальные данные успешно добавлены");
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            //
+            // logger.LogError(ex, "Ошибка при настройке базы данных: {Message}", ex.Message);
         }
     }
     

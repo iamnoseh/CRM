@@ -27,29 +27,44 @@ public class MentorExperienceUpdaterService(
         {
             try
             {
-                var now = DateTimeOffset.UtcNow;
-                var nextRunTime = CalculateNextRunTime(now);
-                var delay = nextRunTime - now;
-                
-                logger.LogInformation($"Next mentor experience update scheduled at {nextRunTime} (in {delay.TotalDays:F1} days)");
-
-                await Task.Delay(delay, stoppingToken);
-                
                 // Обновляем опыт всех активных менторов
                 await UpdateMentorsExperience();
+                
+                // Рассчитываем время следующего обновления (каждые 24 часа)
+                var nextRunTime = DateTimeOffset.UtcNow.AddDays(1);
+                var delay = nextRunTime - DateTimeOffset.UtcNow;
+                
+                // Ограничиваем максимальную задержку 24 часами на случай, если что-то пойдет не так
+                delay = TimeSpan.FromHours(Math.Min(delay.TotalHours, 24));
+                
+                logger.LogInformation($"Next mentor experience update scheduled at {nextRunTime:yyyy-MM-dd HH:mm:ss} (in {delay.TotalHours:F1} hours)");
+                
+                // Используем Task.Delay с проверкой на разумный таймаут
+                if (delay > TimeSpan.Zero)
+                {
+                    try
+                    {
+                        await Task.Delay(delay, stoppingToken);
+                    }
+                    catch (TaskCanceledException)
+                    {
+                        // Выходим из цикла, если получили запрос на отмену
+                        break;
+                    }
+                }
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                logger.LogError(ex, "Error occurred while updating mentor experience");
-            }
-            
-            try
-            {
-                await Task.Delay(TimeSpan.FromHours(6), stoppingToken);
-            }
-            catch (TaskCanceledException)
-            {
-                break;
+                logger.LogError(ex, "Error occurred while updating mentor experience. Will retry in 1 hour.");
+                // В случае ошибки ждем час перед следующей попыткой
+                try
+                {
+                    await Task.Delay(TimeSpan.FromHours(1), stoppingToken);
+                }
+                catch (TaskCanceledException)
+                {
+                    break;
+                }
             }
         }
     }
