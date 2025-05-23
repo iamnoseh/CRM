@@ -45,6 +45,7 @@ app.UseCors("AllowFrontend");
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {  
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Kavsar Academy v1");
     c.AddThemes(app);  
 });
 app.UseHangfireDashboard();
