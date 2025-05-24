@@ -65,7 +65,7 @@ public class LessonController(ILessonService lessonService) : ControllerBase
     }
     
     [HttpDelete("{id}")]
-    [Authorize(Roles = "Admin,Teacher")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<Response<string>>> DeleteLesson(int id)
     {
         var response = await lessonService.DeleteLesson(id);
