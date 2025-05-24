@@ -8,10 +8,6 @@ using Microsoft.Extensions.Logging;
 
 namespace Infrastructure.BackgroundTasks
 {
-    /// <summary>
-    /// Хизмати заминавӣ, ки ба таври худкор дарсҳои ҳаррӯзаро барои гурӯҳҳои фаъол эҷод мекунад
-    /// Ҳар рӯз дар соати 00:01 (душанбе-ҷумъа) оғоз мешавад
-    /// </summary>
     public class DailyLessonCreatorService(
         ILogger<DailyLessonCreatorService> logger,
         IServiceProvider serviceProvider)
@@ -26,6 +22,12 @@ namespace Infrastructure.BackgroundTasks
                 try
                 {
                     var now = DateTimeOffset.UtcNow;
+                    var today = now.Date;
+
+                    // Санҷиши дарсҳо барои имрӯз
+                    await CheckAndCreateLessonsForToday(stoppingToken, today);
+
+                    // Ҳисоб кардани вақти иҷрои навбатӣ
                     var nextRun = CalculateNextRunTime(now);
                     var delay = nextRun - now;
 
@@ -56,7 +58,7 @@ namespace Infrastructure.BackgroundTasks
                 {
                     logger.LogError(ex, "Error in DailyLessonCreatorService: {message}", ex.Message);
                     
-                    // Wait 5 minutes before retrying on error
+                    // Интизорӣ 5 дақиқа пеш аз кӯшиши навбатӣ
                     try
                     {
                         await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
@@ -68,10 +70,7 @@ namespace Infrastructure.BackgroundTasks
                 }
             }
         }
-
-        /// <summary>
-        /// Усули оммавӣ барои оғози дастии эҷоди дарсҳо
-        /// </summary>
+        
         public async Task Run(CancellationToken stoppingToken = default)
         {
             try
@@ -92,7 +91,41 @@ namespace Infrastructure.BackgroundTasks
                 logger.LogError(ex, "Хато ҳангоми эҷоди дарсҳои ҳаррӯза: {message}", ex.Message);
             }
         }
-        
+
+        /// <summary>
+        /// Санҷиши вуҷуди дарсҳо барои имрӯз ва эҷоди онҳо дар сурати зарурат
+        /// </summary>
+        private async Task CheckAndCreateLessonsForToday(CancellationToken stoppingToken, DateTime today)
+        {
+            logger.LogInformation("Санҷиши дарсҳо барои имрӯз ({today})...", today.ToString("yyyy-MM-dd"));
+
+            using var scope = serviceProvider.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<DataContext>();
+
+            // Санҷиши вуҷуди дарсҳо барои имрӯз
+            var lessonsExist = await context.Lessons
+                .AnyAsync(l => !l.IsDeleted && l.StartTime.Date == today, stoppingToken);
+
+            if (lessonsExist)
+            {
+                logger.LogInformation("Дарсҳо барои имрӯз аллакай эҷод шудаанд");
+                return;
+            }
+
+            logger.LogInformation("Дарсҳо барои имрӯз ёфт нашуданд, оғози эҷоди дарсҳо...");
+
+            // Агар рӯзи имрӯз шанбе ё якшанбе бошад, дарс эҷод намешавад
+            if (today.DayOfWeek == DayOfWeek.Sunday)
+            {
+                logger.LogInformation("Имрӯз рӯзи истироҳат аст, дарсҳо эҷод намешаванд");
+                return;
+            }
+
+            // Эҷоди дарсҳо барои имрӯз
+            await CreateDailyLessons(stoppingToken, today);
+            logger.LogInformation("Эҷоди дарсҳо барои имрӯз ({today}) анҷом ёфт", today.ToString("yyyy-MM-dd"));
+        }
+
         /// <summary>
         /// Вақти оғози навбатиро ҳисоб мекунад (танҳо як маротиба дар рӯз соати 00:01)
         /// </summary>
@@ -126,7 +159,7 @@ namespace Infrastructure.BackgroundTasks
             logger.LogInformation($"Вақти навбатии иҷро: {targetRunTime:yyyy-MM-dd HH:mm:ss}");
             return targetRunTime;
         }
-        
+
         /// <summary>
         /// Гурӯҳҳои навфаъолшударо месанҷад ва барои онҳо дарсҳои аввалин эҷод мекунад
         /// </summary>
@@ -159,8 +192,8 @@ namespace Infrastructure.BackgroundTasks
                     // Барои гурӯҳ дарси аввалинро эҷод мекунем
                     var baseDate = DateTimeOffset.UtcNow.Date;
                     
-                    // Барои дарси аввал sanai imrūzro + 1 истифода мебарем
-                    var lessonDate = baseDate.AddDays(1); // Дарс аз фардо сар мешавад
+                    // Барои дарси аввал санаи имрӯзро истифода мебарем
+                    var lessonDate = baseDate; // Дарс аз имрӯз сар мешавад
                     
                     var lesson = new Lesson
                     {
@@ -189,24 +222,21 @@ namespace Infrastructure.BackgroundTasks
                 logger.LogInformation($"Шумораи {createdCount} дарси аввалин барои гурӯҳҳои фаъол сабт шуданд");
             }
         }
-        
+
         /// <summary>
         /// Барои ҳамаи гурӯҳҳои фаъол дарсҳои ҳаррӯза эҷод мекунад
         /// </summary>
         private async Task CreateDailyLessons(CancellationToken stoppingToken, DateTime? targetDate = null)
         {
-            // Танҳо барои санаи пагоҳ (ё санаи додашуда) дарсҳоро эҷод мекунем
+            // Санаи коркард (ё имрӯз, ё санаи додашуда)
             var processingDate = targetDate?.Date ?? DateTimeOffset.UtcNow.Date.AddDays(1);
-            
-            // Ҳисоб кардани санаи навбатии иҷро барои санҷиш
-            var nextRunDate = CalculateNextRunTime(DateTimeOffset.UtcNow.AddDays(1));
             
             logger.LogInformation($"Эҷоди дарсҳо барои санаи {processingDate:yyyy-MM-dd} оғоз шуд...");
 
-            // Агар санаи коркард рӯзи якшанбе бошад, пас иҷро намешавад
-            if (processingDate.DayOfWeek == DayOfWeek.Sunday)
+            // Агар санаи коркард рӯзи якшанбе ё шанбе бошад, дарсҳо эҷод намешаванд
+            if (processingDate.DayOfWeek == DayOfWeek.Saturday || processingDate.DayOfWeek == DayOfWeek.Sunday)
             {
-                logger.LogInformation("Санаи коркард рӯзи якшанбе аст, дарсҳо эҷод намешаванд");
+                logger.LogInformation("Санаи коркард рӯзи истироҳат аст, дарсҳо эҷод намешаванд");
                 return;
             }
             
@@ -224,7 +254,6 @@ namespace Infrastructure.BackgroundTasks
                 return;
             }
 
-            
             logger.LogInformation($"Шумораи {activeGroups.Count} гурӯҳи фаъол ёфт шуд");
             int createdLessonsCount = 0;
             int createdExamsCount = 0;
@@ -265,17 +294,9 @@ namespace Infrastructure.BackgroundTasks
                         if (!examExists)
                         {
                             // Барои ҳафтаи ҷорӣ имтиҳон эҷод мекунем
-                            // Санаи имтиҳон - охири ҳафта (рӯзи 6-ум)
                             var baseDate = DateTimeOffset.UtcNow.Date;
-                            var examWeekStart = baseDate.AddDays(7 * (weekIndex - 1)); // Рӯзи якуми ҳафтаи имтиҳон
-                            var examDate = examWeekStart.AddDays(5); // Рӯзи 6-ум = 5 рӯз пас аз оғози ҳафта
-                            
-                            // Санҷиш кунед, ки оё санаи имтиҳон дар давраи санҷиши аст
-                            if (examDate > nextRunDate)
-                            {
-                                // Санаи имтиҳон дар давраи оянда аст, зарур нест созем
-                                continue;
-                            }
+                            var examWeekStart = baseDate.AddDays(7 * (weekIndex - 1));
+                            var examDate = examWeekStart.AddDays(5);
                             
                             var exam = new Exam
                             {
@@ -316,27 +337,14 @@ namespace Infrastructure.BackgroundTasks
                     if (!lessonExists)
                     {
                         // Дарси нав эҷод мекунем
-                        var baseDate = DateTimeOffset.UtcNow.Date;
-                        
-                        // Ҳисоби санаи дарс аз рӯи индексҳои ҳафта ва рӯз
-                        // Якуми ҳафтаи якум - 1 рӯз баъд аз имрӯз
-                        var firstLessonDate = baseDate.AddDays(1); // Дарси аввалин фардо сар мешавад
-                        var daysToAdd = (weekIndex - 1) * 7 + (nextDayIndex - 1); // Илова кардани рӯзҳо аз рӯи ҳафта ва индекси рӯз
-                        var lessonDate = firstLessonDate.AddDays(daysToAdd);
-                        
-                        // Санҷиш кунед, ки оё санаи дарс дар давраи санҷиши аст
-                        if (lessonDate > nextRunDate)
-                        {
-                            // Санаи дарс дар давраи оянда аст, зарур нест созем
-                            continue;
-                        }
+                        var lessonDate = processingDate;
                         
                         var lesson = new Lesson
                         {
                             GroupId = group.Id,
                             WeekIndex = weekIndex,
                             DayOfWeekIndex = nextDayIndex,
-                            DayIndex = absoluteDayIndex, // Индекси умумии рӯз
+                            DayIndex = absoluteDayIndex,
                             StartTime = new DateTimeOffset(lessonDate.Year, lessonDate.Month, lessonDate.Day, 9, 0, 0, TimeSpan.Zero),
                             CreatedAt = DateTimeOffset.UtcNow,
                             UpdatedAt = DateTimeOffset.UtcNow
