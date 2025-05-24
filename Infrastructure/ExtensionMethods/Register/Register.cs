@@ -173,25 +173,30 @@ public static class Register
                     Email = "info@kavsaracademy.com"
                 }
             });
+
+            // Конфигурация авторизации
             options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
             {
-                In = ParameterLocation.Header,
-                Description = "Введите JWT через Bearer",
+                Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
                 Name = "Authorization",
-                Type = SecuritySchemeType.ApiKey
+                In = ParameterLocation.Header,
+                Type = SecuritySchemeType.Http,
+                Scheme = "bearer",
+                BearerFormat = "JWT"
             });
+
             options.AddSecurityRequirement(new OpenApiSecurityRequirement
             {
                 {
-                    new OpenApiSecurityScheme 
+                    new OpenApiSecurityScheme
                     {
-                        Reference = new OpenApiReference 
+                        Reference = new OpenApiReference
                         {
                             Type = ReferenceType.SecurityScheme,
                             Id = "Bearer"
                         }
                     },
-                    new List<string>()
+                    Array.Empty<string>()
                 }
             });
         });

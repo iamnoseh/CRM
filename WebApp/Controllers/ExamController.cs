@@ -14,13 +14,13 @@ public class ExamController(IExamService examService, IGradeService gradeService
 {
     #region Exam Endpoints
     
-    [HttpGet]
-    public async Task<ActionResult<Response<List<GetExamDto>>>> GetAllExams()
+    [HttpGet]    public async Task<ActionResult<Response<List<GetExamDto>>>> GetAllExams()
     {
         var response = await examService.GetExams();
         return StatusCode(response.StatusCode, response);
     }
-
+    
+    [HttpGet("exam/{id}")]
     public async Task<ActionResult<Response<GetExamDto>>> GetExamById(int id)
     {
         var response = await examService.GetExamById(id);
@@ -41,16 +41,14 @@ public class ExamController(IExamService examService, IGradeService gradeService
         var response = await examService.CreateExam(createExamDto);
         return StatusCode(response.StatusCode, response);
     }
-    
-    [HttpPut]
+      [HttpPut("exam/{id}")]
     [Authorize(Roles = "Admin,Teacher")]
     public async Task<ActionResult<Response<string>>> UpdateExam(int id, [FromBody] UpdateExamDto updateExamDto)
     {
         var response = await examService.UpdateExam(id, updateExamDto);
         return StatusCode(response.StatusCode, response);
     }
-    
-    [HttpDelete("{id}")]
+      [HttpDelete("exam/{id}")]
     [Authorize(Roles = "Admin,Teacher")]
     public async Task<ActionResult<Response<string>>> DeleteExam(int id)
     {
@@ -99,33 +97,31 @@ public class ExamController(IExamService examService, IGradeService gradeService
         var response = await gradeService.CreateExamGradeAsync(gradeDto);
         return StatusCode(response.StatusCode, response);
     }
-    
-    [HttpPut("grade/{id}")]
+      [HttpPut("grade/{id}")]
     [Authorize(Roles = "Admin,Teacher")]
     public async Task<ActionResult<Response<string>>> UpdateExamGrade(int id, [FromBody] UpdateGradeDto updateGradeDto)
     {
         var grade = await gradeService.GetGradeByIdAsync(id);
-        if (grade.StatusCode != 200)
-            return StatusCode(grade.StatusCode, new Response<string>(grade.Message));
+        if (grade?.StatusCode != 200 || grade?.Data == null)
+            return StatusCode(grade?.StatusCode ?? 500, new Response<string>("Оценка не найдена"));
             
         if (!grade.Data.ExamId.HasValue)
-            return BadRequest(new Response<string>(HttpStatusCode.BadRequest, "Это не является оценкой за экзамен"));
+            return BadRequest(new Response<string>("Это не является оценкой за экзамен"));
         
         var response = await gradeService.EditGradeAsync(updateGradeDto);
         return StatusCode(response.StatusCode, response);
     }
-    
-    [HttpDelete("grade/{id}")]
+      [HttpDelete("grade/{id}")]
     [Authorize(Roles = "Admin,Teacher")]
     public async Task<ActionResult<Response<string>>> DeleteExamGrade(int id)
     {
         // Проверяем, что оценка существует и является оценкой за экзамен
         var grade = await gradeService.GetGradeByIdAsync(id);
-        if (grade.StatusCode != 200)
-            return StatusCode(grade.StatusCode, new Response<string>(grade.Message));
+        if (grade?.StatusCode != 200 || grade?.Data == null)
+            return StatusCode(grade?.StatusCode ?? 500, new Response<string>("Оценка не найдена"));
             
         if (!grade.Data.ExamId.HasValue)
-            return BadRequest(new Response<string>(HttpStatusCode.BadRequest, "Это не является оценкой за экзамен"));
+            return BadRequest(new Response<string>("Это не является оценкой за экзамен"));
             
         var response = await gradeService.DeleteGradeAsync(id);
         return StatusCode(response.StatusCode, response);

@@ -37,28 +37,30 @@ var app = builder.Build();
 
 await app.ApplyMigrationsAndSeedData();
 
+// Для правильной работы Swagger, эти middleware должны быть в начале
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {  
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Kavsar Academy v1");
+        c.AddThemes(app);  
+    });
+}
+
 app.UseStaticFilesConfiguration(uploadPath);
 
+// Правильный порядок middleware для аутентификации
+app.UseHttpsRedirection();
 app.UseCors("AllowFrontend");
+app.UseRouting();
+app.UseAuthentication(); // Сначала аутентификация
+app.UseAuthorization();  // Потом авторизация
+app.MapControllers();    // Затем маршрутизация
 
-
-app.UseSwagger();
-app.UseSwaggerUI(c =>
-{  
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Kavsar Academy v1");
-    c.AddThemes(app);  
-});
 app.UseHangfireDashboard();
 app.UseHangfireServer();
 
-
-app.UseRouting();
-app.UseHttpsRedirection();
-app.UseAuthentication();
-app.UseAuthorization();
-app.MapControllers();
-
-
- app.ConfigureHangfireJobs(); 
+app.ConfigureHangfireJobs(); 
 
 app.Run();
