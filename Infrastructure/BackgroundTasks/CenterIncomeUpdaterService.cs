@@ -1,5 +1,5 @@
 using Domain.Responses;
-using Infrastructure.Services;
+using Infrastructure.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -16,7 +16,7 @@ public class CenterIncomeUpdaterService(
         logger.LogInformation("Manual center income update started at: {time}", DateTimeOffset.Now);
         
         using var scope = scopeFactory.CreateScope();
-        var centerService = scope.ServiceProvider.GetRequiredService<CenterService>();
+        var centerService = scope.ServiceProvider.GetRequiredService<ICenterService>();
         
         var result = await centerService.CalculateAllCentersIncomeAsync();
         
@@ -52,11 +52,11 @@ public class CenterIncomeUpdaterService(
                 
                 logger.LogInformation("Center income update started at: {time}", DateTimeOffset.Now);
                 using var scope = scopeFactory.CreateScope();
-                var centerService = scope.ServiceProvider.GetRequiredService<CenterService>();
+                var centerService = scope.ServiceProvider.GetRequiredService<ICenterService>();
                 
                 var result = await centerService.CalculateAllCentersIncomeAsync();
                 
-                if (result.StatusCode ==(int) System.Net.HttpStatusCode.OK)
+                if (result.StatusCode == (int)System.Net.HttpStatusCode.OK)
                     logger.LogInformation("Center income update completed successfully: {message}", result.Message);
                 else
                     logger.LogWarning("Center income update completed with warnings: {message}", result.Message);

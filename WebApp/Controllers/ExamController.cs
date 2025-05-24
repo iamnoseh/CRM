@@ -15,15 +15,12 @@ public class ExamController(IExamService examService, IGradeService gradeService
     #region Exam Endpoints
     
     [HttpGet]
-    [Authorize(Roles = "Admin,Teacher,Student,Manager")]
     public async Task<ActionResult<Response<List<GetExamDto>>>> GetAllExams()
     {
         var response = await examService.GetExams();
         return StatusCode(response.StatusCode, response);
     }
 
-    [HttpGet("{id}")]
-    [Authorize(Roles = "Admin,Teacher,Student,Manager")]
     public async Task<ActionResult<Response<GetExamDto>>> GetExamById(int id)
     {
         var response = await examService.GetExamById(id);
@@ -31,7 +28,6 @@ public class ExamController(IExamService examService, IGradeService gradeService
     }
     
     [HttpGet("group/{groupId}")]
-    [Authorize(Roles = "Admin,Teacher,Student,Manager")]
     public async Task<ActionResult<Response<List<GetExamDto>>>> GetExamsByGroup(int groupId)
     {
         var response = await examService.GetExamsByGroup(groupId);
@@ -46,7 +42,7 @@ public class ExamController(IExamService examService, IGradeService gradeService
         return StatusCode(response.StatusCode, response);
     }
     
-    [HttpPut("{id}")]
+    [HttpPut]
     [Authorize(Roles = "Admin,Teacher")]
     public async Task<ActionResult<Response<string>>> UpdateExam(int id, [FromBody] UpdateExamDto updateExamDto)
     {
@@ -67,7 +63,6 @@ public class ExamController(IExamService examService, IGradeService gradeService
     #region ExamGrade Endpoints
     
     [HttpGet("grade/{id}")]
-    [Authorize(Roles = "Admin,Teacher,Student,Manager")]
     public async Task<ActionResult<Response<GetGradeDto>>> GetExamGradeById(int id)
     {
         var response = await gradeService.GetGradeByIdAsync(id);
@@ -83,7 +78,6 @@ public class ExamController(IExamService examService, IGradeService gradeService
     }
     
     [HttpGet("student/{studentId}/grades")]
-    [Authorize(Roles = "Admin,Teacher,Student,Manager")]
     public async Task<ActionResult<Response<List<GetGradeDto>>>> GetStudentExamGrades(int studentId)
     {
         // Получаем все оценки студента и фильтруем только те, у которых есть ExamId
@@ -138,7 +132,6 @@ public class ExamController(IExamService examService, IGradeService gradeService
     }
     
     [HttpGet("student/{studentId}/average")]
-    [Authorize(Roles = "Admin,Teacher,Student,Manager")]
     public async Task<ActionResult<Response<double>>> GetStudentExamAverage(int studentId, [FromQuery] int? groupId = null)
     {
         var response = await gradeService.GetStudentExamAverageAsync(studentId, groupId);

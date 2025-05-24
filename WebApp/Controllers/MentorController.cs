@@ -82,7 +82,7 @@ public class MentorController(IMentorService mentorService) : ControllerBase
         return StatusCode(response.StatusCode, response);
     }
     
-    [HttpPut("document/{mentorId}")]
+    [HttpPut("document")]
     [Authorize(Roles = "Admin,Teacher")]
     public async Task<ActionResult<Response<string>>> UpdateMentorDocument(int mentorId, IFormFile documentFile)
     {

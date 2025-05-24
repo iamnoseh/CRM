@@ -45,6 +45,11 @@ public static class Register
                 sp.GetRequiredService<EmailConfiguration>(),
                 sp.GetRequiredService<IConfiguration>()
             ));
+        services.AddScoped<ICenterService>(sp =>
+            new CenterService(
+                sp.GetRequiredService<DataContext>(),
+                sp.GetRequiredService<IConfiguration>()["UploadPath"] ?? throw new InvalidOperationException("UploadPath not configured")
+            ));
         services.AddScoped<IAttendanceService, AttendanceService>();
         services.AddScoped<ICommentService, CommentService>();
         services.AddScoped<IUserService, UserService>();
@@ -164,6 +169,17 @@ public static class Register
         services.AddEndpointsApiExplorer();
         services.AddSwaggerGen(options =>
         {
+            options.SwaggerDoc("v1", new OpenApiInfo
+            {
+                Title = "Kavsar Academy",
+                Version = "v1",
+                Description = "API барои идораи системаи таълимии Kavsar Academy",
+                Contact = new OpenApiContact
+                {
+                    Name = "Kavsar Academy Support",
+                    Email = "info@kavsaracademy.com"
+                }
+            });
             options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
             {
                 In = ParameterLocation.Header,
@@ -285,20 +301,13 @@ public static class Register
                 }
             }
             
-            // Теперь применяем миграции к созданной/существующей базе данных
-            // logger.LogInformation("Применение миграций...");
             await context.Database.MigrateAsync();
-            // logger.LogInformation("Миграции успешно применены");
-            
-            // Заполняем начальными данными
-            // logger.LogInformation("Заполнение базы начальными данными...");
             var seedService = services.GetRequiredService<SeedData>();
             await seedService.SeedAllData();
-            // logger.LogInformation("Начальные данные успешно добавлены");
         }
         catch (Exception ex)
         {
-            // logger.LogError(ex, "Ошибка при настройке базы данных: {Message}", ex.Message);
+            // 
         }
     }
     

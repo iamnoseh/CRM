@@ -19,47 +19,53 @@ namespace Infrastructure.BackgroundTasks
     {
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            logger.LogInformation("DailyLessonCreatorService дар замина дар {time} оғоз шуд", DateTimeOffset.UtcNow);
+            logger.LogInformation("DailyLessonCreatorService started at {time}", DateTimeOffset.UtcNow);
 
-            try
+            while (!stoppingToken.IsCancellationRequested)
             {
-                while (!stoppingToken.IsCancellationRequested)
+                try
                 {
                     var now = DateTimeOffset.UtcNow;
                     var nextRun = CalculateNextRunTime(now);
                     var delay = nextRun - now;
 
-                    // Ислоҳи хатои Task.Delay: delay бояд >= 0 бошад
                     if (delay <= TimeSpan.Zero)
                     {
                         delay = TimeSpan.Zero;
                     }
 
-                    logger.LogInformation("DailyLessonCreatorService интизори оғози навбатӣ дар {nextRun} (баъд аз {delay})", 
+                    logger.LogInformation("Next lesson creation scheduled for {nextRun} (in {delay})", 
                         nextRun, delay);
 
+                    await Task.Delay(delay, stoppingToken);
+
+                    if (now.DayOfWeek != DayOfWeek.Saturday && now.DayOfWeek != DayOfWeek.Sunday)
+                    {
+                        await Run(stoppingToken);
+                    }
+                    else
+                    {
+                        logger.LogInformation("Skipping lesson creation - it's weekend");
+                    }
+                }
+                catch (TaskCanceledException)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Error in DailyLessonCreatorService: {message}", ex.Message);
+                    
+                    // Wait 5 minutes before retrying on error
                     try
                     {
-                        await Task.Delay(delay, stoppingToken);
+                        await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
                     }
                     catch (TaskCanceledException)
                     {
-                        // Коркарди бекоркунии вазифа ҳангоми боздошти хизмат
                         break;
                     }
-
-                    // Мантиқи асосиро иҷро мекунем
-                    await Run(stoppingToken);
                 }
-            }
-            catch (Exception ex)
-            {
-                // Хаторо сабт мекунем, аммо ба хизмат иҷозат намедиҳем, ки истад
-                logger.LogError(ex, "Хато дар DailyLessonCreatorService: {message}", ex.Message);
-            }
-            finally
-            {
-                logger.LogInformation("DailyLessonCreatorService дар {time} боздошта шуд", DateTimeOffset.UtcNow);
             }
         }
 
@@ -126,7 +132,7 @@ namespace Infrastructure.BackgroundTasks
         /// </summary>
         private async Task CheckNewlyActivatedGroups(CancellationToken stoppingToken)
         {
-            logger.LogInformation("Санҷиши гурӯҳҳои навфаъолшуда...");
+            logger.LogInformation("Санҷиши гурӯҳҳои навфа'олшуда...");
             
             using var scope = serviceProvider.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<DataContext>();

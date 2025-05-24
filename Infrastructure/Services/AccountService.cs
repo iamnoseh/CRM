@@ -4,7 +4,6 @@ using System.Security.Claims;
 using System.Text;
 using Domain.DTOs.Account;
 using Domain.Entities;
-using Domain.Enums;
 using Domain.Responses;
 using Infrastructure.Data;
 using Infrastructure.Helpers;
