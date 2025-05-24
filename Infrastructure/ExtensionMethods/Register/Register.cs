@@ -141,17 +141,12 @@ public static class Register
                 uploadPath
             ));
             
+      
         services.AddScoped<IGroupActivationService, GroupActivationService>();
             
         services.AddScoped<IStudentGroupService, StudentGroupService>();
         
-        services.AddScoped<IMentorGroupService, MentorGroupService>();
-   
-        services.AddHostedService<DailyLessonCreatorService>();
-        // services.AddHostedService<WeeklyExamCreatorService>();
-        services.AddHostedService<GroupExpirationService>();
-        services.AddHostedService<StudentStatusUpdaterService>();
-        services.AddHostedService<CenterIncomeUpdaterService>();
+        services.AddScoped<IMentorGroupService, MentorGroupService>();        // Background services are now registered via BackgroundServiceExtensions.AddBackgroundServices()
    
         services.AddLogging(logging =>
         {
