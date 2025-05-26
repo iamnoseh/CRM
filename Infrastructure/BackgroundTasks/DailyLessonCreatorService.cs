@@ -13,6 +13,8 @@ namespace Infrastructure.BackgroundTasks
         IServiceProvider serviceProvider)
         : BackgroundService
     {
+        private readonly TimeSpan _localOffset = TimeSpan.FromHours(5); // Вақти маҳаллӣ (+05:00)
+
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             logger.LogInformation("DailyLessonCreatorService started at {time}", DateTimeOffset.UtcNow);
@@ -21,19 +23,19 @@ namespace Infrastructure.BackgroundTasks
             {
                 try
                 {
-                    var now = DateTimeOffset.UtcNow;
-                    var today = now.Date;
+                    var utcNow = DateTimeOffset.UtcNow;
+                    var localNow = utcNow + _localOffset; // Табдил ба вақти маҳаллӣ
+                    var today = localNow.Date;
+                    logger.LogInformation("Рӯзи ҷорӣ: {dayOfWeek} ({today})", localNow.DayOfWeek, today.ToString("yyyy-MM-dd"));
 
-                    // Санҷиши дарсҳо барои имрӯз
                     await CheckAndCreateLessonsForToday(stoppingToken, today);
 
-                    // Ҳисоб кардани вақти иҷрои навбатӣ
-                    var nextRun = CalculateNextRunTime(now);
-                    var delay = nextRun - now;
+                    var nextRun = CalculateNextRunTime(localNow);
+                    var delay = nextRun - utcNow;
 
                     if (delay <= TimeSpan.Zero)
                     {
-                        delay = TimeSpan.Zero;
+                        delay = TimeSpan.FromSeconds(1); // Ҳадди ақали таъхир
                     }
 
                     logger.LogInformation("Next lesson creation scheduled for {nextRun} (in {delay})", 
@@ -41,7 +43,7 @@ namespace Infrastructure.BackgroundTasks
 
                     await Task.Delay(delay, stoppingToken);
 
-                    if (now.DayOfWeek != DayOfWeek.Saturday && now.DayOfWeek != DayOfWeek.Sunday)
+                    if (localNow.DayOfWeek != DayOfWeek.Sunday)
                     {
                         await Run(stoppingToken);
                     }
@@ -57,8 +59,6 @@ namespace Infrastructure.BackgroundTasks
                 catch (Exception ex)
                 {
                     logger.LogError(ex, "Error in DailyLessonCreatorService: {message}", ex.Message);
-                    
-                    // Интизорӣ 5 дақиқа пеш аз кӯшиши навбатӣ
                     try
                     {
                         await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
@@ -70,21 +70,20 @@ namespace Infrastructure.BackgroundTasks
                 }
             }
         }
-        
+
         public async Task Run(CancellationToken stoppingToken = default)
         {
             try
             {
-                logger.LogInformation("Оғози эҷоди дарсҳои ҳаррӯза дар {time}", DateTimeOffset.UtcNow);
+                var localNow = DateTimeOffset.UtcNow + _localOffset;
+                logger.LogInformation("Оғози эҷоди дарсҳои ҳаррӯза дар {time}", localNow);
                 
-                // Гурӯҳҳои навро санҷида, барои онҳо дарсҳои аввалро эҷод мекунем
                 await CheckNewlyActivatedGroups(stoppingToken);
                 
-                // Танҳо барои рӯзи пагоҳ дарсҳои ҳаррӯза эҷод мекунем
-                var tomorrow = DateTimeOffset.UtcNow.Date.AddDays(1);
+                var tomorrow = localNow.Date.AddDays(1);
                 await CreateDailyLessons(stoppingToken, tomorrow);
                 
-                logger.LogInformation($"Эҷоди дарсҳо барои рӯзи {tomorrow:yyyy-MM-dd} дар {DateTimeOffset.UtcNow} анҷом ёфт");
+                logger.LogInformation($"Эҷоди дарсҳо барои рӯзи {tomorrow:yyyy-MM-dd} дар {localNow} анҷом ёфт");
             }
             catch (Exception ex)
             {
@@ -92,9 +91,6 @@ namespace Infrastructure.BackgroundTasks
             }
         }
 
-        /// <summary>
-        /// Санҷиши вуҷуди дарсҳо барои имрӯз ва эҷоди онҳо дар сурати зарурат
-        /// </summary>
         private async Task CheckAndCreateLessonsForToday(CancellationToken stoppingToken, DateTime today)
         {
             logger.LogInformation("Санҷиши дарсҳо барои имрӯз ({today})...", today.ToString("yyyy-MM-dd"));
@@ -102,7 +98,6 @@ namespace Infrastructure.BackgroundTasks
             using var scope = serviceProvider.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<DataContext>();
 
-            // Санҷиши вуҷуди дарсҳо барои имрӯз
             var lessonsExist = await context.Lessons
                 .AnyAsync(l => !l.IsDeleted && l.StartTime.Date == today, stoppingToken);
 
@@ -114,63 +109,48 @@ namespace Infrastructure.BackgroundTasks
 
             logger.LogInformation("Дарсҳо барои имрӯз ёфт нашуданд, оғози эҷоди дарсҳо...");
 
-            // Агар рӯзи имрӯз шанбе ё якшанбе бошад, дарс эҷод намешавад
-            if (today.DayOfWeek == DayOfWeek.Sunday)
+            var localNow = DateTimeOffset.UtcNow + _localOffset;
+            if (localNow.DayOfWeek == DayOfWeek.Saturday || localNow.DayOfWeek == DayOfWeek.Sunday)
             {
                 logger.LogInformation("Имрӯз рӯзи истироҳат аст, дарсҳо эҷод намешаванд");
                 return;
             }
 
-            // Эҷоди дарсҳо барои имрӯз
             await CreateDailyLessons(stoppingToken, today);
             logger.LogInformation("Эҷоди дарсҳо барои имрӯз ({today}) анҷом ёфт", today.ToString("yyyy-MM-dd"));
         }
 
-        /// <summary>
-        /// Вақти оғози навбатиро ҳисоб мекунад (танҳо як маротиба дар рӯз соати 00:01)
-        /// </summary>
-        private DateTimeOffset CalculateNextRunTime(DateTimeOffset currentTime)
+        private DateTimeOffset CalculateNextRunTime(DateTimeOffset currentLocalTime)
         {
-            // Танҳо як вақти иҷро дар рӯз - соати 00:01
             var executionTime = new TimeSpan(0, 1, 0); // 00:01 AM
-            
-            // Вақти иҷро барои имрӯз
-            var targetRunTime = currentTime.Date.Add(executionTime);
-            
-            // Агар аз вақти иҷрои имрӯз гузашта бошад, ба рӯзи оянда мегузарем
-            if (currentTime >= targetRunTime)
+            var targetRunTime = currentLocalTime.Date.Add(executionTime);
+
+            if (currentLocalTime >= targetRunTime)
             {
                 targetRunTime = targetRunTime.AddDays(1);
             }
-            
-            // Санҷиши рӯзи ҳафта (агар рӯзи истироҳат бошад, ба душанбе мегузарем)
-            var dayOfWeek = targetRunTime.DayOfWeek;
+
+            var dayOfWeek = (targetRunTime + _localOffset).DayOfWeek;
             if (dayOfWeek == DayOfWeek.Saturday)
             {
-                // Аз шанбе ба душанбе (иловаи 2 рӯз)
                 targetRunTime = targetRunTime.AddDays(2);
             }
             else if (dayOfWeek == DayOfWeek.Sunday)
             {
-                // Аз якшанбе ба душанбе (иловаи 1 рӯз)
                 targetRunTime = targetRunTime.AddDays(1);
             }
-            
+
             logger.LogInformation($"Вақти навбатии иҷро: {targetRunTime:yyyy-MM-dd HH:mm:ss}");
             return targetRunTime;
         }
 
-        /// <summary>
-        /// Гурӯҳҳои навфаъолшударо месанҷад ва барои онҳо дарсҳои аввалин эҷод мекунад
-        /// </summary>
         private async Task CheckNewlyActivatedGroups(CancellationToken stoppingToken)
         {
-            logger.LogInformation("Санҷиши гурӯҳҳои навфа'олшуда...");
+            logger.LogInformation("Санҷиши гурӯҳҳои навфаъолшуда...");
             
             using var scope = serviceProvider.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<DataContext>();
 
-            // Гурӯҳҳои фаъоли бе дарсро мегирем
             var activatedGroups = await context.Groups
                 .Where(g => g.Status == ActiveStatus.Active && !g.IsDeleted)
                 .Where(g => !context.Lessons.Any(l => l.GroupId == g.Id && !l.IsDeleted))
@@ -189,19 +169,17 @@ namespace Infrastructure.BackgroundTasks
             {
                 try
                 {
-                    // Барои гурӯҳ дарси аввалинро эҷод мекунем
-                    var baseDate = DateTimeOffset.UtcNow.Date;
-                    
-                    // Барои дарси аввал санаи имрӯзро истифода мебарем
-                    var lessonDate = baseDate; // Дарс аз имрӯз сар мешавад
-                    
+                    var localNow = DateTimeOffset.UtcNow + _localOffset;
+                    var baseDate = localNow.Date;
+                    var lessonDate = baseDate;
+
                     var lesson = new Lesson
                     {
                         GroupId = group.Id,
                         WeekIndex = 1,
                         DayOfWeekIndex = 1,
-                        DayIndex = 1, // Рӯзи аввал
-                        StartTime = new DateTimeOffset(lessonDate.Year, lessonDate.Month, lessonDate.Day, 9, 0, 0, TimeSpan.Zero),
+                        DayIndex = 1,
+                        StartTime = new DateTimeOffset(lessonDate.Year, lessonDate.Month, lessonDate.Day, 9, 0, 0, _localOffset),
                         CreatedAt = DateTimeOffset.UtcNow,
                         UpdatedAt = DateTimeOffset.UtcNow
                     };
@@ -223,17 +201,13 @@ namespace Infrastructure.BackgroundTasks
             }
         }
 
-        /// <summary>
-        /// Барои ҳамаи гурӯҳҳои фаъол дарсҳои ҳаррӯза эҷод мекунад
-        /// </summary>
         private async Task CreateDailyLessons(CancellationToken stoppingToken, DateTime? targetDate = null)
         {
-            // Санаи коркард (ё имрӯз, ё санаи додашуда)
-            var processingDate = targetDate?.Date ?? DateTimeOffset.UtcNow.Date.AddDays(1);
+            var localNow = DateTimeOffset.UtcNow + _localOffset;
+            var processingDate = targetDate?.Date ?? localNow.Date.AddDays(1);
             
             logger.LogInformation($"Эҷоди дарсҳо барои санаи {processingDate:yyyy-MM-dd} оғоз шуд...");
 
-            // Агар санаи коркард рӯзи якшанбе ё шанбе бошад, дарсҳо эҷод намешаванд
             if (processingDate.DayOfWeek == DayOfWeek.Saturday || processingDate.DayOfWeek == DayOfWeek.Sunday)
             {
                 logger.LogInformation("Санаи коркард рӯзи истироҳат аст, дарсҳо эҷод намешаванд");
@@ -243,7 +217,6 @@ namespace Infrastructure.BackgroundTasks
             using var scope = serviceProvider.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<DataContext>();
 
-            // Ҳамаи гурӯҳҳои фаъолро мегирем
             var activeGroups = await context.Groups
                 .Where(g => g.Status == ActiveStatus.Active && !g.IsDeleted)
                 .ToListAsync(stoppingToken);
@@ -262,7 +235,6 @@ namespace Infrastructure.BackgroundTasks
             {
                 try
                 {
-                    // Дарси охирини гурӯҳро мегирем
                     var lastLesson = await context.Lessons
                         .Where(l => l.GroupId == group.Id && !l.IsDeleted)
                         .OrderByDescending(l => l.WeekIndex)
@@ -271,20 +243,16 @@ namespace Infrastructure.BackgroundTasks
                         
                     if (lastLesson == null)
                     {
-                        // Агар дарс набошад, бо усули CheckNewlyActivatedGroups эҷод мешавад
                         continue;
                     }
                     
-                    // Индексҳои навбатиро ҳисоб мекунем
                     int nextDayIndex = lastLesson.DayOfWeekIndex + 1;
                     int weekIndex = lastLesson.WeekIndex;
                     
-                    // Месанҷем, ки оё dayIndex ба қимати 5 расидааст (пас аз он имтиҳон лозим аст)
                     bool needExam = nextDayIndex > 5;
                     
                     if (needExam)
                     {
-                        // Месанҷем, ки оё барои ҳафтаи ҷорӣ имтиҳон мавҷуд аст
                         var examExists = await context.Exams
                             .AnyAsync(e => e.GroupId == group.Id && 
                                          e.WeekIndex == weekIndex && 
@@ -293,8 +261,7 @@ namespace Infrastructure.BackgroundTasks
                                        
                         if (!examExists)
                         {
-                            // Барои ҳафтаи ҷорӣ имтиҳон эҷод мекунем
-                            var baseDate = DateTimeOffset.UtcNow.Date;
+                            var baseDate = localNow.Date;
                             var examWeekStart = baseDate.AddDays(7 * (weekIndex - 1));
                             var examDate = examWeekStart.AddDays(5);
                             
@@ -312,21 +279,17 @@ namespace Infrastructure.BackgroundTasks
                             logger.LogInformation($"Барои гурӯҳи {group.Id} имтиҳон эҷод шуд, ҳафтаи {weekIndex}");
                         }
                         
-                        // Ба ҳафтаи оянда мегузарем
                         nextDayIndex = 1;
                         weekIndex = weekIndex + 1;
                         
-                        // Агар ба ҳадди аксар расидем, ба ҳафтаи 1 бармегардем
                         if (weekIndex > group.TotalWeeks)
                         {
                             weekIndex = 1;
                         }
                     }
                     
-                    // Ҳисоб кардани индекси умумии рӯз
                     int absoluteDayIndex = (weekIndex - 1) * 5 + nextDayIndex;
                     
-                    // Месанҷем, ки оё дарс бо чунин индексҳо мавҷуд аст
                     var lessonExists = await context.Lessons
                         .AnyAsync(l => l.GroupId == group.Id && 
                                     l.WeekIndex == weekIndex && 
@@ -336,7 +299,6 @@ namespace Infrastructure.BackgroundTasks
                                   
                     if (!lessonExists)
                     {
-                        // Дарси нав эҷод мекунем
                         var lessonDate = processingDate;
                         
                         var lesson = new Lesson
@@ -345,7 +307,7 @@ namespace Infrastructure.BackgroundTasks
                             WeekIndex = weekIndex,
                             DayOfWeekIndex = nextDayIndex,
                             DayIndex = absoluteDayIndex,
-                            StartTime = new DateTimeOffset(lessonDate.Year, lessonDate.Month, lessonDate.Day, 9, 0, 0, TimeSpan.Zero),
+                            StartTime = new DateTimeOffset(lessonDate.Year, lessonDate.Month, lessonDate.Day, 9, 0, 0, _localOffset),
                             CreatedAt = DateTimeOffset.UtcNow,
                             UpdatedAt = DateTimeOffset.UtcNow
                         };
