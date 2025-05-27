@@ -95,20 +95,6 @@ namespace Infrastructure.BackgroundTasks
         {
             logger.LogInformation("Санҷиши дарсҳо барои имрӯз ({today})...", today.ToString("yyyy-MM-dd"));
 
-            using var scope = serviceProvider.CreateScope();
-            var context = scope.ServiceProvider.GetRequiredService<DataContext>();
-
-            var lessonsExist = await context.Lessons
-                .AnyAsync(l => !l.IsDeleted && l.StartTime.Date == today, stoppingToken);
-
-            if (lessonsExist)
-            {
-                logger.LogInformation("Дарсҳо барои имрӯз аллакай эҷод шудаанд");
-                return;
-            }
-
-            logger.LogInformation("Дарсҳо барои имрӯз ёфт нашуданд, оғози эҷоди дарсҳо...");
-
             var localNow = DateTimeOffset.UtcNow + _localOffset;
             if (localNow.DayOfWeek == DayOfWeek.Sunday) // Only skip on Sunday
             {
@@ -231,6 +217,18 @@ namespace Infrastructure.BackgroundTasks
             {
                 try
                 {
+                    // Check if a lesson already exists for this group on the processing date
+                    var lessonExistsForGroup = await context.Lessons
+                        .AnyAsync(l => l.GroupId == group.Id &&
+                                       !l.IsDeleted &&
+                                       l.StartTime.Date == processingDate, stoppingToken);
+
+                    if (lessonExistsForGroup)
+                    {
+                        logger.LogInformation($"Дарс барои гурӯҳи {group.Id} дар санаи {processingDate:yyyy-MM-dd} аллакай вуҷуд дорад");
+                        continue; // Skip this group and move to the next
+                    }
+
                     var lastLesson = await context.Lessons
                         .Where(l => l.GroupId == group.Id && !l.IsDeleted)
                         .OrderByDescending(l => l.WeekIndex)
@@ -239,6 +237,21 @@ namespace Infrastructure.BackgroundTasks
 
                     if (lastLesson == null)
                     {
+                        logger.LogInformation($"Ягон дарси қаблӣ барои гурӯҳи {group.Id} ёфт нашуд, эҷоди дарси аввалин...");
+                        var lesson = new Lesson
+                        {
+                            GroupId = group.Id,
+                            WeekIndex = 1,
+                            DayOfWeekIndex = 1,
+                            DayIndex = 1,
+                            StartTime = new DateTimeOffset(processingDate.Year, processingDate.Month, processingDate.Day, 9, 0, 0, TimeSpan.Zero), // Use UTC
+                            CreatedAt = DateTimeOffset.UtcNow, // Already in UTC
+                            UpdatedAt = DateTimeOffset.UtcNow // Already in UTC
+                        };
+
+                        await context.Lessons.AddAsync(lesson, stoppingToken);
+                        createdLessonsCount++;
+                        logger.LogInformation($"Барои гурӯҳи {group.Id} дарси аввалин эҷод шуд, WeekIndex: 1, DayIndex: 1");
                         continue;
                     }
 
@@ -251,9 +264,9 @@ namespace Infrastructure.BackgroundTasks
                     {
                         var examExists = await context.Exams
                             .AnyAsync(e => e.GroupId == group.Id &&
-                                         e.WeekIndex == weekIndex &&
-                                         !e.IsDeleted,
-                                       stoppingToken);
+                                           e.WeekIndex == weekIndex &&
+                                           !e.IsDeleted,
+                                      stoppingToken);
 
                         if (!examExists)
                         {
@@ -288,9 +301,9 @@ namespace Infrastructure.BackgroundTasks
 
                     var lessonExists = await context.Lessons
                         .AnyAsync(l => l.GroupId == group.Id &&
-                                    l.WeekIndex == weekIndex &&
-                                    l.DayOfWeekIndex == nextDayIndex &&
-                                    !l.IsDeleted,
+                                       l.WeekIndex == weekIndex &&
+                                       l.DayOfWeekIndex == nextDayIndex &&
+                                       !l.IsDeleted,
                                   stoppingToken);
 
                     if (!lessonExists)
