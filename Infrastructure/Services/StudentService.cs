@@ -78,8 +78,7 @@ public class StudentService(
                     "#5E60CE",
                     "#4EA8DE");
             }
-
-            // Создание студента
+            
             var student = new Student
             {
                 FullName = createStudentDto.FullName,
@@ -505,5 +504,33 @@ public class StudentService(
                 Message = $"Ошибка при получении детальной информации о студенте: {ex.Message}"
             };
         }
+    }
+
+    public async Task<Response<GetStudentAverageDto>> GetStudentAverageAsync(int studentId, int groupId)
+    {
+        var student = await context.Students.FirstOrDefaultAsync(s => s.Id == studentId && !s.IsDeleted);
+        if (student == null)
+            return new Response<GetStudentAverageDto>(HttpStatusCode.NotFound, "Student not found");
+
+        var grades = await context.Grades
+            .Where(g => g.StudentId == studentId && g.GroupId == groupId && !g.IsDeleted)
+            .ToListAsync();
+
+        double average = 0;
+        if (grades.Any())
+        {
+            // Sum grades and bonus points for each record
+            var total = grades.Sum(g => (g.Value ?? 0) + (g.BonusPoints ?? 0));
+            average = Math.Round((double)total / grades.Count, 2);
+        }
+
+        var dto = new GetStudentAverageDto
+        {
+            StudentId = studentId,
+            GroupId = groupId,
+            Value = average,
+        };
+
+        return new Response<GetStudentAverageDto>(dto);
     }
 }

@@ -17,4 +17,6 @@ public interface IStudentService
     Task<PaginationResponse<List<GetStudentDto>>> GetStudentsPagination(StudentFilter filter);
     Task<Response<byte[]>> GetStudentDocument(int studentId);
     Task<Response<GetStudentDetailedDto>> GetStudentDetailedAsync(int id);
+    //Average
+    Task<Response<GetStudentAverageDto>> GetStudentAverageAsync(int studentId,int groupId);
 }
