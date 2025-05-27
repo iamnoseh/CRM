@@ -20,6 +20,9 @@ public class StudentController (IStudentService service) : ControllerBase
     public async Task<Response<GetStudentDto>> GetStudentById(int id ) => 
         await service.GetStudentByIdAsync(id );
 
+    [HttpGet("studentAverage/{id}")]
+    public async Task<Response<GetStudentAverageDto>> GetStudentAverageById(int studentId, int groupId) =>
+        await service.GetStudentAverageAsync(studentId, groupId);
     [HttpGet("filter")]
     public async Task<PaginationResponse<List<GetStudentDto>>> 
         GetStudentsPagination([FromQuery] StudentFilter filter ) =>
