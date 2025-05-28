@@ -17,6 +17,7 @@ using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using Infrastructure.BackgroundTasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Hosting;
@@ -26,7 +27,7 @@ namespace Infrastructure.ExtensionMethods.Register;
 
 public static class Register
 {
-    // Базовая регистрация сервисов
+
     public static void AddRegisterService(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddDbContext<DataContext>(options =>
@@ -37,7 +38,7 @@ public static class Register
                     npgsqlOptions.UseNodaTime();
                 }));
         services.AddScoped<IHashService, HashService>();
-        // Регистрация EmailService с правильным внедрением зависимостей
+    
         services.AddScoped<IEmailService>(sp => 
             new EmailService(
                 sp.GetRequiredService<EmailConfiguration>(),
@@ -51,15 +52,14 @@ public static class Register
         services.AddScoped<IExamService, ExamService>();
     }
     
-    // Регистрация identity и аутентификации
+
     public static void AddIdentityServices(this IServiceCollection services, IConfiguration configuration)
     {
-        // Конфигурация Identity
+    
         services.AddIdentity<User, IdentityRole<int>>()
             .AddEntityFrameworkStores<DataContext>()
             .AddDefaultTokenProviders();
-            
-        // Аутентификация и JWT
+      
         services.AddAuthentication(options =>
         {
             options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -137,9 +137,13 @@ public static class Register
         services.AddScoped<IStudentGroupService, StudentGroupService>();
         
         services.AddScoped<IMentorGroupService, MentorGroupService>();
-        
-        // Регистрация сервиса для планировщика уроков
-        // services.AddScoped<LessonSchedulerService>();
+   
+        services.AddHostedService<DailyLessonCreatorService>();
+        // services.AddHostedService<WeeklyExamCreatorService>();
+        services.AddHostedService<GroupExpirationService>();
+        services.AddHostedService<StudentStatusUpdaterService>();
+        services.AddHostedService<CenterIncomeUpdaterService>();
+   
         services.AddLogging(logging =>
         {
             logging.AddConsole();
@@ -151,7 +155,6 @@ public static class Register
        
     }
     
-    // Регистрация Swagger
     public static void AddSwaggerServices(this IServiceCollection services)
     {
         services.AddEndpointsApiExplorer();
@@ -196,7 +199,6 @@ public static class Register
         });
     }
     
-    // Регистрация Hangfire
     public static void AddHangfireServices(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddHangfire(config =>
@@ -207,18 +209,32 @@ public static class Register
     }
     
     // Настройка задач для Hangfire
-    // public static void ConfigureHangfireJobs(this IApplicationBuilder app)
-    // {
-    //     var scopeFactory = app.ApplicationServices.GetRequiredService<IServiceScopeFactory>();
-    //     
-    //     // Для планировщика уроков
-    //     RecurringJob.AddOrUpdate("check-scheduled-lessons",
-    //         () => scopeFactory.CreateScope().ServiceProvider
-    //             .GetRequiredService<LessonSchedulerService>().CheckAndCreateLessonsAsync(),
-    //         Cron.Daily(6)); // проверка ежедневно в 6 утра
-    // }
+    public static void ConfigureHangfireJobs(this IApplicationBuilder app)
+    {
+        // Фоновые сервисы уже работают автоматически как BackgroundService
+        // Здесь мы просто добавляем текстовые описания в Hangfire Dashboard
+        
+        // Ежедневное создание уроков (00:01, пн-пт)
+        RecurringJob.AddOrUpdate("daily-lesson-creation", 
+            () => System.Console.WriteLine("Daily Lesson Creator Service is working automatically as a BackgroundService"),
+            "1 0 * * 1-5", TimeZoneInfo.Local); // 00:01 с пн по пт
+        
+        // Еженедельное создание экзаменов (00:04 каждую субботу)
+        RecurringJob.AddOrUpdate("weekly-exam-creation", 
+            () => System.Console.WriteLine("Weekly Exam Creator Service is working automatically as a BackgroundService"),
+            "4 0 * * 6", TimeZoneInfo.Local); // 00:04 каждую субботу
+        
+        // Проверка истечения срока групп (00:07 ежедневно)
+        RecurringJob.AddOrUpdate("group-expiration-check", 
+            () => System.Console.WriteLine("Group Expiration Service is working automatically as a BackgroundService"),
+            "7 0 * * *", TimeZoneInfo.Local); // 00:07 ежедневно
+        
+        // Обновление статуса студентов (00:10 ежедневно)
+        RecurringJob.AddOrUpdate("student-status-update", 
+            () => System.Console.WriteLine("Student Status Updater Service is working automatically as a BackgroundService"),
+            "10 0 * * *", TimeZoneInfo.Local); // 00:10 ежедневно
+    }
     
-    // Применение миграций и заполнение начальными данными
     public static async Task ApplyMigrationsAndSeedData(this IApplicationBuilder app)
     {
         using var scope = app.ApplicationServices.CreateScope();

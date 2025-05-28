@@ -13,6 +13,16 @@ public class GroupExpirationService(
     IServiceProvider serviceProvider)
     : BackgroundService
 {
+    /// <summary>
+    /// Публичный метод для запуска из Hangfire
+    /// </summary>
+    public async Task Run()
+    {
+        logger.LogInformation("Manual run of Group Expiration Service triggered");
+        await CheckExpiredGroups();
+        logger.LogInformation("Manual run of Group Expiration Service completed");
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         logger.LogInformation("Group Expiration Service started");

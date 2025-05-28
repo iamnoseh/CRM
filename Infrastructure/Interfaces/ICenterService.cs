@@ -17,4 +17,8 @@ public interface ICenterService
     Task<Response<List<GetCenterStudentsDto>>> GetCenterStudentsAsync(int centerId);
     Task<Response<List<GetCenterMentorsDto>>> GetCenterMentorsAsync(int centerId);
     Task<Response<List<GetCenterCoursesDto>>> GetCenterCoursesAsync(int centerId);
+    
+    // Методы для расчета доходов центров
+    Task<Response<string>> CalculateCenterIncomeAsync(int centerId);
+    Task<Response<string>> CalculateAllCentersIncomeAsync();
 }

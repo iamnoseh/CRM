@@ -16,6 +16,16 @@ public class StudentStatusUpdaterService(
     IServiceProvider serviceProvider)
     : BackgroundService
 {
+    /// <summary>
+    /// Публичный метод для запуска из Hangfire
+    /// </summary>
+    public async Task Run()
+    {
+        logger.LogInformation("Manual run of Student Status Updater Service triggered");
+        await UpdateStudentStatuses();
+        logger.LogInformation("Manual run of Student Status Updater Service completed");
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         logger.LogInformation("Student Status Updater Service started");

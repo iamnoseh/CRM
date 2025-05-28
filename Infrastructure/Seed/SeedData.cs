@@ -20,6 +20,7 @@ public class SeedData(UserManager<User> userManager, RoleManager<IdentityRole<in
             Gender = 0,
             FullName = "Admin",
             PhoneNumber = "987654321",
+            CenterId = 1
         };
 
         var result = await userManager.CreateAsync(user, "Qwerty123!");

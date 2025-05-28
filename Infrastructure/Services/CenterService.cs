@@ -53,7 +53,7 @@ public class CenterService(DataContext context, string uploadPath) : ICenterServ
                 imagePath = $"/uploads/centers/{uniqueFileName}";
             }
 
-            // Создание нового центра
+            
             var center = new Center
             {
                 Name = createCenterDto.Name,
@@ -63,8 +63,8 @@ public class CenterService(DataContext context, string uploadPath) : ICenterServ
                 Email = createCenterDto.ContactEmail,
                 ManagerName = createCenterDto.ManagerName,
                 Image = imagePath,
-                MonthlyIncome = createCenterDto.MonthlyIncome,
-                YearlyIncome = createCenterDto.YearlyIncome,
+                MonthlyIncome = 0, 
+                YearlyIncome = 0, 
                 StudentCapacity = createCenterDto.StudentCapacity,
                 IsActive = createCenterDto.IsActive,
                 CreatedAt = DateTime.UtcNow,
@@ -96,7 +96,6 @@ public class CenterService(DataContext context, string uploadPath) : ICenterServ
 
             string imagePath = center.Image;
             
-            // Обработка изображения, если оно предоставлено
             if (updateCenterDto.ImageFile != null && updateCenterDto.ImageFile.Length > 0)
             {
                 var fileExtension = Path.GetExtension(updateCenterDto.ImageFile.FileName).ToLowerInvariant();
@@ -131,7 +130,6 @@ public class CenterService(DataContext context, string uploadPath) : ICenterServ
                 imagePath = $"/uploads/centers/{uniqueFileName}";
             }
 
-            // Обновление данных центра
             center.Name = updateCenterDto.Name;
             center.Description = updateCenterDto.Description ?? string.Empty;
             center.Address = updateCenterDto.Address;
@@ -139,8 +137,6 @@ public class CenterService(DataContext context, string uploadPath) : ICenterServ
             center.Email = updateCenterDto.ContactEmail;
             center.ManagerName = updateCenterDto.ManagerName;
             center.Image = imagePath;
-            center.MonthlyIncome = updateCenterDto.MonthlyIncome;
-            center.YearlyIncome = updateCenterDto.YearlyIncome;
             center.StudentCapacity = updateCenterDto.StudentCapacity;
             center.IsActive = updateCenterDto.IsActive;
             center.UpdatedAt = DateTime.UtcNow;
@@ -168,7 +164,6 @@ public class CenterService(DataContext context, string uploadPath) : ICenterServ
             if (center == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Center not found");
 
-            // Проверка на связанные сущности (опционально можно добавить дополнительные проверки)
             var hasStudents = await context.Students.AnyAsync(s => s.CenterId == id && !s.IsDeleted);
             var hasMentors = await context.Mentors.AnyAsync(m => m.CenterId == id && !m.IsDeleted);
             var hasCourses = await context.Courses.AnyAsync(c => c.CenterId == id && !c.IsDeleted);
@@ -177,7 +172,6 @@ public class CenterService(DataContext context, string uploadPath) : ICenterServ
                 return new Response<string>(HttpStatusCode.BadRequest, 
                     "Cannot delete center with active students, mentors or courses");
             
-            // Мягкое удаление (soft delete)
             center.IsDeleted = true;
             center.UpdatedAt = DateTime.UtcNow;
             
@@ -562,6 +556,94 @@ public class CenterService(DataContext context, string uploadPath) : ICenterServ
         catch (Exception ex)
         {
             return new Response<CenterStatisticsDto>(HttpStatusCode.InternalServerError, $"An error occurred: {ex.Message}");
+        }
+    }
+    #endregion
+
+    #region CalculateCenterIncome
+    public async Task<Response<string>> CalculateCenterIncomeAsync(int centerId)
+    {
+        try
+        {
+            var center = await context.Centers.FirstOrDefaultAsync(c => c.Id == centerId && !c.IsDeleted);
+            if (center == null)
+                return new Response<string>(HttpStatusCode.NotFound, "Center not found");
+            
+            // Текущий месяц и год
+            var currentMonth = DateTime.Now.Month;
+            var currentYear = DateTime.Now.Year;
+            
+            // Расчет месячного дохода (текущий месяц)
+            var monthlyIncome = await context.Payments
+                .Where(p => p.CenterId == centerId && 
+                            p.Month == currentMonth && 
+                            p.Year == currentYear &&
+                            p.Status == Domain.Enums.PaymentStatus.Paid && 
+                            !p.IsDeleted)
+                .SumAsync(p => p.Amount);
+            
+            // Расчет годового дохода (за последние 12 месяцев)
+            // Определяем диапазон последних 12 месяцев
+            var startDate = DateTime.Now.AddMonths(-11);
+            var startMonth = startDate.Month;
+            var startYear = startDate.Year;
+            
+            var yearlyIncome = await context.Payments
+                .Where(p => p.CenterId == centerId && 
+                          p.Status == Domain.Enums.PaymentStatus.Paid && 
+                          !p.IsDeleted &&
+                          ((p.Year == startYear && p.Month >= startMonth) || 
+                           (p.Year == currentYear && p.Month <= currentMonth) ||
+                           (p.Year > startYear && p.Year < currentYear)))
+                .SumAsync(p => p.Amount);
+            
+            // Обновляем данные центра
+            center.MonthlyIncome = monthlyIncome;
+            center.YearlyIncome = yearlyIncome;
+            center.UpdatedAt = DateTime.Now;
+            
+            await context.SaveChangesAsync();
+            
+            return new Response<string>(HttpStatusCode.OK, $"Center income updated: Monthly: {monthlyIncome}, Yearly: {yearlyIncome}");
+        }
+        catch (Exception ex)
+        {
+            return new Response<string>(HttpStatusCode.InternalServerError, $"An error occurred: {ex.Message}");
+        }
+    }
+    #endregion
+    
+    #region CalculateAllCentersIncome
+    public async Task<Response<string>> CalculateAllCentersIncomeAsync()
+    {
+        try
+        {
+            var centers = await context.Centers.Where(c => !c.IsDeleted).ToListAsync();
+            
+            if (!centers.Any())
+                return new Response<string>(HttpStatusCode.NotFound, "No centers found");
+            
+            int successCount = 0;
+            List<string> errors = new List<string>();
+            
+            foreach (var center in centers)
+            {
+                var result = await CalculateCenterIncomeAsync(center.Id);
+                if (result.StatusCode ==(int) HttpStatusCode.OK)
+                    successCount++;
+                else
+                    errors.Add($"Center {center.Id}: {result.Message}");
+            }
+            
+            if (errors.Any())
+                return new Response<string>(HttpStatusCode.PartialContent, 
+                    $"Updated {successCount} centers. Errors: {string.Join("; ", errors)}");
+            
+            return new Response<string>(HttpStatusCode.OK, $"Successfully updated income for all {successCount} centers");
+        }
+        catch (Exception ex)
+        {
+            return new Response<string>(HttpStatusCode.InternalServerError, $"An error occurred: {ex.Message}");
         }
     }
     #endregion

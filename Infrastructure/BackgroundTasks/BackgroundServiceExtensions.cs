@@ -15,8 +15,6 @@ public static class BackgroundServiceExtensions
         // Регистрируем сервис ежедневного создания уроков (запускается каждый день в 00:01)
         services.AddHostedService<DailyLessonCreatorService>();
         
-        // Регистрируем сервис еженедельного создания экзаменов (запускается по субботам в 00:04)
-        services.AddHostedService<WeeklyExamCreatorService>();
         
         // Регистрируем сервис для отслеживания сроков групп и их деактивации (запускается каждый день в 00:07)
         services.AddHostedService<GroupExpirationService>();

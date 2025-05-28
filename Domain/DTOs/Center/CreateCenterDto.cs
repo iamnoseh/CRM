@@ -27,10 +27,6 @@ public class CreateCenterDto
     
     public IFormFile? ImageFile { get; set; }
     
-    public decimal MonthlyIncome { get; set; } = 0;
-    
-    public decimal YearlyIncome { get; set; } = 0;
-    
     public int StudentCapacity { get; set; } = 0;
     
     public bool IsActive { get; set; } = true;

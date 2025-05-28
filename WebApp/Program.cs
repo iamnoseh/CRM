@@ -1,6 +1,7 @@
 using Infrastructure.ExtensionMethods.Register;
 using SwaggerThemes;
 using Domain.DTOs.EmailDTOs;
+using Hangfire;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,6 +43,8 @@ if (app.Environment.IsDevelopment())
     });
     
 }
+app.UseHangfireDashboard("/hangfire");
+app.UseHangfireServer();
 
 app.UseCors("AllowBlazorClient");
 app.UseRouting();
@@ -50,7 +53,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-// // Настройка Hangfire Jobs
-// app.ConfigureHangfireJobs();
+// Фоновые службы работают автоматически через механизм BackgroundService
+ app.ConfigureHangfireJobs(); // отключено, чтобы избежать ошибок инициализации Hangfire
 
 app.Run();

@@ -13,12 +13,12 @@ public interface IAccountService
     // Управление ролями
     Task<Response<string>> RemoveRoleFromUser(RoleDto userRole);
     Task<Response<string>> AddRoleToUser(RoleDto userRole);
-    Task<Response<List<string>>> GetUserRoles(int userId);
+    // Task<Response<List<string>>> GetUserRoles(int userId);
     
     // Управление паролями
     Task<Response<string>> ResetPassword(ResetPasswordDto resetPasswordDto);
     Task<Response<string>> ForgotPasswordCodeGenerator(ForgotPasswordDto forgotPasswordDto);
     Task<Response<string>> ChangePassword(ChangePasswordDto passwordDto, int userId);
     
-    Task<Response<string>> UpdateUserStatus(int userId, bool isActive);
+    // Task<Response<string>> UpdateUserStatus(int userId, bool isActive);
 }

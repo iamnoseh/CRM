@@ -245,7 +245,8 @@ public class AccountService(
         {
             new Claim(JwtRegisteredClaimNames.Name, user.UserName),
             new Claim(JwtRegisteredClaimNames.Email, user.Email),
-            new Claim(JwtRegisteredClaimNames.NameId, user.Id.ToString())
+            new Claim(JwtRegisteredClaimNames.NameId, user.Id.ToString()),
+            new Claim("CenterId",user.CenterId.ToString()!)
         };
 
         var roles = await userManager.GetRolesAsync(user);
@@ -379,12 +380,8 @@ public class AccountService(
             return new Response<string>(HttpStatusCode.BadRequest, ex.Message);
         }
     }
-
-    public Task<Response<string>> UpdateUserStatus(int userId, bool isActive)
-    {
-        throw new NotImplementedException();
-    }
-
     #endregion
+
+
     
 }
