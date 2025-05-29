@@ -49,6 +49,7 @@ public static class Register
                 sp.GetRequiredService<IConfiguration>()["UploadPath"] ?? throw new InvalidOperationException("UploadPath not configured")
             ));        services.AddScoped<IAttendanceService, AttendanceService>();
         services.AddScoped<IAttendanceStatisticsService, AttendanceStatisticsService>();
+        services.AddScoped<IPaymentStatisticsService, PaymentStatisticsService>();
         services.AddScoped<ICommentService, CommentService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<ILessonService, LessonService>();

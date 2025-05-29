@@ -3,10 +3,8 @@ public class AttendanceAllStatisticsDto
 {
     public int TotalLessons { get; set; }
     public int PresentCount { get; set; }
-
     public int AbsentCount { get; set; }
     public int LateCount { get; set; }
-    
     public double AttendancePercentage { get; set; }
     public DateTimeOffset StartDate { get; set; }
     public DateTimeOffset EndDate { get; set; }
@@ -15,15 +13,7 @@ public class AttendanceAllStatisticsDto
 public class StudentAttendanceAllStatisticsDto : AttendanceAllStatisticsDto
 {
     public int StudentId { get; set; }
-
-    /// <summary>
-    /// Ному насаби хонанда
-    /// </summary>
     public required string StudentName { get; set; }
-
-    /// <summary>
-    /// Рамзи гурӯҳ
-    /// </summary>
     public int GroupId { get; set; }
     public required string GroupName { get; set; }
 }
