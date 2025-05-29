@@ -1,6 +1,7 @@
 using System.Net;
 using Domain.DTOs.Group;
 using Domain.DTOs.Attendance;
+using Domain.DTOs.Statistics;
 using Domain.Entities;
 using Domain.Enums;
 using Domain.Filters;
@@ -10,6 +11,7 @@ using Infrastructure.Extensions;
 using Infrastructure.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using GroupAttendanceStatisticsDto = Domain.DTOs.Group.GroupAttendanceStatisticsDto;
 
 namespace Infrastructure.Services;
 

@@ -3,8 +3,7 @@ using System.Collections.Generic;
 using Domain.DTOs.Attendance;
 
 namespace Domain.DTOs.Group
-{
-    public class GroupAttendanceStatisticsDto
+{    public class GroupAttendanceStatisticsDto
     {
         public int GroupId { get; set; }
         public string GroupName { get; set; } = string.Empty;

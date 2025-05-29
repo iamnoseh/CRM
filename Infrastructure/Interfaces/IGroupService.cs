@@ -1,6 +1,8 @@
 using Domain.DTOs.Group;
+using Domain.DTOs.Statistics;
 using Domain.Filters;
 using Domain.Responses;
+using GroupAttendanceStatisticsDto = Domain.DTOs.Group.GroupAttendanceStatisticsDto;
 
 namespace Infrastructure.Interfaces;
 
