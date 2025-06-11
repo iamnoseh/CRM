@@ -33,8 +33,7 @@ public class AccountService(
             var existingUser = await userManager.FindByNameAsync(model.UserName);
             if (existingUser != null)
                 return new Response<string>(HttpStatusCode.BadRequest, "Username already exists");
-
-            // Загрузка изображения профиля
+            
             string profileImagePath = string.Empty;
             if (model.ProfileImage != null)
             {
@@ -155,6 +154,7 @@ public class AccountService(
             new Claim(JwtRegisteredClaimNames.Name, user.UserName),
             new Claim(JwtRegisteredClaimNames.Email, user.Email),
             new Claim(JwtRegisteredClaimNames.NameId, user.Id.ToString()),
+            new Claim(JwtRegisteredClaimNames.Picture,user.ProfileImagePath),
             new Claim("CenterId", user.CenterId.ToString()!)
         };
 
