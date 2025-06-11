@@ -54,9 +54,9 @@ app.UseStaticFilesConfiguration(uploadPath);
 app.UseHttpsRedirection();
 app.UseCors("AllowFrontend");
 app.UseRouting();
-app.UseAuthentication(); // Сначала аутентификация
-app.UseAuthorization();  // Потом авторизация
-app.MapControllers();    // Затем маршрутизация
+app.UseAuthentication(); 
+app.UseAuthorization();  
+app.MapControllers(); 
 
 app.UseHangfireDashboard();
 app.UseHangfireServer();
