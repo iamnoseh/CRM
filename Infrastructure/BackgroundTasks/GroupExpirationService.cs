@@ -1,5 +1,6 @@
 using Domain.Enums;
 using Infrastructure.Data;
+using Infrastructure.Helpers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -14,14 +15,21 @@ public class GroupExpirationService(
 {
     public async Task Run()
     {
-        logger.LogInformation("Manual run of Group Expiration Service triggered");
-        await CheckExpiredGroups();
-        logger.LogInformation("Manual run of Group Expiration Service completed");
+        try
+        {
+            var localNow = DateTimeOffset.UtcNow.ToDushanbeTime();
+            logger.LogInformation("Checking group expiration status at {time}", localNow);
+            await CheckExpiredGroups();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error occurred while checking group expiration: {message}", ex.Message);
+        }
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        logger.LogInformation("Group Expiration Service started");
+        logger.LogInformation("GroupExpirationService started");
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -30,90 +38,62 @@ public class GroupExpirationService(
                 var now = DateTimeOffset.UtcNow;
                 var nextRunTime = CalculateNextRunTime(now);
                 var delay = nextRunTime - now;
-                
-                logger.LogInformation($"Next group expiration check scheduled at {nextRunTime} (in {delay.TotalHours:F1} hours)");
+
+                logger.LogInformation($"Next group expiration check scheduled at {nextRunTime.ToDushanbeTime()} (in {delay.TotalHours:F1} hours)");
                 await Task.Delay(delay, stoppingToken);
                 await CheckExpiredGroups();
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error occurred while checking expired groups");
-            }
-            try
-            {
+                logger.LogError(ex, "Error occurred while checking group expiration");
                 await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
-            }
-            catch (TaskCanceledException)
-            {
-                break;
             }
         }
     }
 
     private DateTimeOffset CalculateNextRunTime(DateTimeOffset currentTime)
     {
-       
-        var today = currentTime.Date;
-        var targetTime = new TimeSpan(0, 7, 0); // 00:07
-        
-        var targetDateTime = today.Add(targetTime);
-        var targetDateTimeOffset = new DateTimeOffset(targetDateTime, currentTime.Offset);
-        
-        if (currentTime >= targetDateTimeOffset)
+        var localTime = currentTime.ToDushanbeTime();
+        var targetTime = new TimeSpan(0, 7, 0); // 00:07 AM
+        var targetRunTime = localTime.Date.Add(targetTime);
+        var targetDateTimeOffset = new DateTimeOffset(targetRunTime, localTime.Offset);
+
+        if (localTime >= targetDateTimeOffset)
         {
             targetDateTimeOffset = targetDateTimeOffset.AddDays(1);
         }
-        
+
         return targetDateTimeOffset;
     }
-    
+
     private async Task CheckExpiredGroups()
     {
+        logger.LogInformation("Starting group expiration check...");
+
         using var scope = serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<DataContext>();
-        
-        var today = DateTimeOffset.UtcNow.Date;
-        
-        try
+
+        var localNow = DateTimeOffset.UtcNow.ToDushanbeTime();
+        var expiredGroups = await context.Groups
+            .Where(g => g.Status == ActiveStatus.Active && !g.IsDeleted)
+            .Where(g => g.EndDate <= localNow)
+            .ToListAsync();
+
+        if (!expiredGroups.Any())
         {
-            var expiredGroups = await context.Groups
-                .Where(g => g.Status == ActiveStatus.Active && 
-                          g.Started && 
-                          g.EndDate.Date < today && 
-                          !g.IsDeleted)
-                .ToListAsync();
-            
-            logger.LogInformation($"Found {expiredGroups.Count} expired groups to deactivate");
-            
-            foreach (var group in expiredGroups)
-            {
-                group.Status = ActiveStatus.Completed;
-                group.UpdatedAt = DateTimeOffset.UtcNow;
-                
-                logger.LogInformation($"Group {group.Id} ({group.Name}) has been marked as completed. End date: {group.EndDate.Date.ToString("yyyy-MM-dd")}");
-                
-                var mentorGroups = await context.MentorGroups
-                    .Where(mg => mg.GroupId == group.Id && 
-                               (bool)mg.IsActive! && 
-                               !mg.IsDeleted)
-                    .ToListAsync();
-                
-                foreach (var mentorGroup in mentorGroups)
-                {
-                    mentorGroup.IsActive = false;
-                    mentorGroup.UpdatedAt = DateTimeOffset.UtcNow;
-                }
-                
-                logger.LogInformation($"Deactivated {mentorGroups.Count} mentor-group relationships for group {group.Id}");
-            }
-            
-            await context.SaveChangesAsync();
-            logger.LogInformation($"Successfully updated {expiredGroups.Count} expired groups");
+            logger.LogInformation("No expired groups found");
+            return;
         }
-        catch (Exception ex)
+
+        logger.LogInformation($"Found {expiredGroups.Count} expired groups");
+        foreach (var group in expiredGroups)
         {
-            logger.LogError(ex, "Error checking expired groups");
-            throw;
+            group.Status = ActiveStatus.Inactive;
+            group.UpdatedAt = DateTimeOffset.UtcNow;
+            logger.LogInformation($"Group {group.Id} marked as inactive (expired on {group.EndDate:yyyy-MM-dd})");
         }
+
+        await context.SaveChangesAsync();
+        logger.LogInformation($"Successfully updated {expiredGroups.Count} expired groups");
     }
 }

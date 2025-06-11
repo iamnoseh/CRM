@@ -4,6 +4,7 @@ using Domain.Entities;
 using Domain.Enums;
 using Domain.Responses;
 using Infrastructure.Data;
+using Infrastructure.Helpers;
 using Infrastructure.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,7 +12,6 @@ namespace Infrastructure.Services;
 
 public class AttendanceService(DataContext context) : IAttendanceService
 {
-
     private string GetStatusName(AttendanceStatus status)
     {
         return status switch
@@ -198,6 +198,8 @@ public class AttendanceService(DataContext context) : IAttendanceService
                     Message = "Посещаемость для данного студента на этом уроке уже отмечена"
                 };
             
+            var now = DateTimeOffset.UtcNow;
+            
             // Создаем запись о посещаемости
             var attendance = new Attendance
             {
@@ -205,8 +207,8 @@ public class AttendanceService(DataContext context) : IAttendanceService
                 StudentId = addAttendanceDto.StudentId,
                 LessonId = addAttendanceDto.LessonId,
                 GroupId = addAttendanceDto.GroupId,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                CreatedAt = now,
+                UpdatedAt = now
             };
             
             await context.Attendances.AddAsync(attendance);
@@ -223,7 +225,7 @@ public class AttendanceService(DataContext context) : IAttendanceService
                 if (existingGrade != null)
                 {
                     existingGrade.BonusPoints = (existingGrade.BonusPoints ?? 0) + 1;
-                    existingGrade.UpdatedAt = DateTime.UtcNow;
+                    existingGrade.UpdatedAt = now;
                     context.Grades.Update(existingGrade);
                 }
                 else
@@ -236,13 +238,14 @@ public class AttendanceService(DataContext context) : IAttendanceService
                         Value = null, 
                         BonusPoints = 1, 
                         Comment = "Бонусный балл за присутствие",
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
+                        CreatedAt = now,
+                        UpdatedAt = now
                     };
                     
                     await context.Grades.AddAsync(grade);
                 }
             }
+            
             await context.SaveChangesAsync();
             string statusMessage = addAttendanceDto.Status switch
             {

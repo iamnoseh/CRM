@@ -26,7 +26,6 @@ public class StudentService(
     {
         try
         {
-            // Загрузка изображения профиля
             string profileImagePath = string.Empty;
             if (createStudentDto.ProfilePhoto != null)
             {

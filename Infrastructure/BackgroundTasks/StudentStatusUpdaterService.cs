@@ -1,6 +1,7 @@
 using Domain.Entities;
 using Domain.Enums;
 using Infrastructure.Data;
+using Infrastructure.Helpers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -13,9 +14,16 @@ public class StudentStatusUpdaterService(ILogger<StudentStatusUpdaterService> lo
 {
     public async Task Run()
     {
-        logger.LogInformation("Manual run of Student Status Updater Service triggered");
-        await UpdateStudentStatuses();
-        logger.LogInformation("Manual run of Student Status Updater Service completed");
+        try
+        {
+            var localNow = DateTimeOffset.UtcNow.ToDushanbeTime();
+            logger.LogInformation("Updating student statuses at {time}", localNow);
+            await UpdateStudentStatuses();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error occurred while updating student statuses: {message}", ex.Message);
+        }
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -29,35 +37,28 @@ public class StudentStatusUpdaterService(ILogger<StudentStatusUpdaterService> lo
                 var now = DateTimeOffset.UtcNow;
                 var nextRunTime = CalculateNextRunTime(now);
                 var delay = nextRunTime - now;
-                
-                logger.LogInformation($"Next student status update scheduled at {nextRunTime} (in {delay.TotalHours:F1} hours)");
+
+                logger.LogInformation($"Next student status update scheduled at {nextRunTime.ToDushanbeTime()} (in {delay.TotalHours:F1} hours)");
                 await Task.Delay(delay, stoppingToken);
                 await UpdateStudentStatuses();
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error occurred while updating student statuses");
-            }
-            try
-            {
                 await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
-            }
-            catch (TaskCanceledException)
-            {
-                break;
             }
         }
     }
     
     private DateTimeOffset CalculateNextRunTime(DateTimeOffset currentTime)
     {
-        var today = currentTime.Date;
-        var targetTime = new TimeSpan(0, 10, 0); // 00:10
+        var localTime = currentTime.ToDushanbeTime();
+        var targetTime = new TimeSpan(0, 10, 0); // 00:10 AM
         
-        var targetDateTime = today.Add(targetTime);
-        var targetDateTimeOffset = new DateTimeOffset(targetDateTime, currentTime.Offset);
+        var targetRunTime = localTime.Date.Add(targetTime);
+        var targetDateTimeOffset = new DateTimeOffset(targetRunTime, localTime.Offset);
         
-        if (currentTime >= targetDateTimeOffset)
+        if (localTime >= targetDateTimeOffset)
         {
             targetDateTimeOffset = targetDateTimeOffset.AddDays(1);
         }
@@ -67,60 +68,35 @@ public class StudentStatusUpdaterService(ILogger<StudentStatusUpdaterService> lo
     
     private async Task UpdateStudentStatuses()
     {
+        logger.LogInformation("Starting student status update...");
+
         using var scope = serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<DataContext>();
-        
-        try
-        {
-            var completedGroups = await context.Groups
-                .Where(g => g.Status == ActiveStatus.Completed && !g.IsDeleted)
-                .ToListAsync();
-            
-            logger.LogInformation($"Found {completedGroups.Count} completed groups for student status update");
-            
-            int totalUpdated = 0;
-            
-            foreach (var group in completedGroups)
-            {
-                var activeStudentGroups = await context.StudentGroups
-                    .Where(sg => sg.GroupId == group.Id && 
-                              (bool)sg.IsActive && 
-                              !sg.IsDeleted)
-                    .ToListAsync();
-                
-                if (activeStudentGroups.Count == 0)
-                {
-                    logger.LogInformation($"No active students found in completed group {group.Id} ({group.Name})");
-                    continue;
-                }
-                
-                logger.LogInformation($"Updating status for {activeStudentGroups.Count} students in completed group {group.Id} ({group.Name})");
-                
-                foreach (var studentGroup in activeStudentGroups)
-                {
-                    studentGroup.IsActive = false;
-                    studentGroup.UpdatedAt = DateTimeOffset.UtcNow;
 
-                    var completionComment = new Comment
-                    {
-                        Text = $"Студент успешно завершил обучение в группе {group.Name}",
-                        GroupId = group.Id,
-                        StudentId = studentGroup.StudentId,
-                        CreatedAt = DateTimeOffset.UtcNow,
-                        UpdatedAt = DateTimeOffset.UtcNow
-                    };
-                    
-                    await context.Comments.AddAsync(completionComment);
-                    totalUpdated++;
-                }
-            }
-            await context.SaveChangesAsync();
-            logger.LogInformation($"Successfully updated status for {totalUpdated} students in completed groups");
-        }
-        catch (Exception ex)
+        var localNow = DateTimeConfig.NowDushanbe();
+
+        // Get all active students who need payment update
+        var studentsToUpdate = await context.Students
+            .Where(s => s.ActiveStatus == ActiveStatus.Active && !s.IsDeleted)
+            .Where(s => s.NextPaymentDueDate != null && s.NextPaymentDueDate <= localNow)
+            .ToListAsync();
+
+        if (!studentsToUpdate.Any())
         {
-            logger.LogError(ex, "Error updating student statuses in completed groups");
-            throw;
+            logger.LogInformation("No students need status update");
+            return;
         }
+
+        logger.LogInformation($"Found {studentsToUpdate.Count} students needing status update");
+
+        foreach (var student in studentsToUpdate)
+        {
+            student.ActiveStatus = ActiveStatus.Inactive;
+            student.UpdatedAt = DateTimeOffset.UtcNow;
+            logger.LogInformation($"Student {student.Id} marked as inactive (payment due on {student.NextPaymentDueDate:yyyy-MM-dd})");
+        }
+
+        await context.SaveChangesAsync();
+        logger.LogInformation($"Successfully updated {studentsToUpdate.Count} student statuses");
     }
 }

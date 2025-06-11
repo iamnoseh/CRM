@@ -23,9 +23,7 @@ public class DataContext(DbContextOptions<DataContext> options) : IdentityDbCont
     public DbSet<StudentPerformance> StudentPerformances { get; set; }
     public DbSet<StudentStatistics> StudentStatistics { get; set; }
     public DbSet<MonthlySummary> MonthlySummaries { get; set; }
-    public DbSet<NotificationLog> NotificationLogs { get; set; }
-
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    public DbSet<NotificationLog> NotificationLogs { get; set; }    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         base.OnConfiguring(optionsBuilder);
         
@@ -35,6 +33,18 @@ public class DataContext(DbContextOptions<DataContext> options) : IdentityDbCont
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        // Configure all DateTime properties to use timestamp with time zone
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            foreach (var property in entityType.GetProperties())
+            {
+                if (property.ClrType == typeof(DateTime) || property.ClrType == typeof(DateTime?))
+                {
+                    property.SetColumnType("timestamp with time zone");
+                }
+            }
+        }
 
         // Course vs Group
         modelBuilder.Entity<Group>()

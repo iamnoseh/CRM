@@ -49,6 +49,7 @@ public class SeedData(UserManager<User> userManager, RoleManager<IdentityRole<in
             Address = "Dushanbe",
             Age = 24,
             Gender = 0,
+            ProfileImagePath = "null",
             FullName = "Admin",
             PhoneNumber = "987654321",
             CenterId = centerId > 0 ? centerId : null

@@ -1,6 +1,7 @@
 using Domain.Entities;
 using Domain.Enums;
 using Infrastructure.Data;
+using Infrastructure.Helpers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -13,8 +14,6 @@ namespace Infrastructure.BackgroundTasks
         IServiceProvider serviceProvider)
         : BackgroundService
     {
-        private readonly TimeSpan _localOffset = TimeSpan.FromHours(5); // Local time offset (+05:00)
-
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             logger.LogInformation("DailyLessonCreatorService started at {time}", DateTimeOffset.UtcNow);
@@ -24,7 +23,7 @@ namespace Infrastructure.BackgroundTasks
                 try
                 {
                     var utcNow = DateTimeOffset.UtcNow;
-                    var localNow = utcNow + _localOffset; // Convert to local time for calculations
+                    var localNow = utcNow.ToDushanbeTime();
                     var today = localNow.Date;
                     logger.LogInformation("Рӯзи ҷорӣ: {dayOfWeek} ({today})", localNow.DayOfWeek, today.ToString("yyyy-MM-dd"));
 
@@ -35,47 +34,45 @@ namespace Infrastructure.BackgroundTasks
 
                     if (delay <= TimeSpan.Zero)
                     {
-                        delay = TimeSpan.FromSeconds(1); // Minimum delay to avoid errors
+                        delay = TimeSpan.FromMinutes(1);
                     }
 
-                    logger.LogInformation("Next lesson creation scheduled for {nextRun} (in {delay})",
-                        nextRun, delay);
-
+                    logger.LogInformation($"Интизори иҷрои навбатӣ: {delay.TotalHours:F1} соат");
                     await Task.Delay(delay, stoppingToken);
-
-                    if (localNow.DayOfWeek != DayOfWeek.Sunday) // Only skip on Sunday
-                    {
-                        await Run(stoppingToken);
-                    }
-                    else
-                    {
-                        logger.LogInformation("Skipping lesson creation - it's Sunday");
-                    }
-                }
-                catch (TaskCanceledException)
-                {
-                    break;
                 }
                 catch (Exception ex)
                 {
-                    logger.LogError(ex, "Error in DailyLessonCreatorService: {message}", ex.Message);
-                    try
-                    {
-                        await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
-                    }
-                    catch (TaskCanceledException)
-                    {
-                        break;
-                    }
+                    logger.LogError(ex, "Хатогӣ ҳангоми сохтани дарсҳои рӯзона");
+                    await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
                 }
             }
+        }
+
+        private DateTimeOffset CalculateNextRunTime(DateTimeOffset currentLocalTime)
+        {
+            var executionTime = new TimeSpan(0, 1, 0); // 00:01 AM
+            var targetRunTime = currentLocalTime.Date.Add(executionTime);
+
+            if (currentLocalTime >= targetRunTime)
+            {
+                targetRunTime = targetRunTime.AddDays(1);
+            }
+
+            var nextDayLocal = targetRunTime.ToDushanbeTime();
+            if (nextDayLocal.DayOfWeek == DayOfWeek.Sunday)
+            {
+                targetRunTime = targetRunTime.AddDays(1);
+            }
+
+            logger.LogInformation($"Вақти навбатии иҷро: {targetRunTime:yyyy-MM-dd HH:mm:ss}");
+            return targetRunTime;
         }
 
         public async Task Run(CancellationToken stoppingToken = default)
         {
             try
             {
-                var localNow = DateTimeOffset.UtcNow + _localOffset;
+                var localNow = DateTimeOffset.UtcNow.ToDushanbeTime();
                 logger.LogInformation("Оғози эҷоди дарсҳои ҳаррӯза дар {time}", localNow);
 
                 await CheckNewlyActivatedGroups(stoppingToken);
@@ -89,13 +86,11 @@ namespace Infrastructure.BackgroundTasks
             {
                 logger.LogError(ex, "Хато ҳангоми эҷоди дарсҳои ҳаррӯза: {message}", ex.Message);
             }
-        }
-
-        private async Task CheckAndCreateLessonsForToday(CancellationToken stoppingToken, DateTime today)
+        }        private async Task CheckAndCreateLessonsForToday(CancellationToken stoppingToken, DateTime today)
         {
             logger.LogInformation("Санҷиши дарсҳо барои имрӯз ({today})...", today.ToString("yyyy-MM-dd"));
 
-            var localNow = DateTimeOffset.UtcNow + _localOffset;
+            var localNow = DateTimeOffset.UtcNow.ToDushanbeTime();
             if (localNow.DayOfWeek == DayOfWeek.Sunday) // Only skip on Sunday
             {
                 logger.LogInformation("Имрӯз якшанбе аст, дарсҳо эҷод намешаванд");
@@ -104,26 +99,6 @@ namespace Infrastructure.BackgroundTasks
 
             await CreateDailyLessons(stoppingToken, today);
             logger.LogInformation("Эҷоди дарсҳо барои имрӯз ({today}) анҷом ёфт", today.ToString("yyyy-MM-dd"));
-        }
-
-        private DateTimeOffset CalculateNextRunTime(DateTimeOffset currentLocalTime)
-        {
-            var executionTime = new TimeSpan(0, 1, 0); // 00:01 AM
-            var targetRunTime = currentLocalTime.Date.Add(executionTime);
-
-            if (currentLocalTime >= targetRunTime)
-            {
-                targetRunTime = targetRunTime.AddDays(1);
-            }
-
-            var dayOfWeek = (targetRunTime + _localOffset).DayOfWeek;
-            if (dayOfWeek == DayOfWeek.Sunday) // Only skip Sunday
-            {
-                targetRunTime = targetRunTime.AddDays(1); // Move to Monday
-            }
-
-            logger.LogInformation($"Вақти навбатии иҷро: {targetRunTime:yyyy-MM-dd HH:mm:ss}");
-            return targetRunTime;
         }
 
         private async Task CheckNewlyActivatedGroups(CancellationToken stoppingToken)
@@ -151,7 +126,7 @@ namespace Infrastructure.BackgroundTasks
             {
                 try
                 {
-                    var localNow = DateTimeOffset.UtcNow + _localOffset;
+                    var localNow = DateTimeOffset.UtcNow.ToDushanbeTime();
                     var baseDate = localNow.Date;
                     var lessonDate = baseDate;
 
@@ -185,7 +160,7 @@ namespace Infrastructure.BackgroundTasks
 
         private async Task CreateDailyLessons(CancellationToken stoppingToken, DateTime? targetDate = null)
         {
-            var localNow = DateTimeOffset.UtcNow + _localOffset;
+            var localNow = DateTimeOffset.UtcNow.ToDushanbeTime();
             var processingDate = targetDate?.Date ?? localNow.Date.AddDays(1);
 
             logger.LogInformation($"Эҷоди дарсҳо барои санаи {processingDate:yyyy-MM-dd} оғоз шуд...");

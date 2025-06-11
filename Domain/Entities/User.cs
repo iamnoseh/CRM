@@ -10,8 +10,8 @@ public class User : IdentityUser<int>
     public DateTime Birthday { get; set; }
     public Gender Gender { get; set; }
     public ActiveStatus ActiveStatus { get; set; }
-    public DateTimeOffset CreatedAt { get; set; }
-    public DateTimeOffset UpdatedAt { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
     public string? ProfileImagePath { get; set; }
     public PaymentStatus PaymentStatus { get; set; }
     public decimal? Salary { get; set; }

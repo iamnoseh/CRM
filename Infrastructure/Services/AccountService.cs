@@ -143,23 +143,51 @@ public class AccountService(
 
         return new Response<string>("Role removed successfully");
     }
-
     private async Task<string> GenerateJwtToken(User user)
     {
+        if (user == null)
+        {
+            throw new ArgumentNullException(nameof(user), "User cannot be null");
+        }
+
         var key = Encoding.UTF8.GetBytes(configuration["Jwt:Key"]);
         var securityKey = new SymmetricSecurityKey(key);
         var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+
         var claims = new List<Claim>
         {
-            new Claim(JwtRegisteredClaimNames.Name, user.UserName),
-            new Claim(JwtRegisteredClaimNames.Email, user.Email),
-            new Claim(JwtRegisteredClaimNames.NameId, user.Id.ToString()),
-            new Claim(JwtRegisteredClaimNames.Picture,user.ProfileImagePath),
-            new Claim("CenterId", user.CenterId.ToString()!)
+            new Claim(JwtRegisteredClaimNames.NameId, user.Id.ToString() )
         };
 
+        if (!string.IsNullOrEmpty(user.UserName))
+        {
+            claims.Add(new Claim(JwtRegisteredClaimNames.Name, user.UserName));
+        }
+
+        if (!string.IsNullOrEmpty(user.Email))
+        {
+            claims.Add(new Claim(JwtRegisteredClaimNames.Email, user.Email));
+        }
+
+        if (user.CenterId.HasValue)
+        {
+            claims.Add(new Claim("CenterId", user.CenterId.Value.ToString()));
+        }
+
+        if (!string.IsNullOrEmpty(user.ProfileImagePath))
+        {
+            claims.Add(new Claim(JwtRegisteredClaimNames.Picture, user.ProfileImagePath));
+        }
+        else
+        {
+            claims.Add(new Claim(JwtRegisteredClaimNames.Picture, "null"));
+        }
+
         var roles = await userManager.GetRolesAsync(user);
-        claims.AddRange(roles.Select(role => new Claim("role", role)));
+        if (roles != null)
+        {
+            claims.AddRange(roles.Where(role => !string.IsNullOrEmpty(role)).Select(role => new Claim("role", role)));
+        }
 
         var token = new JwtSecurityToken(
             issuer: configuration["Jwt:Issuer"],

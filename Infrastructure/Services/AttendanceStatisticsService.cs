@@ -3,6 +3,7 @@ using Domain.DTOs.Statistics;
 using Domain.Enums;
 using Domain.Responses;
 using Infrastructure.Data;
+using Infrastructure.Helpers;
 using Infrastructure.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
@@ -149,7 +150,8 @@ public class AttendanceStatisticsService(DataContext context) : IAttendanceStati
     {
         try
         {
-            var startDate = date.Date;
+            var localStartDate = date.ToDushanbeTime().Date;
+            var startDate = localStartDate.ToUtc();
             var endDate = startDate.AddDays(1);
 
             var result = await GetGroupAttendanceStatisticsAsync(groupId, startDate, endDate);
@@ -224,7 +226,8 @@ public class AttendanceStatisticsService(DataContext context) : IAttendanceStati
     {
         try
         {
-            var startDate = date.Date;
+            var localStartDate = date.ToDushanbeTime().Date;
+            var startDate = localStartDate.ToUtc();
             var endDate = startDate.AddDays(1);
 
             var result = await GetCenterAttendanceStatisticsAsync(centerId, startDate, endDate);
