@@ -383,6 +383,7 @@ public class MentorService(
                 query = query.Where(s => s.Gender == filter.Gender.Value);
 
             var totalCount = await query.CountAsync();
+            var totalPages = (int)Math.Ceiling(totalCount / (double)filter.PageSize);
 
             var mentors = await query
                 .OrderBy(u => u.FullName)
@@ -431,7 +432,8 @@ public class MentorService(
                 StatusCode = (int)HttpStatusCode.OK,
                 PageSize = filter.PageSize,
                 PageNumber = filter.PageNumber,
-                TotalRecords = totalCount
+                TotalRecords = totalCount,
+                TotalPages = totalPages
             };
         }
         catch (Exception ex)
