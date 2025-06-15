@@ -40,6 +40,11 @@ public class MentorExperienceUpdaterService(
                 var nextRunTime = CalculateNextRunTime(now);
                 var delay = nextRunTime - now;
 
+                if (delay < TimeSpan.Zero)
+                {
+                    delay = TimeSpan.Zero;
+                }
+
                 logger.LogInformation($"Следующее обновление опыта преподавателей запланировано на {nextRunTime.ToDushanbeTime()} (через {delay.TotalHours:F1} часов)");
                 await Task.Delay(delay, stoppingToken);
                 await UpdateMentorsExperience();
@@ -56,14 +61,13 @@ public class MentorExperienceUpdaterService(
     {
         var localTime = currentTime.ToDushanbeTime();
         var targetTime = new TimeSpan(0, 15, 0); // 00:15
-        var nextYear = localTime.Year;
-        var targetDate = new DateTime(nextYear, 1, 1);
+        var targetDate = localTime.Date;
         var targetRunTime = targetDate.Add(targetTime);
         var targetDateTimeOffset = new DateTimeOffset(targetRunTime, localTime.Offset);
 
         if (localTime >= targetDateTimeOffset)
         {
-            targetDateTimeOffset = targetDateTimeOffset.AddYears(1);
+            targetDateTimeOffset = targetDateTimeOffset.AddDays(1);
         }
 
         return targetDateTimeOffset;
