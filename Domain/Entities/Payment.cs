@@ -12,7 +12,7 @@ public class Payment : BaseEntity
     public PaymentMethod PaymentMethod { get; set; }
     public string? TransactionId { get; set; }
     public string? Description { get; set; }
-    public PaymentStatus Status { get; set; } = PaymentStatus.Paid;
+    public PaymentStatus Status { get; set; } = PaymentStatus.Pending;
     public DateTime PaymentDate { get; set; } = DateTime.Now;
     public int? CenterId { get; set; }
     public Center? Center { get; set; }
