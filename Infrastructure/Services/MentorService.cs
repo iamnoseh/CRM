@@ -101,7 +101,7 @@ public class MentorService(
                 ActiveStatus = ActiveStatus.Active,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
-                PaymentStatus = createMentorDto.PaymentStatus
+                PaymentStatus = createMentorDto.PaymentStatus,
             };
 
             await context.Mentors.AddAsync(mentor);
@@ -256,7 +256,8 @@ public class MentorService(
                     ImagePath = m.ProfileImage,
                     Document = m.Document,
                     CenterId = m.CenterId,
-                    UserId = m.UserId
+                    UserId = m.UserId,
+                    
                 });
 
             var mentors = await mentorsQuery.ToListAsync();
@@ -314,6 +315,16 @@ public class MentorService(
 
             if (mentor == null)
                 return new Response<GetMentorDto>(HttpStatusCode.NotFound, "Ментор не найден");
+
+            if (mentor.UserId > 0)
+            {
+                var user = await userManager.FindByIdAsync(mentor.UserId.ToString());
+                if (user != null)
+                {
+                    var roles = await userManager.GetRolesAsync(user);
+                    mentor.Role = roles.FirstOrDefault() ?? "Teacher";
+                }
+            }
 
             return new Response<GetMentorDto>(mentor);
         }
@@ -398,6 +409,19 @@ public class MentorService(
                 })
                 .ToListAsync();
 
+            foreach (var mentor in mentors)
+            {
+                if (mentor.UserId > 0)
+                {
+                    var user = await userManager.FindByIdAsync(mentor.UserId.ToString());
+                    if (user != null)
+                    {
+                        var roles = await userManager.GetRolesAsync(user);
+                        mentor.Role = roles.FirstOrDefault() ?? "Teacher";
+                    }
+                }
+            }
+
             if (mentors.Count == 0 && filter.PageNumber > 1)
                 return new PaginationResponse<List<GetMentorDto>>(HttpStatusCode.NotFound, "Менторы не найдены");
 
@@ -455,6 +479,19 @@ public class MentorService(
                 })
                 .ToListAsync();
 
+            foreach (var mentor in mentors)
+            {
+                if (mentor.UserId > 0)
+                {
+                    var user = await userManager.FindByIdAsync(mentor.UserId.ToString());
+                    if (user != null)
+                    {
+                        var roles = await userManager.GetRolesAsync(user);
+                        mentor.Role = roles.FirstOrDefault() ?? "Teacher";
+                    }
+                }
+            }
+
             return new Response<List<GetMentorDto>>(mentors);
         }
         catch (Exception ex)
@@ -510,6 +547,19 @@ public class MentorService(
                     CenterId = u.CenterId
                 })
                 .ToListAsync();
+
+            foreach (var mentor in mentors)
+            {
+                if (mentor.UserId > 0)
+                {
+                    var user = await userManager.FindByIdAsync(mentor.UserId.ToString());
+                    if (user != null)
+                    {
+                        var roles = await userManager.GetRolesAsync(user);
+                        mentor.Role = roles.FirstOrDefault() ?? "Teacher";
+                    }
+                }
+            }
 
             return new Response<List<GetMentorDto>>(mentors);
         }
