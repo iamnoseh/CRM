@@ -33,6 +33,15 @@ public class CenterController(ICenterService centerService) : ControllerBase
         return StatusCode(response.StatusCode, response);
     }
 
+    [HttpGet("simple-paginated")]
+    public async Task<ActionResult<PaginationResponse<List<GetCenterSimpleDto>>>> GetCentersSimplePaginated(
+        [FromQuery] int page = 1, 
+        [FromQuery] int pageSize = 10)
+    {
+        var response = await centerService.GetCentersSimplePaginated(page, pageSize);
+        return StatusCode(response.StatusCode, response);
+    }
+
     [HttpPost]
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<Response<string>>> CreateCenter([FromForm] CreateCenterDto createCenterDto)

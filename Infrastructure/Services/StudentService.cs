@@ -241,7 +241,9 @@ public class StudentService(
                 ActiveStatus = s.ActiveStatus,
                 PaymentStatus = s.PaymentStatus,
                 ImagePath = s.ProfileImage,
-                Document = s.Document
+                Document = s.Document,
+                UserId = s.UserId,
+                CenterId = s.CenterId
             })
             .FirstOrDefaultAsync();
 
@@ -311,7 +313,9 @@ public class StudentService(
                 Gender = s.Gender,
                 ActiveStatus = s.ActiveStatus,
                 PaymentStatus = s.PaymentStatus,
-                ImagePath = s.ProfileImage
+                ImagePath = s.ProfileImage,
+                UserId = s.UserId,
+                CenterId = s.CenterId
             })
             .ToListAsync();
 
@@ -481,6 +485,8 @@ public class StudentService(
                 ActiveStatus = student.User.ActiveStatus,
                 PaymentStatus = paymentStatus,
                 ImagePath = student.User.ProfileImagePath,
+                UserId = student.UserId,
+                CenterId = student.CenterId,
                 AverageGrade = averageGrade,
                 GroupsCount = studentGroups.Count,
                 Groups = groupInfos,

@@ -319,6 +319,44 @@ public class CenterService(DataContext context, string uploadPath) : ICenterServ
     }
     #endregion
 
+    #region GetCentersSimplePaginated
+    public async Task<PaginationResponse<List<GetCenterSimpleDto>>> GetCentersSimplePaginated(int page, int pageSize)
+    {
+        try
+        {
+            var query = context.Centers.Where(c => !c.IsDeleted).AsQueryable();
+            
+            var totalRecords = await query.CountAsync();
+            var skip = (page - 1) * pageSize;
+            
+            var centers = await query
+                .OrderBy(c => c.Name)
+                .Skip(skip)
+                .Take(pageSize)
+                .Select(c => new GetCenterSimpleDto
+                {
+                    Id = c.Id,
+                    Name = c.Name
+                })
+                .ToListAsync();
+
+            return new PaginationResponse<List<GetCenterSimpleDto>>(
+                centers,
+                totalRecords,
+                page,
+                pageSize);
+        }
+        catch (Exception ex)
+        {
+            return new PaginationResponse<List<GetCenterSimpleDto>>(
+                new List<GetCenterSimpleDto>(),
+                0,
+                page,
+                pageSize);
+        }
+    }
+    #endregion
+
     #region GetCenterGroupsAsync
     public async Task<Response<List<GetCenterGroupsDto>>> GetCenterGroupsAsync(int centerId)
     {
@@ -402,7 +440,9 @@ public class CenterService(DataContext context, string uploadPath) : ICenterServ
                         Gender = s.Gender,
                         ActiveStatus = s.ActiveStatus,
                         PaymentStatus = s.PaymentStatus,
-                        ImagePath = s.ProfileImage
+                        ImagePath = s.ProfileImage,
+                        UserId = s.UserId,
+                        CenterId = s.CenterId
                     }).ToList(),
                     TotalStudents = students.Count,
                     ActiveStudents = students.Count(s => s.ActiveStatus == Domain.Enums.ActiveStatus.Active)
@@ -453,6 +493,8 @@ public class CenterService(DataContext context, string uploadPath) : ICenterServ
                         ActiveStatus = m.ActiveStatus,
                         PaymentStatus = m.PaymentStatus,
                         Salary = m.Salary,
+                        UserId = m.UserId,
+                        CenterId = m.CenterId
                     }).ToList(),
                     TotalMentors = mentors.Count,
                     ActiveMentors = mentors.Count(m => m.ActiveStatus == ActiveStatus.Active)

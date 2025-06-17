@@ -13,6 +13,7 @@ public interface ICenterService
     Task<Response<List<GetCenterDto>>> GetCenters();
     Task<Response<GetCenterDto>> GetCenterByIdAsync(int id);
     Task<PaginationResponse<List<GetCenterDto>>> GetCentersPaginated(CenterFilter filter);
+    Task<PaginationResponse<List<GetCenterSimpleDto>>> GetCentersSimplePaginated(int page, int pageSize);
     Task<Response<List<GetCenterGroupsDto>>> GetCenterGroupsAsync(int centerId);
     Task<Response<List<GetCenterStudentsDto>>> GetCenterStudentsAsync(int centerId);
     Task<Response<List<GetCenterMentorsDto>>> GetCenterMentorsAsync(int centerId);

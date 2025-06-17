@@ -19,6 +19,8 @@ public class GetStudentDetailedDto
     public ActiveStatus ActiveStatus { get; set; }
     public PaymentStatus PaymentStatus { get; set; }
     public string? ImagePath { get; set; }
+    public int UserId { get; set; }
+    public int CenterId { get; set; }
     
     // Статистика
     public double AverageGrade { get; set; }
