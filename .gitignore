@@ -483,5 +483,4 @@ $RECYCLE.BIN/
 # Vim temporary swap files
 *.swp
 
-WebApp/wwwroot/
-WebApp/appsettings.Development.json
+
