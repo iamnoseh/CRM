@@ -64,7 +64,7 @@ public static class FileUploadHelper
             await file.CopyToAsync(fileStream);
         }
 
-        return new Response<string>($"/Uploads/{(fileType == "profile" ? entityType : $"documents/{entityType}")}/{uniqueFileName}");
+        return new Response<string>($"/uploads/{(fileType == "profile" ? entityType : $"documents/{entityType}")}/{uniqueFileName}");
     }
 
     public static async Task<Response<byte[]>> GetFileAsync(string filePath, string uploadPath)
