@@ -3,6 +3,7 @@ using Domain.DTOs.Exam;
 using Domain.DTOs.Grade;
 using Domain.DTOs.Student;
 using Domain.Entities;
+using Domain.Enums;
 using Domain.Filters;
 using Domain.Responses;
 using Infrastructure.Data;
@@ -539,13 +540,13 @@ public class StudentService(
         return new Response<GetStudentAverageDto>(dto);
     }
 
-    public async Task<Response<string>> UpdateStudentPaymentStatusAsync(UpdateStudentPaymentStatusDto dto)
+    public async Task<Response<string>> UpdateStudentPaymentStatusAsync(int studentId , PaymentStatus status)
     {
-        var student = await context.Students.FirstOrDefaultAsync(s => s.Id == dto.StudentId && !s.IsDeleted);
+        var student = await context.Students.FirstOrDefaultAsync(s => s.Id == studentId && !s.IsDeleted);
         if (student == null)
             return new Response<string>(System.Net.HttpStatusCode.NotFound, "Student not found");
 
-        student.PaymentStatus = dto.Status;
+        student.PaymentStatus = status;
         student.UpdatedAt = DateTime.UtcNow;
         context.Students.Update(student);
 
@@ -554,7 +555,7 @@ public class StudentService(
             var user = await userManager.FindByIdAsync(student.UserId.ToString());
             if (user != null)
             {
-                user.PaymentStatus = dto.Status;
+                user.PaymentStatus = status;
                 await userManager.UpdateAsync(user);
             }
         }

@@ -1,5 +1,6 @@
 using Domain.DTOs.Student;
 using Domain.Entities;
+using Domain.Enums;
 using Domain.Filters;
 using Domain.Responses;
 using Infrastructure.Interfaces;
@@ -143,7 +144,7 @@ public class StudentController (IStudentService service) : ControllerBase
     }
 
     [HttpPut("payment-status")]
-    [Authorize(Roles = "Admin,SuperAdmin")]
-    public async Task<Response<string>> UpdateStudentPaymentStatus([FromBody] UpdateStudentPaymentStatusDto dto)
-        => await service.UpdateStudentPaymentStatusAsync(dto.StudentId, dto.Status);
+    [Authorize(Roles = "Admin")]
+    public async Task<Response<string>> UpdateStudentPaymentStatus(int studentId , PaymentStatus status)
+        => await service.UpdateStudentPaymentStatusAsync(studentId , status);
 }

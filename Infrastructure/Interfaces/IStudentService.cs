@@ -1,4 +1,5 @@
 using Domain.DTOs.Student;
+using Domain.Enums;
 using Domain.Filters;
 using Domain.Responses;
 using Microsoft.AspNetCore.Http;
@@ -19,5 +20,5 @@ public interface IStudentService
     Task<Response<GetStudentDetailedDto>> GetStudentDetailedAsync(int id);
     //Average
     Task<Response<GetStudentAverageDto>> GetStudentAverageAsync(int studentId,int groupId);
-    Task<Response<string>> UpdateStudentPaymentStatusAsync(UpdateStudentPaymentStatusDto dto);
+    Task<Response<string>> UpdateStudentPaymentStatusAsync(int studentId , PaymentStatus status);
 }
