@@ -554,7 +554,7 @@ public class StudentService(
             var user = await userManager.FindByIdAsync(student.UserId.ToString());
             if (user != null)
             {
-                user.PaymentStatus = status;
+                user.PaymentStatus = dto.Status;
                 await userManager.UpdateAsync(user);
             }
         }
