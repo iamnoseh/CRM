@@ -538,4 +538,30 @@ public class StudentService(
 
         return new Response<GetStudentAverageDto>(dto);
     }
+
+    public async Task<Response<string>> UpdateStudentPaymentStatusAsync(UpdateStudentPaymentStatusDto dto)
+    {
+        var student = await context.Students.FirstOrDefaultAsync(s => s.Id == dto.StudentId && !s.IsDeleted);
+        if (student == null)
+            return new Response<string>(System.Net.HttpStatusCode.NotFound, "Student not found");
+
+        student.PaymentStatus = dto.Status;
+        student.UpdatedAt = DateTime.UtcNow;
+        context.Students.Update(student);
+
+        if (student.UserId != null)
+        {
+            var user = await userManager.FindByIdAsync(student.UserId.ToString());
+            if (user != null)
+            {
+                user.PaymentStatus = status;
+                await userManager.UpdateAsync(user);
+            }
+        }
+
+        var res = await context.SaveChangesAsync();
+        return res > 0
+            ? new Response<string>(System.Net.HttpStatusCode.OK, "Payment status updated successfully")
+            : new Response<string>(System.Net.HttpStatusCode.BadRequest, "Failed to update payment status");
+    }
 }

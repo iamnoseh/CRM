@@ -18,4 +18,5 @@ public interface IMentorService
     Task<PaginationResponse<List<GetMentorDto>>> GetMentorsPagination(MentorFilter filter);
     Task<Response<List<GetMentorDto>>> GetMentorsByGroupAsync(int groupId);
     Task<Response<List<GetMentorDto>>> GetMentorsByCourseAsync(int courseId);
+    Task<Response<string>> UpdateMentorPaymentStatusAsync(int mentorId, Domain.Enums.PaymentStatus status);
 }

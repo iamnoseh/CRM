@@ -602,4 +602,30 @@ public class MentorService(
             ? new Response<string>(HttpStatusCode.OK, "Profile image updated successfully")
             : new Response<string>(HttpStatusCode.BadRequest, "Failed to update profile image");
     }
+
+    public async Task<Response<string>> UpdateMentorPaymentStatusAsync(int mentorId, Domain.Enums.PaymentStatus status)
+    {
+        var mentor = await context.Mentors.FirstOrDefaultAsync(m => m.Id == mentorId && !m.IsDeleted);
+        if (mentor == null)
+            return new Response<string>(System.Net.HttpStatusCode.NotFound, "Mentor not found");
+
+        mentor.PaymentStatus = status;
+        mentor.UpdatedAt = DateTime.UtcNow;
+        context.Mentors.Update(mentor);
+
+        if (mentor.UserId != null)
+        {
+            var user = await userManager.FindByIdAsync(mentor.UserId.ToString());
+            if (user != null)
+            {
+                user.PaymentStatus = status;
+                await userManager.UpdateAsync(user);
+            }
+        }
+
+        var res = await context.SaveChangesAsync();
+        return res > 0
+            ? new Response<string>(System.Net.HttpStatusCode.BadRequest, "Failed to update payment status")
+            : new Response<string>(System.Net.HttpStatusCode.OK, "Payment status updated successfully");
+    }
 }

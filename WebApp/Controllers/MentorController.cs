@@ -1,4 +1,5 @@
 using Domain.DTOs.Mentor;
+using Domain.Entities;
 using Domain.Filters;
 using Domain.Responses;
 using Infrastructure.Interfaces;
@@ -124,5 +125,13 @@ public class MentorController(IMentorService mentorService) : ControllerBase
         }
         
         return File(response.Data, contentType, fileName);
+    }
+
+    [HttpPut("payment-status")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<Response<string>>> UpdateMentorPaymentStatus([FromBody] UpdateMentorPaymentStatusDto dto)
+    {
+        var response = await mentorService.UpdateMentorPaymentStatusAsync(dto.MentorId, dto.Status);
+        return StatusCode(response.StatusCode, response);
     }
 }

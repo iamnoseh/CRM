@@ -36,7 +36,7 @@ public class CenterController(ICenterService centerService) : ControllerBase
     [HttpGet("simple-paginated")]
     public async Task<ActionResult<PaginationResponse<List<GetCenterSimpleDto>>>> GetCentersSimplePaginated(
         [FromQuery] int page = 1, 
-        [FromQuery] int pageSize = 10)
+        [FromQuery] int pageSize = 30)
     {
         var response = await centerService.GetCentersSimplePaginated(page, pageSize);
         return StatusCode(response.StatusCode, response);

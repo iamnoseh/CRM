@@ -141,4 +141,9 @@ public class StudentController (IStudentService service) : ControllerBase
             return StatusCode(500, new { Error = ex.Message, StackTrace = ex.StackTrace });
         }
     }
+
+    [HttpPut("payment-status")]
+    [Authorize(Roles = "Admin,SuperAdmin")]
+    public async Task<Response<string>> UpdateStudentPaymentStatus([FromBody] UpdateStudentPaymentStatusDto dto)
+        => await service.UpdateStudentPaymentStatusAsync(dto.StudentId, dto.Status);
 }
