@@ -114,6 +114,19 @@ public class StudentService(
         var student = await context.Students.FirstOrDefaultAsync(s => s.Id == id && !s.IsDeleted);
         if (student == null)
             return new Response<string>(HttpStatusCode.NotFound, "Student not found");
+        string newProfileImagePath = student.ProfileImage; 
+        if (updateStudentDto.ProfilePhoto != null)
+        {
+            if (!string.IsNullOrEmpty(student.ProfileImage))
+            {
+                FileDeleteHelper.DeleteFile(student.ProfileImage, uploadPath);
+            }
+            var imageResult = await FileUploadHelper.UploadFileAsync(
+                updateStudentDto.ProfilePhoto, uploadPath, "student", "profile");
+            if (imageResult.StatusCode != 200)
+                return new Response<string>((HttpStatusCode)imageResult.StatusCode, imageResult.Message);
+            newProfileImagePath = imageResult.Data;
+        }
 
         student.FullName = updateStudentDto.FullName;
         student.Email = updateStudentDto.Email;
@@ -124,6 +137,7 @@ public class StudentService(
         student.Gender = updateStudentDto.Gender;
         student.ActiveStatus = updateStudentDto.ActiveStatus;
         student.PaymentStatus = updateStudentDto.PaymentStatus;
+        student.ProfileImage = newProfileImagePath;
         student.UpdatedAt = DateTime.UtcNow;
 
         if (student.UserId != null)
@@ -143,7 +157,8 @@ public class StudentService(
                     dto => dto.Address,
                     dto => dto.ActiveStatus,
                     dto => student.CenterId,
-                    dto => dto.PaymentStatus);
+                    dto => dto.PaymentStatus,
+                    _ => newProfileImagePath);
                 if (updateResult.StatusCode != 200)
                     return updateResult;
             }
@@ -162,6 +177,16 @@ public class StudentService(
         var student = await context.Students.FirstOrDefaultAsync(s => s.Id == id && !s.IsDeleted);
         if (student == null)
             return new Response<string>(HttpStatusCode.NotFound, "Student not found");
+
+        if (!string.IsNullOrEmpty(student.ProfileImage))
+        {
+            FileDeleteHelper.DeleteFile(student.ProfileImage, uploadPath);
+        }
+
+        if (!string.IsNullOrEmpty(student.Document))
+        {
+            FileDeleteHelper.DeleteFile(student.Document, uploadPath);
+        }
 
         student.IsDeleted = true;
         student.UpdatedAt = DateTime.UtcNow;
@@ -259,12 +284,19 @@ public class StudentService(
         if (student == null)
             return new Response<string>(HttpStatusCode.NotFound, "Student not found");
 
-        var docResult = await FileUploadHelper.UploadFileAsync(
-            documentFile, uploadPath, "student", "document", true, student.Document);
-        if (docResult.StatusCode != 200)
-            return new Response<string>((HttpStatusCode)docResult.StatusCode, docResult.Message);
+        if (documentFile == null)
+            return new Response<string>(HttpStatusCode.BadRequest, "Document file is required");
 
-        student.Document = docResult.Data;
+        if (!string.IsNullOrEmpty(student.Document))
+        {
+            FileDeleteHelper.DeleteFile(student.Document, uploadPath);
+        }
+        
+        var uploadResult = await FileUploadHelper.UploadFileAsync(documentFile, uploadPath, "student", "document");
+        if (uploadResult.StatusCode != 200)
+            return new Response<string>((HttpStatusCode)uploadResult.StatusCode, uploadResult.Message);
+
+        student.Document = uploadResult.Data;
         student.UpdatedAt = DateTime.UtcNow;
         context.Students.Update(student);
         var res = await context.SaveChangesAsync();
@@ -345,12 +377,19 @@ public class StudentService(
         if (student == null)
             return new Response<string>(HttpStatusCode.NotFound, "Student not found");
 
-        var imageResult = await FileUploadHelper.UploadFileAsync(
-            profileImage, uploadPath, "student", "profile", true, student.ProfileImage);
-        if (imageResult.StatusCode != 200)
-            return new Response<string>((HttpStatusCode)imageResult.StatusCode, imageResult.Message);
+        if (profileImage == null)
+            return new Response<string>(HttpStatusCode.BadRequest, "Profile image is required");
 
-        student.ProfileImage = imageResult.Data;
+        if (!string.IsNullOrEmpty(student.ProfileImage))
+        {
+            FileDeleteHelper.DeleteFile(student.ProfileImage, uploadPath);
+        }
+
+        var uploadResult = await FileUploadHelper.UploadFileAsync(profileImage, uploadPath, "student", "profile");
+        if (uploadResult.StatusCode != 200)
+            return new Response<string>((HttpStatusCode)uploadResult.StatusCode, uploadResult.Message);
+
+        student.ProfileImage = uploadResult.Data;
         student.UpdatedAt = DateTime.UtcNow;
 
         if (student.UserId != null)

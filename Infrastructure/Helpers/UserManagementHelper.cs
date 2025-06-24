@@ -81,7 +81,8 @@ public static class UserManagementHelper
         Func<T, string> getAddress,
         Func<T, ActiveStatus> getActiveStatus,
         Func<T, int> getCenterId,
-        Func<T, PaymentStatus?> getPaymentStatus = null)
+        Func<T, PaymentStatus?> getPaymentStatus = null,
+        Func<T, string> getProfileImagePath = null)
     {
         user.Email = getEmail(updateDto);
         user.FullName = getFullName(updateDto);
@@ -94,6 +95,8 @@ public static class UserManagementHelper
         user.CenterId = getCenterId(updateDto);
         if (getPaymentStatus != null)
             user.PaymentStatus = (PaymentStatus)getPaymentStatus(updateDto);
+        if (getProfileImagePath != null)
+            user.ProfileImagePath = getProfileImagePath(updateDto);
         user.UpdatedAt = DateTime.UtcNow;
 
         var result = await userManager.UpdateAsync(user);
