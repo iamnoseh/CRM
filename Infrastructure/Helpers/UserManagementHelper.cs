@@ -91,10 +91,22 @@ public static class UserManagementHelper
         user.Age = DateUtils.CalculateAge(getBirthday(updateDto));
         user.Gender = getGender(updateDto);
         user.Address = getAddress(updateDto);
-        user.ActiveStatus = getActiveStatus(updateDto);
-        user.CenterId = getCenterId(updateDto);
+
+        var activeStatus = getActiveStatus(updateDto);
+        if (Enum.IsDefined(typeof(ActiveStatus), activeStatus))
+        {
+            user.ActiveStatus = activeStatus;
+        }
+
         if (getPaymentStatus != null)
-            user.PaymentStatus = (PaymentStatus)getPaymentStatus(updateDto);
+        {
+            var paymentStatus = getPaymentStatus(updateDto);
+            if (paymentStatus.HasValue && Enum.IsDefined(typeof(PaymentStatus), paymentStatus.Value))
+            {
+                user.PaymentStatus = paymentStatus.Value;
+            }
+        }
+        
         if (getProfileImagePath != null)
             user.ProfileImagePath = getProfileImagePath(updateDto);
         user.UpdatedAt = DateTime.UtcNow;

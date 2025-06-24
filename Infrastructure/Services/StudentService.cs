@@ -135,8 +135,17 @@ public class StudentService(
         student.Birthday = updateStudentDto.Birthday;
         student.Age = DateUtils.CalculateAge(updateStudentDto.Birthday);
         student.Gender = updateStudentDto.Gender;
-        student.ActiveStatus = updateStudentDto.ActiveStatus;
-        student.PaymentStatus = updateStudentDto.PaymentStatus;
+        
+        if (Enum.IsDefined(typeof(ActiveStatus), updateStudentDto.ActiveStatus))
+        {
+            student.ActiveStatus = updateStudentDto.ActiveStatus;
+        }
+
+        if (Enum.IsDefined(typeof(PaymentStatus), updateStudentDto.PaymentStatus))
+        {
+            student.PaymentStatus = updateStudentDto.PaymentStatus;
+        }
+        
         student.ProfileImage = newProfileImagePath;
         student.UpdatedAt = DateTime.UtcNow;
 
