@@ -123,32 +123,6 @@ public static class EmailTemplateHelperNew
             box-shadow: 0 8px 15px rgba({HexToRgb(primaryColor)}, 0.3);
         }}
 
-        .step {{
-            display: flex;
-            align-items: flex-start;
-            margin-bottom: 15px;
-        }}
-        
-        .step-number {{
-            background-color: {primaryColor};
-            color: white;
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 600;
-            margin-right: 15px;
-            flex-shrink: 0;
-        }}
-        
-        .step-text {{
-            color: #4a5568;
-            font-size: 15px;
-            line-height: 1.5;
-        }}
-        
         /* Адаптивность для мобильных устройств */
         @media only screen and (max-width: 600px) {{
             .container {{
@@ -160,12 +134,26 @@ public static class EmailTemplateHelperNew
                 padding: 20px 0;
             }}
             
-            .logo {{
-                font-size: 24px;
+            .logo, h1 {{
+                font-size: 24px !important;
             }}
             
             .credential-box {{
                 padding: 20px;
+            }}
+
+            h2 {{
+                font-size: 20px !important;
+            }}
+
+            p, .credential-label, .credential-value {{
+                font-size: 15px !important;
+                line-height: 1.6 !important;
+            }}
+
+            .button {{
+                padding: 14px 28px !important;
+                font-size: 15px !important;
             }}
         }}
     </style>
@@ -210,22 +198,46 @@ public static class EmailTemplateHelperNew
                             <h3 style=""color: {primaryColor}; font-size: 18px; margin: 30px 0 20px 0;"">Дастурамал:</h3>
                             
                             <!-- Шаг 1 -->
-                            <div class=""step"" style=""display: flex; align-items: flex-start; margin-bottom: 15px;"">
-                                <div class=""step-number"" style=""background-color: {primaryColor}; color: white; width: 28px; height: 28px; border-radius: 50%; display: inline-block; text-align: center; line-height: 28px; font-weight: 600; margin-right: 15px;"">1</div>
-                                <div class=""step-text"" style=""color: #4a5568; font-size: 15px; line-height: 1.5;"">Бо истифода аз маълумоти боло ба система ворид шавед.</div>
-                            </div>
+                            <table border=""0"" cellpadding=""0"" cellspacing=""0"" role=""presentation"" style=""width:100%; margin-bottom: 15px;"">
+                                <tbody>
+                                    <tr>
+                                        <td valign=""top"" style=""width: 43px;"">
+                                            <div style=""background-color: {primaryColor}; color: white; width: 28px; height: 28px; border-radius: 50%; text-align: center; line-height: 28px; font-weight: 600;"">1</div>
+                                        </td>
+                                        <td valign=""top"">
+                                            <p style=""margin:0; color: #4a5568; font-size: 15px; line-height: 1.5; padding-top: 2px;"">Бо истифода аз маълумоти боло ба система ворид шавед.</p>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
                             
                             <!-- Шаг 2 -->
-                            <div class=""step"" style=""display: flex; align-items: flex-start; margin-bottom: 15px;"">
-                                <div class=""step-number"" style=""background-color: {primaryColor}; color: white; width: 28px; height: 28px; border-radius: 50%; display: inline-block; text-align: center; line-height: 28px; font-weight: 600; margin-right: 15px;"">2</div>
-                                <div class=""step-text"" style=""color: #4a5568; font-size: 15px; line-height: 1.5;"">Пароли худро баъд аз воридшавии аввалин тағйир диҳед.</div>
-                            </div>
+                            <table border=""0"" cellpadding=""0"" cellspacing=""0"" role=""presentation"" style=""width:100%; margin-bottom: 15px;"">
+                                <tbody>
+                                    <tr>
+                                        <td valign=""top"" style=""width: 43px;"">
+                                            <div style=""background-color: {primaryColor}; color: white; width: 28px; height: 28px; border-radius: 50%; text-align: center; line-height: 28px; font-weight: 600;"">2</div>
+                                        </td>
+                                        <td valign=""top"">
+                                            <p style=""margin:0; color: #4a5568; font-size: 15px; line-height: 1.5; padding-top: 2px;"">Пароли худро баъд аз воридшавии аввалин тағйир диҳед.</p>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
                             
                             <!-- Шаг 3 -->
-                            <div class=""step"" style=""display: flex; align-items: flex-start; margin-bottom: 15px;"">
-                                <div class=""step-number"" style=""background-color: {primaryColor}; color: white; width: 28px; height: 28px; border-radius: 50%; display: inline-block; text-align: center; line-height: 28px; font-weight: 600; margin-right: 15px;"">3</div>
-                                <div class=""step-text"" style=""color: #4a5568; font-size: 15px; line-height: 1.5;"">Профили худро пурра кунед.</div>
-                            </div>
+                            <table border=""0"" cellpadding=""0"" cellspacing=""0"" role=""presentation"" style=""width:100%; margin-bottom: 15px;"">
+                                <tbody>
+                                    <tr>
+                                        <td valign=""top"" style=""width: 43px;"">
+                                            <div style=""background-color: {primaryColor}; color: white; width: 28px; height: 28px; border-radius: 50%; text-align: center; line-height: 28px; font-weight: 600;"">3</div>
+                                        </td>
+                                        <td valign=""top"">
+                                            <p style=""margin:0; color: #4a5568; font-size: 15px; line-height: 1.5; padding-top: 2px;"">Профили худро пурра кунед.</p>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
                             
                             <!-- Кнопка -->
                             <div style=""text-align: center; margin: 35px 0;"">

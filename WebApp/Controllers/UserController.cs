@@ -51,4 +51,12 @@ public class UserController(IUserService service) : ControllerBase
         var result = await service.GetUsersByRoleAsync(role);
         return StatusCode(result.StatusCode, result);
     }
+
+    [HttpGet("upcoming-birthdays")]
+    [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin}")]
+    public async Task<ActionResult<PaginationResponse<List<GetUserDto>>>> GetUpcomingBirthdays([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+    {
+        var result = await service.GetUpcomingBirthdaysAsync(page, pageSize);
+        return StatusCode(result.StatusCode, result);
+    }
 }

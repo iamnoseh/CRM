@@ -16,4 +16,5 @@ public class GetUserDto
     public ActiveStatus? ActiveStatus { get; set; }
     public string? Role { get; set; }
     public string? Image { get; set; }
+    public int? CenterId { get; set; }
 }

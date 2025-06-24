@@ -66,7 +66,8 @@ public class UserService(DataContext context, UserManager<User> userManager,
                     Age = user.Age,
                     DateOfBirth = user.Birthday,
                     Image = user.ProfileImagePath,
-                    Role = role
+                    Role = role,
+                    CenterId = user.CenterId
                 });
             }
 
@@ -110,7 +111,8 @@ public class UserService(DataContext context, UserManager<User> userManager,
                 Age = user.Age,
                 DateOfBirth = user.Birthday,
                 Image = user.ProfileImagePath,
-                Role = role
+                Role = role,
+                CenterId = user.CenterId
             };
 
             return new Response<GetUserDto>(dto);
@@ -186,7 +188,8 @@ public class UserService(DataContext context, UserManager<User> userManager,
                     ActiveStatus = user.ActiveStatus,
                     Age = user.Age,
                     Image = user.ProfileImagePath,
-                    Role = role
+                    Role = role,
+                    CenterId = user.CenterId
                 });
             }
             
@@ -243,7 +246,8 @@ public class UserService(DataContext context, UserManager<User> userManager,
                 Age = user.Age,
                 DateOfBirth = user.Birthday,
                 Image = user.ProfileImagePath,
-                Role = role
+                Role = role,
+                CenterId = user.CenterId
             }).ToList();
             
             return new Response<List<GetUserDto>>(userDtos);
@@ -256,4 +260,58 @@ public class UserService(DataContext context, UserManager<User> userManager,
     
     #endregion
     
-   }
+    #region UpcomingBirthdays
+    public async Task<PaginationResponse<List<GetUserDto>>> GetUpcomingBirthdaysAsync(int page, int pageSize)
+    {
+        var today = DateTime.Today;
+        var end = today.AddDays(7);
+        var users = await context.Users
+            .Where(u => !u.IsDeleted &&
+                (
+                    (u.Birthday.Month == today.Month && u.Birthday.Day >= today.Day) ||
+                    (u.Birthday.Month == end.Month && u.Birthday.Day <= end.Day) ||
+                    (u.Birthday.Month > today.Month && u.Birthday.Month < end.Month)
+                )
+            )
+            .OrderBy(u => u.Birthday.Month)
+            .ThenBy(u => u.Birthday.Day)
+            .ToListAsync();
+
+        // Filter to only those within the next 7 days (handles year wrap)
+        var filtered = users.Where(u =>
+        {
+            var nextBirthday = new DateTime(today.Year, u.Birthday.Month, u.Birthday.Day);
+            if (nextBirthday < today)
+                nextBirthday = nextBirthday.AddYears(1);
+            var diff = (nextBirthday - today).TotalDays;
+            return diff >= 0 && diff <= 7;
+        }).ToList();
+
+        var total = filtered.Count;
+        var paged = filtered.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+
+        var result = new List<GetUserDto>();
+        foreach (var user in paged)
+        {
+            var roles = await userManager.GetRolesAsync(user);
+            var role = roles.FirstOrDefault();
+            result.Add(new GetUserDto
+            {
+                UserId = user.Id,
+                FullName = user.FullName,
+                PhoneNumber = user.PhoneNumber,
+                Email = user.Email,
+                Address = user.Address,
+                Gender = user.Gender,
+                ActiveStatus = user.ActiveStatus,
+                Age = user.Age,
+                DateOfBirth = user.Birthday,
+                Image = user.ProfileImagePath,
+                Role = role,
+                CenterId = user.CenterId
+            });
+        }
+        return new PaginationResponse<List<GetUserDto>>(result, page, pageSize, total);
+    }
+    #endregion
+}

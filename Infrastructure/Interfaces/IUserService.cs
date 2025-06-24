@@ -14,4 +14,6 @@ public interface IUserService
     Task<Response<List<GetUserDto>>> GetUsersByRoleAsync(string role);
 
     // Task<Response<UserActivityDto>> GetUserActivityAsync(int userId);
+
+    Task<PaginationResponse<List<GetUserDto>>> GetUpcomingBirthdaysAsync(int page, int pageSize);
 }
