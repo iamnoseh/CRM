@@ -13,8 +13,6 @@ public class CreateMentorDto
     public int Experience { get; set; }
     public DateTime Birthday { get; set; }
     public Gender Gender { get; set; }
-    public ActiveStatus ActiveStatus { get; set; } = ActiveStatus.Active;
-    public PaymentStatus PaymentStatus { get; set; }
     public IFormFile? ProfileImage { get; set; }
     public IFormFile? DocumentFile { get; set; }
     public int CenterId { get; set; }

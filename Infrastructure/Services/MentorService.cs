@@ -101,7 +101,7 @@ public class MentorService(
                 ActiveStatus = ActiveStatus.Active,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
-                PaymentStatus = createMentorDto.PaymentStatus,
+                PaymentStatus = PaymentStatus.Completed,
             };
 
             await context.Mentors.AddAsync(mentor);
