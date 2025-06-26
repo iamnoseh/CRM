@@ -588,13 +588,13 @@ public class StudentService(
         return new Response<GetStudentAverageDto>(dto);
     }
 
-    public async Task<Response<string>> UpdateStudentPaymentStatusAsync(int studentId , PaymentStatus status)
+    public async Task<Response<string>> UpdateStudentPaymentStatusAsync(UpdateStudentPaymentStatusDto dto)
     {
-        var student = await context.Students.FirstOrDefaultAsync(s => s.Id == studentId && !s.IsDeleted);
+        var student = await context.Students.FirstOrDefaultAsync(s => s.Id == dto.StudentId && !s.IsDeleted);
         if (student == null)
             return new Response<string>(System.Net.HttpStatusCode.NotFound, "Student not found");
 
-        student.PaymentStatus = status;
+        student.PaymentStatus = dto.Status;
         student.UpdatedAt = DateTime.UtcNow;
         context.Students.Update(student);
 
@@ -603,7 +603,7 @@ public class StudentService(
             var user = await userManager.FindByIdAsync(student.UserId.ToString());
             if (user != null)
             {
-                user.PaymentStatus = status;
+                user.PaymentStatus = dto.Status;
                 await userManager.UpdateAsync(user);
             }
         }

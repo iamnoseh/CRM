@@ -20,5 +20,5 @@ public interface IStudentService
     Task<Response<GetStudentDetailedDto>> GetStudentDetailedAsync(int id);
     //Average
     Task<Response<GetStudentAverageDto>> GetStudentAverageAsync(int studentId,int groupId);
-    Task<Response<string>> UpdateStudentPaymentStatusAsync(int studentId , PaymentStatus status);
+    Task<Response<string>> UpdateStudentPaymentStatusAsync(UpdateStudentPaymentStatusDto dto);
 }

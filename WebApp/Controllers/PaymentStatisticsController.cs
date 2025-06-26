@@ -11,14 +11,6 @@ namespace WebApp.Controllers;
 [Produces("application/json")]
 public class PaymentStatisticsController(IPaymentStatisticsService paymentStatisticsService) : ControllerBase
 {
-    /// <summary>
-    /// Маълумоти пардохтҳои як донишҷӯро нишон медиҳад
-    /// </summary>
-    /// <param name="studentId">ID-и донишҷӯ</param>
-    /// <param name="groupId">ID-и гурӯҳ (ихтиёрӣ)</param>
-    /// <param name="startDate">Санаи оғоз (ихтиёрӣ)</param>
-    /// <param name="endDate">Санаи анҷом (ихтиёрӣ)</param>
-    /// <returns>Маълумоти муфассал дар бораи пардохтҳои донишҷӯ</returns>
     [HttpGet("student/{studentId}")]
     [Authorize(Roles = "Admin,Manager,Teacher")]
     [ProducesResponseType(typeof(Response<StudentPaymentStatisticsDto>), StatusCodes.Status200OK)]
