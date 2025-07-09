@@ -3,6 +3,7 @@ using SwaggerThemes;
 using Domain.DTOs.EmailDTOs;
 using Hangfire;
 using Infrastructure.BackgroundTasks;
+using Infrastructure.Services.ExportToExel;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,6 +33,8 @@ builder.Services.AddHangfireServices(builder.Configuration);
 builder.Services.AddBackgroundServices();
 
 builder.Services.AddControllers();
+builder.Services.AddScoped<IStudentExportService, StudentExportService>();
+builder.Services.AddScoped<IMentorExportService, MentorExportService>();
 
 var app = builder.Build();
 

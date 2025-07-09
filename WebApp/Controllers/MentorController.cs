@@ -3,6 +3,7 @@ using Domain.Entities;
 using Domain.Filters;
 using Domain.Responses;
 using Infrastructure.Interfaces;
+using Infrastructure.Services.ExportToExel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -133,5 +134,14 @@ public class MentorController(IMentorService mentorService) : ControllerBase
     {
         var response = await mentorService.UpdateMentorPaymentStatusAsync(dto.MentorId, dto.Status);
         return StatusCode(response.StatusCode, response);
+    }
+
+    [HttpGet("export/excel")]
+    [Authorize(Roles = "Admin,SuperAdmin")]
+    public async Task<IActionResult> ExportMentorsToExcel([FromServices] IMentorExportService exportService)
+    {
+        var fileBytes = await exportService.ExportAllMentorsToExcelAsync();
+        var fileName = $"mentors_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+        return File(fileBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
     }
 }

@@ -73,10 +73,11 @@ public class GroupExpirationService(
         using var scope = serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<DataContext>();
 
-        var localNow = DateTimeOffset.UtcNow.ToDushanbeTime();
+        // Используем UTC для сравнения с PostgreSQL
+        var utcNow = DateTimeOffset.UtcNow;
         var expiredGroups = await context.Groups
             .Where(g => g.Status == ActiveStatus.Active && !g.IsDeleted)
-            .Where(g => g.EndDate <= localNow)
+            .Where(g => g.EndDate <= utcNow)
             .ToListAsync();
 
         if (!expiredGroups.Any())

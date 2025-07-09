@@ -1,11 +1,12 @@
 using Domain.DTOs.Student;
 using Domain.Entities;
-using Domain.Enums;
 using Domain.Filters;
 using Domain.Responses;
 using Infrastructure.Interfaces;
+using Infrastructure.Services.ExportToExel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+
 
 namespace WebApp.Controllers;
 
@@ -147,5 +148,14 @@ public class StudentController (IStudentService service) : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<Response<string>> UpdateStudentPaymentStatus([FromBody] UpdateStudentPaymentStatusDto dto)
         => await service.UpdateStudentPaymentStatusAsync(dto);
+
+    [HttpGet("export/excel")]
+    [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin}")]
+    public async Task<IActionResult> ExportStudentsToExcel([FromServices] IStudentExportService exportService)
+    {
+        var fileBytes = await exportService.ExportAllStudentsToExcelAsync();
+        var fileName = $"students_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+        return File(fileBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+    }
 
 }
