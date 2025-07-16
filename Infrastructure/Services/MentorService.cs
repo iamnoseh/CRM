@@ -382,6 +382,9 @@ public class MentorService(
             if (filter.Gender.HasValue)
                 query = query.Where(s => s.Gender == filter.Gender.Value);
 
+            if (filter.CenterId.HasValue)
+                query = query.Where(s => s.CenterId == filter.CenterId.Value);
+
             var totalCount = await query.CountAsync();
             var totalPages = (int)Math.Ceiling(totalCount / (double)filter.PageSize);
 
