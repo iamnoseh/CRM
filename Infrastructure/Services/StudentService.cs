@@ -78,7 +78,7 @@ public class StudentService(
                     "#5E60CE",
                     "#4EA8DE");
             }
-            
+
             var student = new Student
             {
                 FullName = createStudentDto.FullName,
@@ -114,13 +114,14 @@ public class StudentService(
         var student = await context.Students.FirstOrDefaultAsync(s => s.Id == id && !s.IsDeleted);
         if (student == null)
             return new Response<string>(HttpStatusCode.NotFound, "Student not found");
-        string newProfileImagePath = student.ProfileImage; 
+        string newProfileImagePath = student.ProfileImage;
         if (updateStudentDto.ProfilePhoto != null)
         {
             if (!string.IsNullOrEmpty(student.ProfileImage))
             {
                 FileDeleteHelper.DeleteFile(student.ProfileImage, uploadPath);
             }
+
             var imageResult = await FileUploadHelper.UploadFileAsync(
                 updateStudentDto.ProfilePhoto, uploadPath, "student", "profile");
             if (imageResult.StatusCode != 200)
@@ -135,7 +136,7 @@ public class StudentService(
         student.Birthday = updateStudentDto.Birthday;
         student.Age = DateUtils.CalculateAge(updateStudentDto.Birthday);
         student.Gender = updateStudentDto.Gender;
-        
+
         if (Enum.IsDefined(typeof(ActiveStatus), updateStudentDto.ActiveStatus))
         {
             student.ActiveStatus = updateStudentDto.ActiveStatus;
@@ -145,7 +146,7 @@ public class StudentService(
         {
             student.PaymentStatus = updateStudentDto.PaymentStatus;
         }
-        
+
         student.ProfileImage = newProfileImagePath;
         student.UpdatedAt = DateTime.UtcNow;
 
@@ -259,6 +260,47 @@ public class StudentService(
             : new Response<List<GetStudentDto>>(HttpStatusCode.NotFound, "No students found");
     }
 
+    public async Task<PaginationResponse<List<GetStudentForSelectDto>>> GetStudentForSelect(
+        StudentFilterForSelect filter)
+    {
+        var studentsQuery = context.Students
+            .Where(s => !s.IsDeleted)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(filter.FullName))
+        {
+            studentsQuery = studentsQuery
+                .Where(s => EF.Functions.ILike(s.FullName, $"%{filter.FullName}%"));
+        }
+
+        var totalRecords = await studentsQuery.CountAsync();
+        var skip = (filter.PageNumber - 1) * filter.PageSize;
+
+        var students = await studentsQuery
+            .OrderBy(s => s.Id)
+            .Skip(skip)
+            .Take(filter.PageSize)
+            .Select(s => new GetStudentForSelectDto
+            {
+                Id = s.Id,
+                FullName = s.FullName,
+            })
+            .ToListAsync();
+
+        if (students.Count == 0)
+        {
+            return new PaginationResponse<List<GetStudentForSelectDto>>(HttpStatusCode.NotFound, "No students found");
+        }
+
+        return new PaginationResponse<List<GetStudentForSelectDto>>(
+            students,
+            totalRecords,
+            filter.PageNumber,
+            filter.PageSize
+        );
+    }
+
+
     public async Task<Response<GetStudentDto>> GetStudentByIdAsync(int id)
     {
         var student = await context.Students
@@ -300,7 +342,7 @@ public class StudentService(
         {
             FileDeleteHelper.DeleteFile(student.Document, uploadPath);
         }
-        
+
         var uploadResult = await FileUploadHelper.UploadFileAsync(documentFile, uploadPath, "student", "document");
         if (uploadResult.StatusCode != 200)
             return new Response<string>((HttpStatusCode)uploadResult.StatusCode, uploadResult.Message);
@@ -490,9 +532,9 @@ public class StudentService(
             {
                 var groupGrades = await context.Grades
                     .Where(g => g.StudentId == id &&
-                               g.GroupId == group.GroupId &&
-                               g.Value.HasValue &&
-                               !g.IsDeleted)
+                                g.GroupId == group.GroupId &&
+                                g.Value.HasValue &&
+                                !g.IsDeleted)
                     .Select(g => g.Value.Value)
                     .ToListAsync();
 

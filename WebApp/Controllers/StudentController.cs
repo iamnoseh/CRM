@@ -18,6 +18,13 @@ public class StudentController (IStudentService service) : ControllerBase
     public async Task<Response<List<GetStudentDto>>> GetAllStudents() =>
         await service.GetStudents();
 
+    [HttpGet("select-students")]
+    public async Task<IActionResult> GetStudentForSelect([FromQuery] StudentFilterForSelect filter)
+    {
+        var result = await service.GetStudentForSelect(filter);
+        return Ok(result);
+    }
+
     [HttpGet("{id}")]
     public async Task<Response<GetStudentDto>> GetStudentById(int id ) => 
         await service.GetStudentByIdAsync(id );
@@ -64,7 +71,6 @@ public class StudentController (IStudentService service) : ControllerBase
     [Authorize]
     public async Task<IActionResult> GetStudentDocument(int studentId)
     {
-        // Debug information first
         var studentDebugResponse = await service.GetStudentByIdAsync(studentId);
         if (studentDebugResponse.StatusCode != (int)System.Net.HttpStatusCode.OK)
             return StatusCode((int)studentDebugResponse.StatusCode, studentDebugResponse);
@@ -76,17 +82,11 @@ public class StudentController (IStudentService service) : ControllerBase
         
         if (response.StatusCode != (int)System.Net.HttpStatusCode.OK)
             return StatusCode((int)response.StatusCode, response);
-            
-        // Get student to determine file name and type
         var studentResponse = await service.GetStudentByIdAsync(studentId);
         if (studentResponse.StatusCode != (int)System.Net.HttpStatusCode.OK)
             return File(response.Data, "application/octet-stream", $"student_{studentId}_document.pdf");
-            
-        // Try to get extension from the document path
         string fileName = $"student_{studentId}_document";
         string contentType = "application/octet-stream";
-        
-        // Find the extension if available
         var student = studentResponse.Data;
         if (student != null && !string.IsNullOrEmpty(student.Document))
         {
@@ -94,8 +94,6 @@ public class StudentController (IStudentService service) : ControllerBase
             if (!string.IsNullOrEmpty(extension))
             {
                 fileName += extension;
-                
-                // Set appropriate content type based on file extension
                 contentType = extension.ToLowerInvariant() switch
                 {
                     ".pdf" => "application/pdf",
@@ -107,25 +105,20 @@ public class StudentController (IStudentService service) : ControllerBase
                 };
             }
         }
-        
-        // Return the document as a downloadable file
         return File(response.Data, contentType, fileName);
     }
     
-    // Debugging route to check and fix document paths
+
     [HttpGet("debug/document/{studentId}")]
     [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin}")]
     public async Task<IActionResult> DebugStudentDocument(int studentId)
     {
         try
         {
-            // Get raw student data from DB 
             var student = await service.GetStudentByIdAsync(studentId);
             
             if (student.StatusCode != (int)System.Net.HttpStatusCode.OK)
                 return StatusCode((int)student.StatusCode, student);
-            
-            // Create a debug info object
             var debugInfo = new
             {
                 StudentId = studentId,

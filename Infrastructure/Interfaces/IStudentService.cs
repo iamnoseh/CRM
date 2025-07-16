@@ -12,13 +12,13 @@ public interface IStudentService
     Task<Response<string>> UpdateStudentAsync(int id, UpdateStudentDto updateStudentDto);
     Task<Response<string>> DeleteStudentAsync(int id);
     Task<Response<List<GetStudentDto>>> GetStudents();
+    Task<PaginationResponse<List<GetStudentForSelectDto>>> GetStudentForSelect(StudentFilterForSelect filter);
     Task<Response<GetStudentDto>> GetStudentByIdAsync(int id);
     Task<Response<string>> UpdateUserProfileImageAsync(int studentId, IFormFile? profileImage);
     Task<Response<string>> UpdateStudentDocumentAsync(int studentId, IFormFile? documentFile);
     Task<PaginationResponse<List<GetStudentDto>>> GetStudentsPagination(StudentFilter filter);
     Task<Response<byte[]>> GetStudentDocument(int studentId);
     Task<Response<GetStudentDetailedDto>> GetStudentDetailedAsync(int id);
-    //Average
     Task<Response<GetStudentAverageDto>> GetStudentAverageAsync(int studentId,int groupId);
     Task<Response<string>> UpdateStudentPaymentStatusAsync(UpdateStudentPaymentStatusDto dto);
 }

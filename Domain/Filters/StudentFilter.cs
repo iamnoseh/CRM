@@ -19,3 +19,8 @@ public class StudentFilter : BaseFilter
     public int? CenterId { get; set; }
     public bool? IsActive { get; set; }
 }
+
+public class StudentFilterForSelect : BaseFilter
+{
+    public string? FullName { get; set; }
+}
