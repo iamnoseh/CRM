@@ -1,4 +1,5 @@
 using Domain.DTOs.Center;
+using Domain.DTOs.Course;
 using Domain.Filters;
 using Domain.Responses;
 using Infrastructure.Interfaces;
@@ -96,6 +97,10 @@ public class CenterController(ICenterService centerService) : ControllerBase
         var response = await centerService.GetCenterCoursesAsync(id);
         return StatusCode(response.StatusCode, response);
     }
+
+    [HttpGet("{centerId}/courses-with-stats")]
+    public async Task<Response<List<GetCourseWithStatsDto>>> GetCenterCoursesWithStats(int centerId)
+        => await centerService.GetCenterCoursesWithStatsAsync(centerId);
 
 
     [HttpGet("{id}/statistics")]

@@ -19,7 +19,7 @@ namespace Infrastructure.Services;
 public class CenterService(DataContext context, string uploadPath, IHttpContextAccessor httpContextAccessor) : ICenterService
 {
     private readonly string[] _allowedImageExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" };
-    private const long MaxImageSize = 50 * 1024 * 1024; // 50MB
+    private const long MaxImageSize = 50 * 1024 * 1024; 
 
     #region CreateCenterAsync
     public async Task<Response<string>> CreateCenterAsync(CreateCenterDto createCenterDto)
@@ -581,6 +581,36 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
         {
             return new Response<List<GetCenterCoursesDto>>(HttpStatusCode.InternalServerError, $"An error occurred: {ex.Message}");
         }
+    }
+    #endregion
+
+    #region GetCenterCoursesWithStatsAsync
+    public async Task<Response<List<GetCourseWithStatsDto>>> GetCenterCoursesWithStatsAsync(int centerId)
+    {
+        var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+        var user = httpContextAccessor.HttpContext?.User;
+        var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
+        bool isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
+        if (!isSuperAdmin && userCenterId != centerId)
+            return new Response<List<GetCourseWithStatsDto>>(System.Net.HttpStatusCode.Forbidden, "Access denied to this center");
+        var courses = await context.Courses
+            .Where(c => c.CenterId == centerId && !c.IsDeleted)
+            .Select(c => new GetCourseWithStatsDto
+            {
+                Id = c.Id,
+                CourseName = c.CourseName,
+                Image = c.ImagePath,
+                Price = c.Price,
+                GroupCount = context.Groups.Count(g => g.CourseId == c.Id && !g.IsDeleted),
+                StudentCount = context.Groups
+                    .Where(g => g.CourseId == c.Id && !g.IsDeleted)
+                    .SelectMany(g => g.StudentGroups.Where(sg => !sg.IsDeleted && (bool)sg.IsActive))
+                    .Select(sg => sg.StudentId)
+                    .Distinct()
+                    .Count()
+            })
+            .ToListAsync();
+        return new Response<List<GetCourseWithStatsDto>>(courses);
     }
     #endregion
 

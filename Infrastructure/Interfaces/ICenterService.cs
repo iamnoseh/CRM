@@ -1,4 +1,5 @@
 using Domain.DTOs.Center;
+using Domain.DTOs.Course;
 using Domain.Filters;
 using Domain.Responses;
 
@@ -18,6 +19,7 @@ public interface ICenterService
     Task<Response<List<GetCenterStudentsDto>>> GetCenterStudentsAsync(int centerId);
     Task<Response<List<GetCenterMentorsDto>>> GetCenterMentorsAsync(int centerId);
     Task<Response<List<GetCenterCoursesDto>>> GetCenterCoursesAsync(int centerId);
+    Task<Response<List<GetCourseWithStatsDto>>> GetCenterCoursesWithStatsAsync(int centerId);
     
     // Методы для расчета доходов центров
     Task<Response<string>> CalculateCenterIncomeAsync(int centerId);
