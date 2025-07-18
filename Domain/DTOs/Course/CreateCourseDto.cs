@@ -11,5 +11,4 @@ public class CreateCourseDto
     public decimal Price { get; set; }
     public ActiveStatus Status { get; set; }
     public IFormFile? ImageFile { get; set; }
-    public int CenterId { get; set; }
 }

@@ -5,10 +5,12 @@ using Domain.Responses;
 using Infrastructure.Data;
 using Infrastructure.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Infrastructure.Helpers;
+using Microsoft.AspNetCore.Http;
 
 namespace Infrastructure.Services;
 
-public class PaymentStatisticsService(DataContext context) : IPaymentStatisticsService
+public class PaymentStatisticsService(DataContext context, IHttpContextAccessor httpContextAccessor) : IPaymentStatisticsService
 {
     public async Task<Response<StudentPaymentStatisticsDto>> GetStudentPaymentStatisticsAsync(
         int studentId,
@@ -192,6 +194,12 @@ public class PaymentStatisticsService(DataContext context) : IPaymentStatisticsS
         DateTimeOffset? startDate = null,
         DateTimeOffset? endDate = null)
     {
+        var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+        var user = httpContextAccessor.HttpContext?.User;
+        var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
+        bool isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
+        if (!isSuperAdmin && userCenterId != centerId)
+            return new Response<CenterPaymentStatisticsDto>(System.Net.HttpStatusCode.Forbidden, "Access denied to this center's statistics");
         try
         {
             var center = await context.Centers
@@ -241,6 +249,12 @@ public class PaymentStatisticsService(DataContext context) : IPaymentStatisticsS
         int centerId,
         DateTimeOffset date)
     {
+        var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+        var user = httpContextAccessor.HttpContext?.User;
+        var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
+        bool isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
+        if (!isSuperAdmin && userCenterId != centerId)
+            return new Response<List<CenterPaymentStatisticsDto>>(System.Net.HttpStatusCode.Forbidden, "Access denied to this center's statistics");
         try
         {
             var startDate = date.Date;
@@ -261,6 +275,12 @@ public class PaymentStatisticsService(DataContext context) : IPaymentStatisticsS
         int year,
         int month)
     {
+        var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+        var user = httpContextAccessor.HttpContext?.User;
+        var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
+        bool isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
+        if (!isSuperAdmin && userCenterId != centerId)
+            return new Response<CenterPaymentStatisticsDto>(System.Net.HttpStatusCode.Forbidden, "Access denied to this center's statistics");
         try
         {
             var startDate = new DateTimeOffset(new DateTime(year, month, 1));

@@ -6,10 +6,11 @@ using Infrastructure.Data;
 using Infrastructure.Helpers;
 using Infrastructure.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Http;
 
 namespace Infrastructure.Services;
 
-public class AttendanceStatisticsService(DataContext context) : IAttendanceStatisticsService
+public class AttendanceStatisticsService(DataContext context, IHttpContextAccessor httpContextAccessor) : IAttendanceStatisticsService
 {
     public async Task<Response<StudentAttendanceAllStatisticsDto>> GetStudentAttendanceStatisticsAsync(
         int studentId, 
@@ -169,6 +170,12 @@ public class AttendanceStatisticsService(DataContext context) : IAttendanceStati
         DateTimeOffset? startDate = null,
         DateTimeOffset? endDate = null)
     {
+        var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+        var user = httpContextAccessor.HttpContext?.User;
+        var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
+        bool isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
+        if (!isSuperAdmin && userCenterId != centerId)
+            return new Response<CenterAttendanceAllStatisticsDto>(System.Net.HttpStatusCode.Forbidden, "Access denied to this center's statistics");
         try
         {
             var center = await context.Centers
@@ -224,6 +231,12 @@ public class AttendanceStatisticsService(DataContext context) : IAttendanceStati
         int centerId,
         DateTimeOffset date)
     {
+        var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+        var user = httpContextAccessor.HttpContext?.User;
+        var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
+        bool isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
+        if (!isSuperAdmin && userCenterId != centerId)
+            return new Response<List<CenterAttendanceAllStatisticsDto>>(System.Net.HttpStatusCode.Forbidden, "Access denied to this center's statistics");
         try
         {
             var localStartDate = date.ToDushanbeTime().Date;

@@ -4,7 +4,7 @@ public static class PasswordUtils
 {
     public static string GenerateRandomPassword(int length = 8)
     {
-        const string upperChars = "ABCDEFGHJKLMNO";
+        const string upperChars = "ABCDE";
         const string lowerChars = "abcde";
         const string numericChars = "0123456789";
         const string specialChars = "-.";

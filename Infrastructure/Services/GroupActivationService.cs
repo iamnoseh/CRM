@@ -10,7 +10,6 @@ namespace Infrastructure.Services;
 
 public class GroupActivationService(DataContext context) : IGroupActivationService
 {
-
     public async Task<Response<string>> ActivateGroupAsync(int groupId)
     {
         try

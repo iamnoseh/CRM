@@ -13,5 +13,4 @@ public class CreateStudentDto
     public Gender Gender { get; set; }
     public IFormFile? ProfilePhoto { get; set; }
     public IFormFile? DocumentFile { get; set; }
-    public int CenterId { get; set; }
 }

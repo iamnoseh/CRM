@@ -39,4 +39,8 @@ public class CourseController (ICourseService service) : ControllerBase
     [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin}")]
     public async Task<Response<string>> DeleteCourse(int id) =>
         await service.DeleteCourseAsync(id);
+
+    [HttpGet("{id}/groups")]
+    public async Task<Response<GetCourseGroupsDto>> GetCourseGroupsAndCount(int id)
+        => await service.GetCourseGroupsAndCountAsync(id);
 }

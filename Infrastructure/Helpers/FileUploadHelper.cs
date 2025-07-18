@@ -7,9 +7,9 @@ namespace Infrastructure.Helpers;
 public static class FileUploadHelper
 {
     private static readonly string[] AllowedImageExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".svg" };
-    private static readonly string[] AllowedDocumentExtensions = { ".pdf", ".doc", ".docx", ".jpg", ".jpeg", ".png" };
+    private static readonly string[] AllowedDocumentExtensions = { ".pdf", ".doc", ".docx", ".jpg", ".jpeg", ".png",".exel" };
     private const long MaxImageSize = 50 * 1024 * 1024; // 50 MB
-    private const long MaxDocumentSize = 20 * 1024 * 1024; // 20 MB
+    private const long MaxDocumentSize = 50 * 1024 * 1024;
 
     public static async Task<Response<string>> UploadFileAsync(
         IFormFile file,
@@ -32,8 +32,7 @@ public static class FileUploadHelper
 
         if (file.Length > maxSize)
             return new Response<string>(HttpStatusCode.BadRequest, $"{fileType} size must be less than {maxSize / (1024 * 1024)}MB");
-
-        // Удаление старого файла, если указано
+        
         if (deleteOldFile && !string.IsNullOrEmpty(oldFilePath))
         {
             var fullOldPath = Path.Combine(uploadPath, oldFilePath.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
@@ -49,13 +48,9 @@ public static class FileUploadHelper
                 }
             }
         }
-
-        // Создание папки
         var folder = Path.Combine(uploadPath, "uploads", fileType == "profile" ? entityType : $"documents/{entityType}");
         if (!Directory.Exists(folder))
             Directory.CreateDirectory(folder);
-
-        // Сохранение файла
         var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
         var filePath = Path.Combine(folder, uniqueFileName);
 

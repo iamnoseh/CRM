@@ -25,11 +25,9 @@ public class MentorService(
     {
         try
         {
-            var center = await context.Centers.FirstOrDefaultAsync(c => c.Id == createMentorDto.CenterId && !c.IsDeleted);
-            if (center == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Центр не найден");
-
-            // Загрузка изображения профиля
+            var centerId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+            if (centerId == null)
+                return new Response<string>(HttpStatusCode.BadRequest, "CenterId not found in token");
             string profileImagePath = string.Empty;
             if (createMentorDto.ProfileImage != null)
             {
@@ -39,8 +37,6 @@ public class MentorService(
                     return new Response<string>((HttpStatusCode)imageResult.StatusCode, imageResult.Message);
                 profileImagePath = imageResult.Data;
             }
-
-            // Загрузка документа
             string documentPath = string.Empty;
             if (createMentorDto.DocumentFile != null)
             {
@@ -50,8 +46,6 @@ public class MentorService(
                     return new Response<string>((HttpStatusCode)docResult.StatusCode, docResult.Message);
                 documentPath = docResult.Data;
             }
-
-            // Создание пользователя
             var userResult = await UserManagementHelper.CreateUserAsync(
                 createMentorDto,
                 userManager,
@@ -62,14 +56,12 @@ public class MentorService(
                 dto => dto.Birthday,
                 dto => dto.Gender,
                 dto => dto.Address,
-                dto => dto.CenterId,
+                dto => centerId.Value,
                 _ => profileImagePath);
             if (userResult.StatusCode != 200)
                 return new Response<string>((HttpStatusCode)userResult.StatusCode, userResult.Message);
 
             var (user, password, username) = userResult.Data;
-
-            // Отправка email
             if (!string.IsNullOrEmpty(createMentorDto.Email))
             {
                 await EmailHelper.SendLoginDetailsEmailAsync(
@@ -81,8 +73,6 @@ public class MentorService(
                     "#4776E6",
                     "#8E54E9");
             }
-
-            // Создание ментора
             var mentor = new Mentor
             {
                 FullName = createMentorDto.FullName,
@@ -92,7 +82,7 @@ public class MentorService(
                 Birthday = createMentorDto.Birthday,
                 Age = DateUtils.CalculateAge(createMentorDto.Birthday),
                 Gender = createMentorDto.Gender,
-                CenterId = createMentorDto.CenterId,
+                CenterId = centerId.Value,
                 UserId = user.Id,
                 Experience = createMentorDto.Experience,
                 Salary = createMentorDto.Salary,
@@ -128,8 +118,6 @@ public class MentorService(
             var center = await context.Centers.FirstOrDefaultAsync(c => c.Id == updateMentorDto.CenterId && !c.IsDeleted);
             if (center == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Центр не найден");
-
-            // Обновление изображения профиля
             if (updateMentorDto.ProfileImage != null)
             {
                 var imageResult = await FileUploadHelper.UploadFileAsync(
@@ -236,102 +224,60 @@ public class MentorService(
 
     public async Task<Response<List<GetMentorDto>>> GetMentors()
     {
-        try
+        var mentorsQuery = context.Mentors
+            .Where(m => !m.IsDeleted);
+        mentorsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
+            mentorsQuery, httpContextAccessor, m => m.CenterId);
+        var mentors = await mentorsQuery.ToListAsync();
+        var dtos = mentors.Select(m => new GetMentorDto
         {
-            var mentorsQuery = context.Mentors
-                .Where(m => !m.IsDeleted)
-                .Select(m => new GetMentorDto
-                {
-                    Id = m.Id,
-                    FullName = m.FullName,
-                    Email = m.Email,
-                    Phone = m.PhoneNumber,
-                    Address = m.Address,
-                    Birthday = m.Birthday,
-                    Age = m.Age,
-                    Salary = m.Salary,
-                    Experience = m.Experience,
-                    Gender = m.Gender,
-                    ActiveStatus = m.ActiveStatus,
-                    ImagePath = m.ProfileImage,
-                    Document = m.Document,
-                    CenterId = m.CenterId,
-                    UserId = m.UserId,
-                    
-                });
-
-            var mentors = await mentorsQuery.ToListAsync();
-
-            foreach (var mentor in mentors)
-            {
-                if (mentor.UserId > 0)
-                {
-                    var user = await userManager.FindByIdAsync(mentor.UserId.ToString());
-                    if (user != null)
-                    {
-                        var roles = await userManager.GetRolesAsync(user);
-                        mentor.Role = roles.FirstOrDefault() ?? "Teacher";
-                    }
-                }
-            }
-
-            if (mentors.Count == 0)
-                return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound, "Менторы не найдены");
-
-            return new Response<List<GetMentorDto>>(mentors);
-        }
-        catch (Exception ex)
-        {
-            return new Response<List<GetMentorDto>>(HttpStatusCode.InternalServerError, $"Ошибка при получении менторов: {ex.Message}");
-        }
+            Id = m.Id,
+            FullName = m.FullName,
+            Email = m.Email,
+            Phone = m.PhoneNumber,
+            Address = m.Address,
+            Birthday = m.Birthday,
+            Age = m.Age,
+            Salary = m.Salary,
+            Experience = m.Experience,
+            Gender = m.Gender,
+            ActiveStatus = m.ActiveStatus,
+            ImagePath = m.ProfileImage,
+            Document = m.Document,
+            CenterId = m.CenterId,
+            UserId = m.UserId
+        }).ToList();
+        return new Response<List<GetMentorDto>>(dtos);
     }
 
     public async Task<Response<GetMentorDto>> GetMentorByIdAsync(int id)
     {
-        try
+        var mentorsQuery = context.Mentors
+            .Where(m => m.Id == id && !m.IsDeleted);
+        mentorsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
+            mentorsQuery, httpContextAccessor, m => m.CenterId);
+        var m = await mentorsQuery.FirstOrDefaultAsync();
+        if (m == null)
+            return new Response<GetMentorDto>(System.Net.HttpStatusCode.NotFound, "Mentor not found");
+        var dto = new GetMentorDto
         {
-            var mentor = await context.Mentors
-                .Where(m => m.Id == id && !m.IsDeleted)
-                .Select(m => new GetMentorDto
-                {
-                    Id = m.Id,
-                    FullName = m.FullName,
-                    Email = m.Email,
-                    Phone = m.PhoneNumber,
-                    Address = m.Address,
-                    Birthday = m.Birthday,
-                    Age = m.Age,
-                    Salary = m.Salary,
-                    Gender = m.Gender,
-                    Experience = m.Experience,
-                    PaymentStatus = m.PaymentStatus,
-                    ActiveStatus = m.ActiveStatus,
-                    ImagePath = m.ProfileImage,
-                    Document = m.Document,
-                    CenterId = m.CenterId,
-                    UserId = m.UserId,
-                })
-                .FirstOrDefaultAsync();
-
-            if (mentor == null)
-                return new Response<GetMentorDto>(HttpStatusCode.NotFound, "Ментор не найден");
-
-            if (mentor.UserId > 0)
-            {
-                var user = await userManager.FindByIdAsync(mentor.UserId.ToString());
-                if (user != null)
-                {
-                    var roles = await userManager.GetRolesAsync(user);
-                    mentor.Role = roles.FirstOrDefault() ?? "Teacher";
-                }
-            }
-
-            return new Response<GetMentorDto>(mentor);
-        }
-        catch (Exception ex)
-        {
-            return new Response<GetMentorDto>(HttpStatusCode.InternalServerError, $"Ошибка при получении ментора: {ex.Message}");
-        }
+            Id = m.Id,
+            FullName = m.FullName,
+            Email = m.Email,
+            Phone = m.PhoneNumber,
+            Address = m.Address,
+            Birthday = m.Birthday,
+            Age = m.Age,
+            Salary = m.Salary,
+            Experience = m.Experience,
+            Gender = m.Gender,
+            ActiveStatus = m.ActiveStatus,
+            ImagePath = m.ProfileImage,
+            Document = m.Document,
+            CenterId = m.CenterId,
+            UserId = m.UserId
+        };
+        return new Response<GetMentorDto>(dto);
     }
 
     public async Task<Response<string>> UpdateMentorDocumentAsync(int mentorId, IFormFile? documentFile)
@@ -366,83 +312,52 @@ public class MentorService(
 
     public async Task<PaginationResponse<List<GetMentorDto>>> GetMentorsPagination(MentorFilter filter)
     {
-        try
+        var mentorsQuery = context.Mentors.Where(m => !m.IsDeleted);
+        mentorsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
+            mentorsQuery, httpContextAccessor, m => m.CenterId);
+        if (!string.IsNullOrEmpty(filter.FullName))
+            mentorsQuery = mentorsQuery.Where(m => m.FullName.Contains(filter.FullName));
+        if (!string.IsNullOrEmpty(filter.PhoneNumber))
+            mentorsQuery = mentorsQuery.Where(m => m.PhoneNumber.Contains(filter.PhoneNumber));
+        if (filter.CenterId.HasValue)
+            mentorsQuery = mentorsQuery.Where(m => m.CenterId == filter.CenterId.Value);
+        if (filter.Age.HasValue)
+            mentorsQuery = mentorsQuery.Where(m => m.Age == filter.Age.Value);
+        if (filter.Gender.HasValue)
+            mentorsQuery = mentorsQuery.Where(m => m.Gender == filter.Gender.Value);
+        if (filter.Salary.HasValue)
+            mentorsQuery = mentorsQuery.Where(m => m.Salary == filter.Salary.Value);
+        var totalRecords = await mentorsQuery.CountAsync();
+        var skip = (filter.PageNumber - 1) * filter.PageSize;
+        var mentors = await mentorsQuery
+            .OrderBy(m => m.Id)
+            .Skip(skip)
+            .Take(filter.PageSize)
+            .ToListAsync();
+        var dtos = mentors.Select(m => new GetMentorDto
         {
-            var query = context.Mentors.Where(u => !u.IsDeleted);
-
-            if (!string.IsNullOrEmpty(filter.FullName))
-                query = query.Where(s => s.FullName.Contains(filter.FullName));
-
-            if (!string.IsNullOrEmpty(filter.PhoneNumber))
-                query = query.Where(s => s.PhoneNumber.Contains(filter.PhoneNumber));
-
-            if (filter.Age.HasValue)
-                query = query.Where(s => s.Age == filter.Age.Value);
-
-            if (filter.Gender.HasValue)
-                query = query.Where(s => s.Gender == filter.Gender.Value);
-
-            if (filter.CenterId.HasValue)
-                query = query.Where(s => s.CenterId == filter.CenterId.Value);
-
-            var totalCount = await query.CountAsync();
-            var totalPages = (int)Math.Ceiling(totalCount / (double)filter.PageSize);
-
-            var mentors = await query
-                .OrderBy(u => u.FullName)
-                .Skip((filter.PageNumber - 1) * filter.PageSize)
-                .Take(filter.PageSize)
-                .Select(u => new GetMentorDto
-                {
-                    Id = u.Id,
-                    FullName = u.FullName,
-                    Email = u.Email,
-                    Phone = u.PhoneNumber,
-                    Address = u.Address,
-                    Birthday = u.Birthday,
-                    Age = DateUtils.CalculateAge(u.Birthday),
-                    Gender = u.Gender,
-                    ActiveStatus = u.ActiveStatus,
-                    PaymentStatus = u.PaymentStatus,
-                    ImagePath = u.ProfileImage,
-                    Experience = u.Experience,
-                    Document = u.Document,
-                    Salary = u.Salary,
-                    UserId = u.UserId,
-                    CenterId = u.CenterId,
-                })
-                .ToListAsync();
-
-            foreach (var mentor in mentors)
-            {
-                if (mentor.UserId > 0)
-                {
-                    var user = await userManager.FindByIdAsync(mentor.UserId.ToString());
-                    if (user != null)
-                    {
-                        var roles = await userManager.GetRolesAsync(user);
-                        mentor.Role = roles.FirstOrDefault() ?? "Teacher";
-                    }
-                }
-            }
-
-            if (mentors.Count == 0 && filter.PageNumber > 1)
-                return new PaginationResponse<List<GetMentorDto>>(HttpStatusCode.NotFound, "Менторы не найдены");
-
-            return new PaginationResponse<List<GetMentorDto>>
-            {
-                Data = mentors,
-                StatusCode = (int)HttpStatusCode.OK,
-                PageSize = filter.PageSize,
-                PageNumber = filter.PageNumber,
-                TotalRecords = totalCount,
-                TotalPages = totalPages
-            };
-        }
-        catch (Exception ex)
-        {
-            return new PaginationResponse<List<GetMentorDto>>(HttpStatusCode.InternalServerError, $"Ошибка при получении менторов: {ex.Message}");
-        }
+            Id = m.Id,
+            FullName = m.FullName,
+            Email = m.Email,
+            Phone = m.PhoneNumber,
+            Address = m.Address,
+            Birthday = m.Birthday,
+            Age = m.Age,
+            Salary = m.Salary,
+            Experience = m.Experience,
+            Gender = m.Gender,
+            ActiveStatus = m.ActiveStatus,
+            ImagePath = m.ProfileImage,
+            Document = m.Document,
+            CenterId = m.CenterId,
+            UserId = m.UserId
+        }).ToList();
+        return new PaginationResponse<List<GetMentorDto>>(
+            dtos,
+            filter.PageNumber,
+            filter.PageSize,
+            totalRecords
+        );
     }
 
     public async Task<Response<List<GetMentorDto>>> GetMentorsByGroupAsync(int groupId)
@@ -606,11 +521,11 @@ public class MentorService(
             : new Response<string>(HttpStatusCode.BadRequest, "Failed to update profile image");
     }
 
-    public async Task<Response<string>> UpdateMentorPaymentStatusAsync(int mentorId, Domain.Enums.PaymentStatus status)
+    public async Task<Response<string>> UpdateMentorPaymentStatusAsync(int mentorId, PaymentStatus status)
     {
         var mentor = await context.Mentors.FirstOrDefaultAsync(m => m.Id == mentorId && !m.IsDeleted);
         if (mentor == null)
-            return new Response<string>(System.Net.HttpStatusCode.NotFound, "Mentor not found");
+            return new Response<string>(HttpStatusCode.NotFound, "Mentor not found");
 
         mentor.PaymentStatus = status;
         mentor.UpdatedAt = DateTime.UtcNow;
@@ -628,7 +543,7 @@ public class MentorService(
 
         var res = await context.SaveChangesAsync();
         return res > 0
-            ? new Response<string>(System.Net.HttpStatusCode.BadRequest, "Failed to update payment status")
-            : new Response<string>(System.Net.HttpStatusCode.OK, "Payment status updated successfully");
+            ? new Response<string>(HttpStatusCode.BadRequest, "Failed to update payment status")
+            : new Response<string>(HttpStatusCode.OK, "Payment status updated successfully");
     }
 }

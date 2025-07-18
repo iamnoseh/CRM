@@ -4,16 +4,6 @@ namespace Infrastructure.Helpers;
 
 public static class EmailTemplateHelperNew
 {
-    /// <summary>
-    /// Генерирует HTML-шаблон письма с логином и паролем с ярким современным дизайном
-    /// </summary>
-    /// <param name="username">Имя пользователя</param>
-    /// <param name="password">Пароль</param>
-    /// <param name="messageText">Основной текст сообщения</param>
-    /// <param name="primaryColor">Основной цвет темы (#HEX)</param>
-    /// <param name="accentColor">Акцентный цвет темы (#HEX)</param>
-    /// <param name="userType">Тип пользователя (например, "student" или "mentor")</param>
-    /// <returns>HTML-разметка письма</returns>
     public static string GenerateResetCodeEmailTemplate(string code, string messageText, string primaryColor, string accentColor)
     {
         return $@"
@@ -34,12 +24,10 @@ public static class EmailTemplateHelperNew
         string accentColor = "#4EA8DE",
         string userType = "user")
     {
-        // Расчёт дополнительных цветов для градиентов
         string primaryLight = AdjustBrightness(primaryColor, 15);
         string primaryDark = AdjustBrightness(primaryColor, -15);
         string accentLight = AdjustBrightness(accentColor, 15);
         
-        // Форматирование для таблиц с фиксированной шириной
         return $@"
 <!DOCTYPE html>
 <html lang=""tj"">
@@ -286,9 +274,6 @@ public static class EmailTemplateHelperNew
         }
     }
     
-    /// <summary>
-    /// Конвертирует HEX-цвет в формат RGB
-    /// </summary>
     private static string HexToRgb(string hexColor)
     {
         if (string.IsNullOrEmpty(hexColor)) return "79, 70, 229";

@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using System.Net;
 using System.Security.Claims;
+using Infrastructure.Helpers;
 
 namespace Infrastructure.Services;
 
@@ -22,6 +23,7 @@ public class UserService(DataContext context, UserManager<User> userManager,
         try
         {
             var query = context.Users.Where(x => !x.IsDeleted).AsQueryable();
+            query = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(query, httpContextAccessor, u => u.CenterId);
 
             if (!string.IsNullOrEmpty(filter.FullName))
             {
@@ -90,7 +92,9 @@ public class UserService(DataContext context, UserManager<User> userManager,
     {
         try
         {
-            var user = await context.Users.FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted);
+            var query = context.Users.Where(x => x.Id == id && !x.IsDeleted);
+            query = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(query, httpContextAccessor, u => u.CenterId);
+            var user = await query.FirstOrDefaultAsync();
             if (user == null)
             {
                 return new Response<GetUserDto>(HttpStatusCode.NotFound, "User not found");
@@ -158,12 +162,13 @@ public class UserService(DataContext context, UserManager<User> userManager,
                 return new Response<List<GetUserDto>>(HttpStatusCode.BadRequest, "Search term is required");
             }
             
-            var users = await context.Users
+            var query = context.Users
                 .Where(u => !u.IsDeleted && 
                            (u.FullName.Contains(searchTerm) || 
                             u.Email.Contains(searchTerm) || 
-                            (u.PhoneNumber != null && u.PhoneNumber.Contains(searchTerm))))
-                .Take(20) // Ограничиваем количество результатов
+                            (u.PhoneNumber != null && u.PhoneNumber.Contains(searchTerm))));
+            query = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(query, httpContextAccessor, u => u.CenterId);
+            var users = await query.Take(20) // Ограничиваем количество результатов
                 .ToListAsync();
                 
             if (!users.Any())
@@ -225,9 +230,10 @@ public class UserService(DataContext context, UserManager<User> userManager,
                 .Select(ur => ur.UserId)
                 .ToListAsync();
                 
-            var users = await context.Users
-                .Where(u => !u.IsDeleted && userIds.Contains(u.Id))
-                .ToListAsync();
+            var query = context.Users
+                .Where(u => !u.IsDeleted && userIds.Contains(u.Id));
+            query = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(query, httpContextAccessor, u => u.CenterId);
+            var users = await query.ToListAsync();
                 
             if (!users.Any())
             {
@@ -265,15 +271,16 @@ public class UserService(DataContext context, UserManager<User> userManager,
     {
         var today = DateTime.Today;
         var end = today.AddDays(7);
-        var users = await context.Users
+        var query = context.Users
             .Where(u => !u.IsDeleted &&
                 (
                     (u.Birthday.Month == today.Month && u.Birthday.Day >= today.Day) ||
                     (u.Birthday.Month == end.Month && u.Birthday.Day <= end.Day) ||
                     (u.Birthday.Month > today.Month && u.Birthday.Month < end.Month)
                 )
-            )
-            .OrderBy(u => u.Birthday.Month)
+            );
+        query = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(query, httpContextAccessor, u => u.CenterId);
+        var users = await query.OrderBy(u => u.Birthday.Month)
             .ThenBy(u => u.Birthday.Day)
             .ToListAsync();
 

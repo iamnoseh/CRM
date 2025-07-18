@@ -22,7 +22,6 @@ public class GetStudentDetailedDto
     public int UserId { get; set; }
     public int CenterId { get; set; }
     
-    // Статистика
     public double AverageGrade { get; set; }
     public int GroupsCount { get; set; }
     public List<GroupInfo> Groups { get; set; } = new();

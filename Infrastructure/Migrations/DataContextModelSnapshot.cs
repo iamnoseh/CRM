@@ -978,6 +978,9 @@ namespace Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("DocumentPath")
+                        .HasColumnType("text");
+
                     b.Property<string>("Email")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
@@ -987,6 +990,9 @@ namespace Infrastructure.Migrations
 
                     b.Property<bool>("EmailNotificationsEnabled")
                         .HasColumnType("boolean");
+
+                    b.Property<int>("Experience")
+                        .HasColumnType("integer");
 
                     b.Property<string>("FullName")
                         .IsRequired()

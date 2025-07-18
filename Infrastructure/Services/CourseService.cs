@@ -4,14 +4,16 @@ using Domain.Entities;
 using Domain.Filters;
 using Domain.Responses;
 using Infrastructure.Data;
+using Infrastructure.Helpers;
 using Infrastructure.Interfaces;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Services;
 
-public class CourseService(DataContext context, string uploadPath) : ICourseService
+public class CourseService(DataContext context, string uploadPath,IHttpContextAccessor httpContextAccessor) : ICourseService
 {
-    private readonly string[] _allowedImageExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" };
+    private readonly string[] _allowedImageExtensions = [".jpg", ".jpeg", ".png", ".gif"];
     private const long MaxImageSize = 50 * 1024 * 1024; 
 
     #region CreateCourseAsync
@@ -19,9 +21,9 @@ public class CourseService(DataContext context, string uploadPath) : ICourseServ
     {
         try
         {
-            var center = await context.Centers.FirstOrDefaultAsync(c => c.Id == createCourseDto.CenterId && !c.IsDeleted);
-            if (center == null)
-                return new Response<string>(HttpStatusCode.BadRequest, "Center not found");
+            var centerId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+            if (centerId == null)
+                return new Response<string>(HttpStatusCode.BadRequest, "CenterId not found in token");
 
             if (createCourseDto.ImageFile != null)
             {
@@ -40,7 +42,7 @@ public class CourseService(DataContext context, string uploadPath) : ICourseServ
                 DurationInMonth = createCourseDto.DurationInMonth,
                 Price = createCourseDto.Price,
                 Status = createCourseDto.Status,
-                CenterId = createCourseDto.CenterId
+                CenterId = centerId.Value
             };
 
             if (createCourseDto.ImageFile != null)
@@ -180,9 +182,12 @@ public class CourseService(DataContext context, string uploadPath) : ICourseServ
     {
         try
         {
-            var courses = await context.Courses
+            var coursesQuery = context.Courses
                 .Include(c => c.Center)
-                .Where(c => !c.IsDeleted)
+                .Where(c => !c.IsDeleted);
+            coursesQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
+                coursesQuery, httpContextAccessor, c => c.CenterId);
+            var courses = await coursesQuery
                 .Select(c => new GetCourseDto
                 {
                     Id = c.Id,
@@ -199,11 +204,11 @@ public class CourseService(DataContext context, string uploadPath) : ICourseServ
 
              return courses.Any()
                 ? new Response<List<GetCourseDto>>(courses)
-                : new Response<List<GetCourseDto>>(HttpStatusCode.NotFound, "No courses found");
+                : new Response<List<GetCourseDto>>(System.Net.HttpStatusCode.NotFound, "No courses found");
         }
         catch (Exception ex)
         {
-            return new Response<List<GetCourseDto>>(HttpStatusCode.InternalServerError, ex.Message);
+            return new Response<List<GetCourseDto>>(System.Net.HttpStatusCode.InternalServerError, ex.Message);
         }
     }
     #endregion
@@ -213,12 +218,15 @@ public class CourseService(DataContext context, string uploadPath) : ICourseServ
     {
         try
         {
-            var course = await context.Courses
+            var coursesQuery = context.Courses
                 .Include(c => c.Center)
-                .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
+                .Where(c => !c.IsDeleted && c.Id == id);
+            coursesQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
+                coursesQuery, httpContextAccessor, c => c.CenterId);
+            var course = await coursesQuery.FirstOrDefaultAsync();
 
             if (course == null)
-                return new Response<GetCourseDto>(HttpStatusCode.NotFound, "Course not found");
+                return new Response<GetCourseDto>(System.Net.HttpStatusCode.NotFound, "Course not found");
 
             var courseDto = new GetCourseDto
             {
@@ -237,7 +245,7 @@ public class CourseService(DataContext context, string uploadPath) : ICourseServ
         }
         catch (Exception ex)
         {
-            return new Response<GetCourseDto>(HttpStatusCode.InternalServerError, ex.Message);
+            return new Response<GetCourseDto>(System.Net.HttpStatusCode.InternalServerError, ex.Message);
         }
     }
     #endregion
@@ -248,6 +256,8 @@ public class CourseService(DataContext context, string uploadPath) : ICourseServ
         try
         {
             var coursesQuery = context.Courses.Where(c => !c.IsDeleted).AsQueryable();
+            coursesQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
+                coursesQuery, httpContextAccessor, c => c.CenterId);
 
             // Применение фильтров
             if (!string.IsNullOrEmpty(filter.Name))
@@ -293,7 +303,7 @@ public class CourseService(DataContext context, string uploadPath) : ICourseServ
         }
         catch (Exception ex)
         {
-            return new PaginationResponse<List<GetCourseDto>>(HttpStatusCode.InternalServerError, ex.Message);
+            return new PaginationResponse<List<GetCourseDto>>(System.Net.HttpStatusCode.InternalServerError, ex.Message);
         }
     }
     #endregion
@@ -309,33 +319,77 @@ public class CourseService(DataContext context, string uploadPath) : ICourseServ
                 .FirstOrDefaultAsync(m => m.Id == mentorId && !m.IsDeleted);
 
             if (mentor == null)
-                return new Response<List<GetCourseDto>>(HttpStatusCode.NotFound, "Mentor not found");
+                return new Response<List<GetCourseDto>>(System.Net.HttpStatusCode.NotFound, "Mentor not found");
 
             var courses = mentor.Groups
                 .Where(g => !g.IsDeleted && g.Course != null && !g.Course.IsDeleted)
                 .Select(g => g.Course)
                 .Distinct()
-                .Select(c => new GetCourseDto
-                {
-                    Id = c.Id,
-                    CourseName = c.CourseName,
-                    Description = c.Description,
-                    DurationInMonth = c.DurationInMonth,
-                    Price = c.Price,
-                    Status = c.Status,
-                    ImagePath = c.ImagePath,
-                    CenterId = c.CenterId,
-                    CenterName = c.Center.Name
-                })
-                .ToList();
+                .AsQueryable();
+            courses = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
+                courses, httpContextAccessor, c => c.CenterId);
+            var courseDtos = courses.Select(c => new GetCourseDto
+            {
+                Id = c.Id,
+                CourseName = c.CourseName,
+                Description = c.Description,
+                DurationInMonth = c.DurationInMonth,
+                Price = c.Price,
+                Status = c.Status,
+                ImagePath = c.ImagePath,
+                CenterId = c.CenterId,
+                CenterName = c.Center.Name
+            }).ToList();
 
-            return courses.Any()
-                ? new Response<List<GetCourseDto>>(courses)
-                : new Response<List<GetCourseDto>>(HttpStatusCode.NotFound, "No courses found for this mentor");
+            return courseDtos.Any()
+                ? new Response<List<GetCourseDto>>(courseDtos)
+                : new Response<List<GetCourseDto>>(System.Net.HttpStatusCode.NotFound, "No courses found for this mentor");
         }
         catch (Exception ex)
         {
-            return new Response<List<GetCourseDto>>(HttpStatusCode.InternalServerError, ex.Message);
+            return new Response<List<GetCourseDto>>(System.Net.HttpStatusCode.InternalServerError, ex.Message);
+        }
+    }
+    #endregion
+
+    #region GetCourseGroupsAndCount
+    public async Task<Response<GetCourseGroupsDto>> GetCourseGroupsAndCountAsync(int courseId)
+    {
+        try
+        {
+            var groupsQuery = context.Groups
+                .Include(g => g.Course)
+                .Where(g => g.CourseId == courseId && !g.IsDeleted);
+            groupsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
+                groupsQuery, httpContextAccessor, g => g.Course.CenterId);
+            var groups = await groupsQuery.ToListAsync();
+            var groupDtos = groups.Select(g => new Domain.DTOs.Group.GetGroupDto
+            {
+                Id = g.Id,
+                Name = g.Name,
+                Description = g.Description,
+                CourseId = g.CourseId,
+                DurationMonth = g.DurationMonth,
+                LessonInWeek = g.LessonInWeek,
+                TotalWeeks = g.TotalWeeks,
+                Started = g.Started,
+                Status = g.Status,
+                MentorId = g.MentorId,
+                ImagePath = g.PhotoPath,
+                CurrentWeek = g.CurrentWeek,
+                StartDate = g.StartDate,
+                EndDate = g.EndDate
+            }).ToList();
+            var dto = new GetCourseGroupsDto
+            {
+                Groups = groupDtos,
+                Count = groupDtos.Count
+            };
+            return new Response<GetCourseGroupsDto>(dto);
+        }
+        catch (Exception ex)
+        {
+            return new Response<GetCourseGroupsDto>(System.Net.HttpStatusCode.InternalServerError, ex.Message);
         }
     }
     #endregion

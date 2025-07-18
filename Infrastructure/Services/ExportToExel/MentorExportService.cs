@@ -2,26 +2,32 @@ using ClosedXML.Excel;
 using Domain.DTOs.Mentor;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Infrastructure.Helpers;
+using Microsoft.AspNetCore.Http;
 
 namespace Infrastructure.Services.ExportToExel;
 
 public class MentorExportService : IMentorExportService
 {
     private readonly DataContext _context;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public MentorExportService(DataContext context)
+    public MentorExportService(DataContext context, IHttpContextAccessor httpContextAccessor)
     {
         _context = context;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     public async Task<byte[]> ExportAllMentorsToExcelAsync()
     {
-        var mentors = await _context.Mentors
+        var mentorsQuery = _context.Mentors
             .Include(m => m.Groups)
             .Include(m => m.Center)
             .Include(m => m.User)
-            .Where(m => !m.IsDeleted)
-            .ToListAsync();
+            .Where(m => !m.IsDeleted);
+        mentorsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
+            mentorsQuery, _httpContextAccessor, m => m.CenterId);
+        var mentors = await mentorsQuery.ToListAsync();
 
         using var workbook = new XLWorkbook();
         var sheet = workbook.Worksheets.Add("Mentors");

@@ -6,27 +6,32 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Infrastructure.Helpers;
+using Microsoft.AspNetCore.Http;
 
 namespace Infrastructure.Services.ExportToExel;
 
 public class StudentExportService : IStudentExportService
 {
     private readonly DataContext _context;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public StudentExportService(DataContext context)
+    public StudentExportService(DataContext context, IHttpContextAccessor httpContextAccessor)
     {
         _context = context;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     public async Task<byte[]> ExportAllStudentsToExcelAsync()
     {
-        var students = await _context.Students
+        var studentsQuery = _context.Students
             .Include(s => s.User)
-            .Include(s => s.StudentGroups)
-            .ThenInclude(sg => sg.Group)
+            .Include(s => s.StudentGroups).ThenInclude(sg => sg.Group)
             .Include(s => s.Center)
-            .Where(s => !s.IsDeleted)
-            .ToListAsync();
+            .Where(s => !s.IsDeleted);
+        studentsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
+            studentsQuery, _httpContextAccessor, s => s.CenterId);
+        var students = await studentsQuery.ToListAsync();
 
         using var workbook = new XLWorkbook();
         

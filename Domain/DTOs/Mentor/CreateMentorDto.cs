@@ -15,5 +15,4 @@ public class CreateMentorDto
     public Gender Gender { get; set; }
     public IFormFile? ProfileImage { get; set; }
     public IFormFile? DocumentFile { get; set; }
-    public int CenterId { get; set; }
 }

@@ -1,4 +1,5 @@
 using Domain.DTOs.Student;
+using Domain.Entities;
 using Domain.Enums;
 using Domain.Filters;
 using Domain.Responses;

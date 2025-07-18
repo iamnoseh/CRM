@@ -13,10 +13,12 @@ using MimeKit.Text;
 using System.Net;
 using Twilio;
 using Twilio.Rest.Api.V2010.Account;
+using Infrastructure.Helpers;
+using Microsoft.AspNetCore.Http;
 
 namespace Infrastructure.Services;
 
-public class NotificationService(DataContext context, ILogger<NotificationService> logger, IConfiguration configuration, IEmailService emailService)
+public class NotificationService(DataContext context, ILogger<NotificationService> logger, IConfiguration configuration, IEmailService emailService, IHttpContextAccessor httpContextAccessor)
     : INotificationService
 {
     public async Task<Response<string>> SendEmailAsync(string toEmail, string subject, string message)
@@ -443,10 +445,19 @@ public class NotificationService(DataContext context, ILogger<NotificationServic
 
     public async Task<Response<List<NotificationDto>>> GetNotificationsAsync()
     {
-        try
+        var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+        var user = httpContextAccessor.HttpContext?.User;
+        var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
+        bool isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
+        var notificationsQuery = context.NotificationLogs.AsQueryable();
+        if (!isSuperAdmin && userCenterId != null)
         {
-            var notifications = await context.NotificationLogs
-                .OrderByDescending(n => n.CreatedAt)
+            notificationsQuery = notificationsQuery.Where(n =>
+                (n.StudentId != null && context.Students.Any(s => s.Id == n.StudentId && s.CenterId == userCenterId)) ||
+                (n.GroupId != null && context.Groups.Any(g => g.Id == n.GroupId && g.Course.CenterId == userCenterId))
+            );
+        }
+        var notifications = await notificationsQuery.OrderByDescending(n => n.CreatedAt)
                 .Select(n => new NotificationDto
                 {
                     Id = n.Id,
@@ -469,28 +480,20 @@ public class NotificationService(DataContext context, ILogger<NotificationServic
             {
                 Message = $"Retrieved {notifications.Count} notifications"
             };
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Error retrieving notifications");
-            return new Response<List<NotificationDto>>(HttpStatusCode.InternalServerError, $"Error retrieving notifications: {ex.Message}");
-        }
     }
 
     public async Task<Response<List<NotificationDto>>> GetStudentNotificationsAsync(int studentId)
     {
-        try
-        {
-            // Check if student exists
-            var studentExists = await context.Students
-                .AnyAsync(s => s.Id == studentId && !s.IsDeleted);
-
-            if (!studentExists)
-            {
-                return new Response<List<NotificationDto>>(HttpStatusCode.NotFound, $"Student with ID {studentId} not found");
-            }
-
-            var notifications = await context.NotificationLogs
+        var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+        var user = httpContextAccessor.HttpContext?.User;
+        var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
+        bool isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
+        var student = await context.Students.FirstOrDefaultAsync(s => s.Id == studentId && !s.IsDeleted);
+        if (student == null)
+            return new Response<List<NotificationDto>>(System.Net.HttpStatusCode.NotFound, "Student not found");
+        if (!isSuperAdmin && userCenterId != student.CenterId)
+            return new Response<List<NotificationDto>>(System.Net.HttpStatusCode.Forbidden, "Access denied to this student's notifications");
+        var notifications = await context.NotificationLogs
                 .Where(n => n.StudentId == studentId)
                 .OrderByDescending(n => n.CreatedAt)
                 .Select(n => new NotificationDto
@@ -515,21 +518,23 @@ public class NotificationService(DataContext context, ILogger<NotificationServic
             {
                 Message = $"Retrieved {notifications.Count} notifications for student {studentId}"
             };
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Error retrieving notifications for student {StudentId}", studentId);
-            return new Response<List<NotificationDto>>(HttpStatusCode.InternalServerError, $"Error retrieving notifications: {ex.Message}");
-        }
     }
 
     public async Task<Response<List<NotificationDto>>> GetNotificationsByTypeAsync(NotificationType type)
     {
-        try
+        var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+        var user = httpContextAccessor.HttpContext?.User;
+        var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
+        bool isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
+        var notificationsQuery = context.NotificationLogs.Where(n => n.Type == type);
+        if (!isSuperAdmin && userCenterId != null)
         {
-            var notifications = await context.NotificationLogs
-                .Where(n => n.Type == type)
-                .OrderByDescending(n => n.CreatedAt)
+            notificationsQuery = notificationsQuery.Where(n =>
+                (n.StudentId != null && context.Students.Any(s => s.Id == n.StudentId && s.CenterId == userCenterId)) ||
+                (n.GroupId != null && context.Groups.Any(g => g.Id == n.GroupId && g.Course.CenterId == userCenterId))
+            );
+        }
+        var notifications = await notificationsQuery.OrderByDescending(n => n.CreatedAt)
                 .Select(n => new NotificationDto
                 {
                     Id = n.Id,
@@ -552,11 +557,5 @@ public class NotificationService(DataContext context, ILogger<NotificationServic
             {
                 Message = $"Retrieved {notifications.Count} notifications of type {type}"
             };
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Error retrieving notifications of type {Type}", type);
-            return new Response<List<NotificationDto>>(HttpStatusCode.InternalServerError, $"Error retrieving notifications: {ex.Message}");
-        }
     }
 }

@@ -13,6 +13,8 @@ public class User : IdentityUser<int>
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public string? ProfileImagePath { get; set; }
+    public string? DocumentPath { get; set; } 
+    public int Experience { get; set; }
     public PaymentStatus PaymentStatus { get; set; }
     public decimal? Salary { get; set; }
     public int Age { get; set; }

@@ -11,10 +11,12 @@ using Domain.Responses;
 using Infrastructure.Data;
 using Infrastructure.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Infrastructure.Helpers;
+using Microsoft.AspNetCore.Http;
 
 namespace Infrastructure.Services;
 
-public class CenterService(DataContext context, string uploadPath) : ICenterService
+public class CenterService(DataContext context, string uploadPath, IHttpContextAccessor httpContextAccessor) : ICenterService
 {
     private readonly string[] _allowedImageExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" };
     private const long MaxImageSize = 50 * 1024 * 1024; // 50MB
@@ -360,6 +362,12 @@ public class CenterService(DataContext context, string uploadPath) : ICenterServ
     #region GetCenterGroupsAsync
     public async Task<Response<List<GetCenterGroupsDto>>> GetCenterGroupsAsync(int centerId)
     {
+        var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+        var user = httpContextAccessor.HttpContext?.User;
+        var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
+        bool isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
+        if (!isSuperAdmin && userCenterId != centerId)
+            return new Response<List<GetCenterGroupsDto>>(System.Net.HttpStatusCode.Forbidden, "Access denied to this center");
         try
         {
             var center = await context.Centers
@@ -410,6 +418,12 @@ public class CenterService(DataContext context, string uploadPath) : ICenterServ
     #region GetCenterStudentsAsync
     public async Task<Response<List<GetCenterStudentsDto>>> GetCenterStudentsAsync(int centerId)
     {
+        var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+        var user = httpContextAccessor.HttpContext?.User;
+        var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
+        bool isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
+        if (!isSuperAdmin && userCenterId != centerId)
+            return new Response<List<GetCenterStudentsDto>>(System.Net.HttpStatusCode.Forbidden, "Access denied to this center");
         try
         {
             var center = await context.Centers
@@ -461,6 +475,12 @@ public class CenterService(DataContext context, string uploadPath) : ICenterServ
     #region GetCenterMentorsAsync
     public async Task<Response<List<GetCenterMentorsDto>>> GetCenterMentorsAsync(int centerId)
     {
+        var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+        var user = httpContextAccessor.HttpContext?.User;
+        var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
+        bool isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
+        if (!isSuperAdmin && userCenterId != centerId)
+            return new Response<List<GetCenterMentorsDto>>(System.Net.HttpStatusCode.Forbidden, "Access denied to this center");
         try
         {
             var center = await context.Centers
@@ -513,6 +533,12 @@ public class CenterService(DataContext context, string uploadPath) : ICenterServ
     #region GetCenterCoursesAsync
     public async Task<Response<List<GetCenterCoursesDto>>> GetCenterCoursesAsync(int centerId)
     {
+        var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+        var user = httpContextAccessor.HttpContext?.User;
+        var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
+        bool isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
+        if (!isSuperAdmin && userCenterId != centerId)
+            return new Response<List<GetCenterCoursesDto>>(System.Net.HttpStatusCode.Forbidden, "Access denied to this center");
         try
         {
             var center = await context.Centers
@@ -561,6 +587,12 @@ public class CenterService(DataContext context, string uploadPath) : ICenterServ
     #region GetCenterStatisticsAsync
     public async Task<Response<CenterStatisticsDto>> GetCenterStatisticsAsync(int centerId)
     {
+        var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+        var user = httpContextAccessor.HttpContext?.User;
+        var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
+        bool isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
+        if (!isSuperAdmin && userCenterId != centerId)
+            return new Response<CenterStatisticsDto>(System.Net.HttpStatusCode.Forbidden, "Access denied to this center");
         try
         {
             var center = await context.Centers
@@ -600,6 +632,12 @@ public class CenterService(DataContext context, string uploadPath) : ICenterServ
     #region CalculateCenterIncome
     public async Task<Response<string>> CalculateCenterIncomeAsync(int centerId)
     {
+        var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+        var user = httpContextAccessor.HttpContext?.User;
+        var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
+        bool isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
+        if (!isSuperAdmin && userCenterId != centerId)
+            return new Response<string>(System.Net.HttpStatusCode.Forbidden, "Access denied to this center");
         try
         {
             var center = await context.Centers.FirstOrDefaultAsync(c => c.Id == centerId && !c.IsDeleted);
@@ -653,6 +691,11 @@ public class CenterService(DataContext context, string uploadPath) : ICenterServ
     #region CalculateAllCentersIncome
     public async Task<Response<string>> CalculateAllCentersIncomeAsync()
     {
+        var user = httpContextAccessor.HttpContext?.User;
+        var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
+        bool isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
+        if (!isSuperAdmin)
+            return new Response<string>(System.Net.HttpStatusCode.Forbidden, "Only SuperAdmin can access all centers' income");
         try
         {
             var centers = await context.Centers.Where(c => !c.IsDeleted).ToListAsync();

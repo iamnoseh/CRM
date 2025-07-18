@@ -33,7 +33,6 @@ public static class Register
             options.UseNpgsql(configuration.GetConnectionString("DefaultConnection"), 
                 npgsqlOptions => 
                 {
-                    // Настройка для работы с датами в UTC
                     npgsqlOptions.UseNodaTime();
                 }));
         services.AddScoped<IHashService, HashService>();
@@ -46,7 +45,7 @@ public static class Register
         services.AddScoped<ICenterService>(sp =>
             new CenterService(
                 sp.GetRequiredService<DataContext>(),
-                sp.GetRequiredService<IConfiguration>()["UploadPath"] ?? throw new InvalidOperationException("UploadPath not configured")
+                sp.GetRequiredService<IConfiguration>()["UploadPath"] ,sp.GetRequiredService<HttpContextAccessor>()?? throw new InvalidOperationException("UploadPath not configured")
             ));        services.AddScoped<IAttendanceService, AttendanceService>();
         services.AddScoped<IAttendanceStatisticsService, AttendanceStatisticsService>();
         services.AddScoped<IPaymentStatisticsService, PaymentStatisticsService>();
@@ -102,7 +101,13 @@ public static class Register
                 uploadPath
             ));
 
-       
+        services.AddScoped<IEmployeeService>(sp =>
+            new EmployeeService(
+                sp.GetRequiredService<DataContext>(),
+                sp.GetRequiredService<UserManager<User>>(),
+                uploadPath,
+                sp.GetRequiredService<IEmailService>(),
+                sp.GetRequiredService<HttpContextAccessor>()));
         services.AddScoped<IStudentService>(st =>
             new StudentService(
                 st.GetRequiredService<DataContext>(),
@@ -124,20 +129,23 @@ public static class Register
         services.AddScoped<ICourseService>(us => 
             new CourseService(
                 us.GetRequiredService<DataContext>(),
-                uploadPath
+                uploadPath,
+                us.GetRequiredService<IHttpContextAccessor>()
             ));
 
         
         services.AddScoped<ICenterService>(cs => 
             new CenterService(
                 cs.GetRequiredService<DataContext>(),
-                uploadPath
+                uploadPath,
+                cs.GetRequiredService<HttpContextAccessor>()
             ));
             
         services.AddScoped<IGroupService>(gs => 
             new GroupService(
                 gs.GetRequiredService<DataContext>(),
-                uploadPath
+                uploadPath,
+                gs.GetRequiredService<IHttpContextAccessor>()
             ));
             
       
@@ -145,8 +153,7 @@ public static class Register
             
         services.AddScoped<IStudentGroupService, StudentGroupService>();
         
-        services.AddScoped<IMentorGroupService, MentorGroupService>();        // Background services are now registered via BackgroundServiceExtensions.AddBackgroundServices()
-   
+        services.AddScoped<IMentorGroupService, MentorGroupService>();       
         services.AddLogging(logging =>
         {
             logging.AddConsole();
@@ -174,8 +181,6 @@ public static class Register
                     Email = "info@kavsaracademy.com"
                 }
             });
-
-            // Конфигурация авторизации
             options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
             {
                 Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
@@ -220,8 +225,6 @@ public static class Register
                     .AllowAnyMethod()
                     .AllowAnyHeader()
                     .AllowCredentials();
-                    
-                // Enable CORS Preflight caching
                 policy.SetPreflightMaxAge(TimeSpan.FromMinutes(10));
             });
         });
@@ -260,39 +263,26 @@ public static class Register
     {
         using var scope = app.ApplicationServices.CreateScope();
         var services = scope.ServiceProvider;
-        // var logger = services.GetRequiredService<ILogger<Register>>();
         
         try
         {
             var context = services.GetRequiredService<DataContext>();
             var configuration = services.GetRequiredService<IConfiguration>();
             var connectionString = configuration.GetConnectionString("DefaultConnection");
-            
-            // logger.LogInformation("Проверка соединения с базой данных и создание базы при необходимости");
-            
-            // Создаем новое подключение только для создания базы данных
             var builder = new NpgsqlConnectionStringBuilder(connectionString);
             var databaseName = builder.Database;
-            
-            // Временно удаляем имя базы данных из строки подключения для подключения к серверу
             builder.Database = "postgres";
             var masterConnectionString = builder.ConnectionString;
-            
-            // Проверяем существование базы данных и создаем её при необходимости
             using (var connection = new NpgsqlConnection(masterConnectionString))
             {
                 await connection.OpenAsync();
-                
-                // Проверяем существование базы данных
                 var checkDbCommand = new NpgsqlCommand($"SELECT 1 FROM pg_database WHERE datname = '{databaseName}'", connection);
                 var exists = await checkDbCommand.ExecuteScalarAsync() != null;
                 
                 if (!exists)
                 {
-                    // logger.LogInformation($"База данных {databaseName} не найдена. Создание базы данных...");
                     var createDbCommand = new NpgsqlCommand($"CREATE DATABASE \"{databaseName}\" WITH OWNER = postgres ENCODING = 'UTF8' CONNECTION LIMIT = -1;", connection);
                     await createDbCommand.ExecuteNonQueryAsync();
-                    // logger.LogInformation($"База данных {databaseName} успешно создана");
                 }
                 else
                 {

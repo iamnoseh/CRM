@@ -1,25 +1,23 @@
 using System.Net;
 using Domain.DTOs.Group;
 using Domain.DTOs.Attendance;
-using Domain.DTOs.Statistics;
 using Domain.Entities;
 using Domain.Enums;
 using Domain.Filters;
 using Domain.Responses;
 using Infrastructure.Data;
-using Infrastructure.Extensions;
 using Infrastructure.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using GroupAttendanceStatisticsDto = Domain.DTOs.Group.GroupAttendanceStatisticsDto;
+using Infrastructure.Helpers;
 
 namespace Infrastructure.Services;
 
-public class GroupService(DataContext context, string uploadPath) : IGroupService
+public class GroupService(DataContext context, string uploadPath, IHttpContextAccessor httpContextAccessor) : IGroupService
 {
     private readonly string[] _allowedImageExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" };
-    private const long MaxImageSize = 50 * 1024 * 1024; // 50MB
-
+    private const long MaxImageSize = 50 * 1024 * 1024; 
     #region CreateGroupAsync
     public async Task<Response<string>> CreateGroupAsync(CreateGroupDto request)
     {
@@ -75,8 +73,8 @@ public class GroupService(DataContext context, string uploadPath) : IGroupServic
                 LessonInWeek = request.LessonInWeek,
                 HasWeeklyExam = request.HasWeeklyExam,
                 TotalWeeks = totalWeeks,
-                Started = false, // Always false until activation
-                Status = ActiveStatus.Inactive, // Always inactive until activation
+                Started = false,
+                Status = ActiveStatus.Inactive, 
                 MentorId = request.MentorId,
                 PhotoPath = imagePath,
                 CurrentWeek = 1, 
@@ -137,16 +135,12 @@ public class GroupService(DataContext context, string uploadPath) : IGroupServic
                 var groupsFolder = Path.Combine(uploadPath, "uploads", "groups");
                 if (!Directory.Exists(groupsFolder))
                     Directory.CreateDirectory(groupsFolder);
-
-                // Создание уникального имени файла и сохранение изображения
                 var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
                 var filePath = Path.Combine(groupsFolder, uniqueFileName);
-
                 using (var fileStream = new FileStream(filePath, FileMode.Create))
                 {
                     await request.Image.CopyToAsync(fileStream);
                 }
-
                 if (!string.IsNullOrEmpty(group.PhotoPath))
                 {
                     var oldImagePath = Path.Combine(uploadPath, group.PhotoPath.TrimStart('/'));
@@ -155,12 +149,8 @@ public class GroupService(DataContext context, string uploadPath) : IGroupServic
                         File.Delete(oldImagePath);
                     }
                 }
-
                 group.PhotoPath = $"/uploads/groups/{uniqueFileName}";
             }
-
-            // Calculate approximate total weeks based on average days per month
-            // Average month length is approximately 30.44 days (365.25 / 12)
             var approximateTotalDays = request.DurationMonth * 30.44;
             var totalWeeks = (int)Math.Ceiling(approximateTotalDays / 7);
             
@@ -172,17 +162,10 @@ public class GroupService(DataContext context, string uploadPath) : IGroupServic
             group.HasWeeklyExam = request.HasWeeklyExam;
             group.TotalWeeks = totalWeeks;
             group.MentorId = request.MentorId;
-            
-            // Don't change status, started, start date, end date, or current week
-            // These are managed by the activation service
-            // The status and started values remain unchanged during update
-            
             context.Groups.Update(group);
             var result = await context.SaveChangesAsync();
-
             if (result > 0)
                 return new Response<string>(HttpStatusCode.OK, "Group updated successfully");
-            
             return new Response<string>(HttpStatusCode.InternalServerError, "Failed to update group");
         }
         catch (Exception ex)
@@ -236,258 +219,204 @@ public class GroupService(DataContext context, string uploadPath) : IGroupServic
     #region GetGroupByIdAsync
     public async Task<Response<GetGroupDto>> GetGroupByIdAsync(int id)
     {
-        try
+        var groupsQuery = context.Groups
+            .Include(g => g.Course)
+            .Include(g => g.StudentGroups)
+            .Where(g => g.Id == id && !g.IsDeleted);
+        groupsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
+            groupsQuery, httpContextAccessor, g => g.Course.CenterId);
+        var group = await groupsQuery.FirstOrDefaultAsync();
+        if (group == null)
+            return new Response<GetGroupDto>(System.Net.HttpStatusCode.NotFound, "Group not found");
+        var dto = new GetGroupDto
         {
-            var group = await context.Groups
-                .Include(g => g.StudentGroups)
-                .Where(g => g.Id == id && !g.IsDeleted)
-                .Select(g => new GetGroupDto
-                {
-                    Id = g.Id,
-                    Name = g.Name,
-                    Description = g.Description,
-                    CourseId = g.CourseId,
-                    DurationMonth = g.DurationMonth,
-                    LessonInWeek = g.LessonInWeek,
-                    TotalWeeks = g.TotalWeeks,
-                    Started = g.Started,
-                    Status = g.Status,
-                    StartDate = g.StartDate,
-                    EndDate = g.EndDate,
-                    MentorId = g.MentorId,
-                    ImagePath = g.PhotoPath,
-                    CurrentWeek = g.CurrentWeek,
-                    CurrentStudentsCount = g.StudentGroups.Count(sg => sg.IsActive == true)
-                })
-                .FirstOrDefaultAsync();
-
-            if (group == null)
-                return new Response<GetGroupDto>(HttpStatusCode.NotFound, "Group not found");
-
-            // Ensure DayOfWeek and CurrentWeek have valid values
-            group = group.EnsureValidValues();
-
-            return new Response<GetGroupDto>(group);
-        }
-        catch (Exception ex)
-        {
-            return new Response<GetGroupDto>(HttpStatusCode.InternalServerError, ex.Message);
-        }
+            Id = group.Id,
+            Name = group.Name,
+            Description = group.Description,
+            CourseId = group.CourseId,
+            DurationMonth = group.DurationMonth,
+            LessonInWeek = group.LessonInWeek,
+            TotalWeeks = group.TotalWeeks,
+            Started = group.Started,
+            Status = group.Status,
+            StartDate = group.StartDate,
+            EndDate = group.EndDate,
+            MentorId = group.MentorId,
+            ImagePath = group.PhotoPath,
+            CurrentWeek = group.CurrentWeek,
+            CurrentStudentsCount = group.StudentGroups?.Count(sg => sg.IsActive == true) ?? 0
+        };
+        return new Response<GetGroupDto>(dto);
     }
     #endregion
 
     #region GetGroups
     public async Task<Response<List<GetGroupDto>>> GetGroups()
     {
-        try
+        var groupsQuery = context.Groups
+            .Include(g => g.Course)
+            .Include(g => g.StudentGroups)
+            .Where(g => !g.IsDeleted);
+        groupsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
+            groupsQuery, httpContextAccessor, g => g.Course.CenterId);
+        var groups = await groupsQuery.ToListAsync();
+        var dtos = groups.Select(group => new GetGroupDto
         {
-            var groups = await context.Groups
-                .Include(g => g.StudentGroups)
-                .Where(g => !g.IsDeleted)
-                .Select(g => new GetGroupDto
-                {
-                    Id = g.Id,
-                    Name = g.Name,
-                    Description = g.Description,
-                    CourseId = g.CourseId,
-                    DurationMonth = g.DurationMonth,
-                    LessonInWeek = g.LessonInWeek,
-                    TotalWeeks = g.TotalWeeks,
-                    Started = g.Started,
-                    Status = g.Status,
-                    StartDate = g.StartDate,
-                    EndDate = g.EndDate,
-                    MentorId = g.MentorId,
-                    ImagePath = g.PhotoPath,
-                    CurrentWeek = g.CurrentWeek,
-                    CurrentStudentsCount = g.StudentGroups.Count(sg => sg.IsActive == true)
-                })
-                .ToListAsync();
-
-            return new Response<List<GetGroupDto>>(groups);
-        }
-        catch (Exception ex)
-        {
-            return new Response<List<GetGroupDto>>(HttpStatusCode.InternalServerError, ex.Message);
-        }
+            Id = group.Id,
+            Name = group.Name,
+            Description = group.Description,
+            CourseId = group.CourseId,
+            DurationMonth = group.DurationMonth,
+            LessonInWeek = group.LessonInWeek,
+            TotalWeeks = group.TotalWeeks,
+            Started = group.Started,
+            Status = group.Status,
+            StartDate = group.StartDate,
+            EndDate = group.EndDate,
+            MentorId = group.MentorId,
+            ImagePath = group.PhotoPath,
+            CurrentWeek = group.CurrentWeek,
+            CurrentStudentsCount = group.StudentGroups?.Count(sg => sg.IsActive == true) ?? 0
+        }).ToList();
+        return new Response<List<GetGroupDto>>(dtos);
     }
     #endregion
 
     #region GetGroupPaginated
     public async Task<PaginationResponse<List<GetGroupDto>>> GetGroupPaginated(GroupFilter filter)
     {
-        try
+        var query = context.Groups
+            .Include(g => g.Course)
+            .Include(g => g.StudentGroups)
+            .Where(g => !g.IsDeleted);
+        query = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
+            query, httpContextAccessor, g => g.Course.CenterId);
+        if (!string.IsNullOrEmpty(filter.Name))
+            query = query.Where(g => g.Name.Contains(filter.Name));
+        if (filter.CourseId.HasValue)
+            query = query.Where(g => g.CourseId == filter.CourseId.Value);
+        if (filter.MentorId.HasValue)
+            query = query.Where(g => g.MentorId == filter.MentorId.Value);
+        if (filter.Started.HasValue)
+            query = query.Where(g => g.Started == filter.Started.Value);
+        if (filter.Status.HasValue)
+            query = query.Where(g => g.Status == filter.Status.Value);
+        if (filter.StartDateFrom.HasValue)
+            query = query.Where(g => g.StartDate >= new DateTimeOffset(filter.StartDateFrom.Value));
+        if (filter.StartDateTo.HasValue)
+            query = query.Where(g => g.StartDate <= new DateTimeOffset(filter.StartDateTo.Value));
+        if (filter.EndDateFrom.HasValue)
+            query = query.Where(g => g.EndDate >= new DateTimeOffset(filter.EndDateFrom.Value));
+        if (filter.EndDateTo.HasValue)
+            query = query.Where(g => g.EndDate <= new DateTimeOffset(filter.EndDateTo.Value));
+        var totalRecords = await query.CountAsync();
+        query = query.OrderBy(g => g.Id);
+        query = query.Skip((filter.PageNumber - 1) * filter.PageSize).Take(filter.PageSize);
+        var groups = await query.ToListAsync();
+        var dtos = groups.Select(group => new GetGroupDto
         {
-            var query = context.Groups
-                .Include(g => g.StudentGroups)
-                .Where(g => !g.IsDeleted)
-                .AsQueryable();
-            
-            if (!string.IsNullOrEmpty(filter.Name))
-                query = query.Where(g => g.Name.Contains(filter.Name));
-
-            if (filter.CourseId.HasValue)
-                query = query.Where(g => g.CourseId == filter.CourseId.Value);
-            
-            if (filter.MentorId.HasValue)
-                query = query.Where(g => g.MentorId == filter.MentorId.Value);
-            
-            if (filter.Started.HasValue)
-                query = query.Where(g => g.Started == filter.Started.Value);
-            
-            if (filter.Status.HasValue)
-                query = query.Where(g => g.Status == filter.Status.Value);
-            
-            if (filter.StartDateFrom.HasValue)
-                query = query.Where(g => g.StartDate >= new DateTimeOffset(filter.StartDateFrom.Value));
-            
-            if (filter.StartDateTo.HasValue)
-                query = query.Where(g => g.StartDate <= new DateTimeOffset(filter.StartDateTo.Value));
-            
-            if (filter.EndDateFrom.HasValue)
-                query = query.Where(g => g.EndDate >= new DateTimeOffset(filter.EndDateFrom.Value));
-            
-            if (filter.EndDateTo.HasValue)
-                query = query.Where(g => g.EndDate <= new DateTimeOffset(filter.EndDateTo.Value));
-
-
-            var totalRecords = await query.CountAsync();
-            
-            query = query.OrderBy(g => g.Id);
-            
-            query = query.Skip((filter.PageNumber - 1) * filter.PageSize).Take(filter.PageSize);
-            
-            var groups = await query
-                .Select(g => new GetGroupDto
-                {
-                    Id = g.Id,
-                    Name = g.Name,
-                    Description = g.Description,
-                    CourseId = g.CourseId,
-                    DurationMonth = g.DurationMonth,
-                    LessonInWeek = g.LessonInWeek,
-                    TotalWeeks = g.TotalWeeks,
-                    Started = g.Started,
-                    Status = g.Status,
-                    StartDate = g.StartDate,
-                    EndDate = g.EndDate,
-                    MentorId = g.MentorId,
-                    ImagePath = g.PhotoPath,
-                    CurrentWeek = g.CurrentWeek,
-                    CurrentStudentsCount = g.StudentGroups.Count(sg => sg.IsActive == true)
-                })
-                .ToListAsync();
-            
-            return new PaginationResponse<List<GetGroupDto>>(
-                groups,
-                filter.PageNumber,
-                filter.PageSize,
-                totalRecords
-            );
-        }
-        catch (Exception ex)
-        {
-            return new PaginationResponse<List<GetGroupDto>>(
-                HttpStatusCode.InternalServerError,
-                ex.Message
-            );
-        }
+            Id = group.Id,
+            Name = group.Name,
+            Description = group.Description,
+            CourseId = group.CourseId,
+            DurationMonth = group.DurationMonth,
+            LessonInWeek = group.LessonInWeek,
+            TotalWeeks = group.TotalWeeks,
+            Started = group.Started,
+            Status = group.Status,
+            StartDate = group.StartDate,
+            EndDate = group.EndDate,
+            MentorId = group.MentorId,
+            ImagePath = group.PhotoPath,
+            CurrentWeek = group.CurrentWeek,
+            CurrentStudentsCount = group.StudentGroups?.Count(sg => sg.IsActive == true) ?? 0
+        }).ToList();
+        return new PaginationResponse<List<GetGroupDto>>(
+            dtos,
+            filter.PageNumber,
+            filter.PageSize,
+            totalRecords
+        );
     }
     #endregion
 
     #region GetGroupAttendanceStatisticsAsync
     public async Task<Response<GroupAttendanceStatisticsDto>> GetGroupAttendanceStatisticsAsync(int groupId)
     {
-        try
+        var groupsQuery = context.Groups
+            .Include(g => g.StudentGroups)
+            .ThenInclude(sg => sg.Student)
+            .Include(g => g.Lessons)
+            .ThenInclude(l => l.Attendances)
+            .Include(g => g.Course)
+            .Where(g => g.Id == groupId && !g.IsDeleted);
+        groupsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
+            groupsQuery, httpContextAccessor, g => g.Course.CenterId);
+        var group = await groupsQuery.FirstOrDefaultAsync();
+        if (group == null)
+            return new Response<GroupAttendanceStatisticsDto>(HttpStatusCode.NotFound, "Group not found");
+        var activeStudents = group.StudentGroups.Count(sg => sg.IsActive == true);
+        var statistics = new GroupAttendanceStatisticsDto
         {
-            var group = await context.Groups
-                .Include(g => g.StudentGroups)
-                .ThenInclude(sg => sg.Student)
-                .Include(g => g.Lessons)
-                .ThenInclude(l => l.Attendances)
-                .FirstOrDefaultAsync(g => g.Id == groupId && !g.IsDeleted);
+            GroupId = group.Id,
+            GroupName = group.Name,
+            TotalStudents = activeStudents,
+            CurrentWeek = group.CurrentWeek
+        };
+        var allAttendances = group.Lessons
+            .SelectMany(l => l.Attendances)
+            .ToList();
+        statistics.TotalPresentCount = allAttendances.Count(a => a.Status == AttendanceStatus.Present);
+        statistics.TotalAbsentCount = allAttendances.Count(a => a.Status == AttendanceStatus.Absent);
+        statistics.TotalLateCount = allAttendances.Count(a => a.Status == AttendanceStatus.Late);
 
-            if (group == null)
-                return new Response<GroupAttendanceStatisticsDto>(HttpStatusCode.NotFound, "Group not found");
+        var totalAttendances = statistics.TotalPresentCount + statistics.TotalAbsentCount + statistics.TotalLateCount;
+        statistics.OverallAttendancePercentage = totalAttendances > 0 
+            ? Math.Round((double)(statistics.TotalPresentCount + statistics.TotalLateCount) / totalAttendances * 100, 2) 
+            : 0;
+        var attendancesByWeek = allAttendances
+            .GroupBy(a => group.Lessons.FirstOrDefault(l => l.Id == a.LessonId)?.WeekIndex ?? 0)
+            .ToDictionary(g => g.Key, g => g.ToList());
+        foreach (var weekAttendance in attendancesByWeek)
+        {
+            int weekNumber = weekAttendance.Key;
+            if (weekNumber == 0) continue; 
 
-            // Получаем количество активных студентов в группе
-            var activeStudents = group.StudentGroups.Count(sg => sg.IsActive == true);
+            var presentCount = weekAttendance.Value.Count(a => a.Status == AttendanceStatus.Present);
+            var absentCount = weekAttendance.Value.Count(a => a.Status == AttendanceStatus.Absent);
+            var lateCount = weekAttendance.Value.Count(a => a.Status == AttendanceStatus.Late);
+            var totalWeekAttendances = presentCount + absentCount + lateCount;
 
-            // Создаем статистику
-            var statistics = new GroupAttendanceStatisticsDto
+            statistics.WeeklyAttendance[weekNumber] = new GroupAttendanceStatisticsDto.WeekAttendanceStatistics
             {
-                GroupId = group.Id,
-                GroupName = group.Name,
-                TotalStudents = activeStudents,
-                CurrentWeek = group.CurrentWeek
+                WeekNumber = weekNumber,
+                PresentCount = presentCount,
+                AbsentCount = absentCount,
+                LateCount = lateCount,
+                AttendancePercentage = totalWeekAttendances > 0 
+                    ? Math.Round((double)(presentCount + lateCount) / totalWeekAttendances * 100, 2) 
+                    : 0
             };
-
-            // Получаем все посещения по группе
-            var allAttendances = group.Lessons
-                .SelectMany(l => l.Attendances)
-                .ToList();
-
-            // Подсчитываем общую статистику
-            statistics.TotalPresentCount = allAttendances.Count(a => a.Status == AttendanceStatus.Present);
-            statistics.TotalAbsentCount = allAttendances.Count(a => a.Status == AttendanceStatus.Absent);
-            statistics.TotalLateCount = allAttendances.Count(a => a.Status == AttendanceStatus.Late);
-
-            var totalAttendances = statistics.TotalPresentCount + statistics.TotalAbsentCount + statistics.TotalLateCount;
-            statistics.OverallAttendancePercentage = totalAttendances > 0 
-                ? Math.Round((double)(statistics.TotalPresentCount + statistics.TotalLateCount) / totalAttendances * 100, 2) 
-                : 0;
-
-            // Группируем посещения по неделям
-            var attendancesByWeek = allAttendances
-                .GroupBy(a => group.Lessons.FirstOrDefault(l => l.Id == a.LessonId)?.WeekIndex ?? 0)
-                .ToDictionary(g => g.Key, g => g.ToList());
-
-            // Заполняем статистику по неделям
-            foreach (var weekAttendance in attendancesByWeek)
-            {
-                int weekNumber = weekAttendance.Key;
-                if (weekNumber == 0) continue; 
-
-                var presentCount = weekAttendance.Value.Count(a => a.Status == AttendanceStatus.Present);
-                var absentCount = weekAttendance.Value.Count(a => a.Status == AttendanceStatus.Absent);
-                var lateCount = weekAttendance.Value.Count(a => a.Status == AttendanceStatus.Late);
-                var totalWeekAttendances = presentCount + absentCount + lateCount;
-
-                statistics.WeeklyAttendance[weekNumber] = new GroupAttendanceStatisticsDto.WeekAttendanceStatistics
-                {
-                    WeekNumber = weekNumber,
-                    PresentCount = presentCount,
-                    AbsentCount = absentCount,
-                    LateCount = lateCount,
-                    AttendancePercentage = totalWeekAttendances > 0 
-                        ? Math.Round((double)(presentCount + lateCount) / totalWeekAttendances * 100, 2) 
-                        : 0
-                };
-            }
+        }
             
-            statistics.RecentAttendances = group.Lessons
-                .OrderByDescending(l => l.StartTime)
-                .Take(5)
-                .SelectMany(l => l.Attendances)
-                .Select(a => new GetAttendanceDto
-                {
-                    Id = a.Id,
-                    Status = a.Status,
-                    LessonId = a.LessonId,
-                    StudentId = a.StudentId,
-                    StudentName = group.StudentGroups.FirstOrDefault(sg => sg.StudentId == a.StudentId)?.Student?.FullName ?? string.Empty,
-                    LessonStartTime = group.Lessons.FirstOrDefault(l => l.Id == a.LessonId)?.StartTime ?? DateTimeOffset.MinValue
-                })
-                .Take(10)
-                .ToList();
+        statistics.RecentAttendances = group.Lessons
+            .OrderByDescending(l => l.StartTime)
+            .Take(5)
+            .SelectMany(l => l.Attendances)
+            .Select(a => new GetAttendanceDto
+            {
+                Id = a.Id,
+                Status = a.Status,
+                LessonId = a.LessonId,
+                StudentId = a.StudentId,
+                StudentName = group.StudentGroups.FirstOrDefault(sg => sg.StudentId == a.StudentId)?.Student?.FullName ?? string.Empty,
+                LessonStartTime = group.Lessons.FirstOrDefault(l => l.Id == a.LessonId)?.StartTime ?? DateTimeOffset.MinValue
+            })
+            .Take(10)
+            .ToList();
 
-            return new Response<GroupAttendanceStatisticsDto>(statistics);
+        return new Response<GroupAttendanceStatisticsDto>(statistics);
         }
-        catch (Exception ex)
-        {
-            return new Response<GroupAttendanceStatisticsDto>(HttpStatusCode.InternalServerError, ex.Message);
-        }
-    }
     #endregion
 
 

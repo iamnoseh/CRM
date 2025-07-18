@@ -27,6 +27,10 @@ public class StudentService(
     {
         try
         {
+            
+            var centerId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+            if (centerId == null)
+                return new Response<string>(HttpStatusCode.BadRequest, "CenterId not found in token");
             string profileImagePath = string.Empty;
             if (createStudentDto.ProfilePhoto != null)
             {
@@ -36,8 +40,7 @@ public class StudentService(
                     return new Response<string>((HttpStatusCode)imageResult.StatusCode, imageResult.Message);
                 profileImagePath = imageResult.Data;
             }
-
-            // Загрузка документа
+            
             string documentPath = string.Empty;
             if (createStudentDto.DocumentFile != null)
             {
@@ -47,8 +50,6 @@ public class StudentService(
                     return new Response<string>((HttpStatusCode)docResult.StatusCode, docResult.Message);
                 documentPath = docResult.Data;
             }
-
-            // Создание пользователя
             var userResult = await UserManagementHelper.CreateUserAsync(
                 createStudentDto,
                 userManager,
@@ -59,7 +60,7 @@ public class StudentService(
                 dto => dto.Birthday,
                 dto => dto.Gender,
                 dto => dto.Address,
-                dto => dto.CenterId,
+                dto => centerId.Value,
                 _ => profileImagePath);
             if (userResult.StatusCode != 200)
                 return new Response<string>((HttpStatusCode)userResult.StatusCode, userResult.Message);
@@ -88,7 +89,7 @@ public class StudentService(
                 Birthday = createStudentDto.Birthday,
                 Age = DateUtils.CalculateAge(createStudentDto.Birthday),
                 Gender = createStudentDto.Gender,
-                CenterId = createStudentDto.CenterId,
+                CenterId = centerId.Value,
                 UserId = user.Id,
                 ProfileImage = profileImagePath,
                 Document = documentPath,
@@ -222,7 +223,10 @@ public class StudentService(
     public async Task<Response<List<GetStudentDto>>> GetStudents()
     {
         var studentsQuery = context.Students
-            .Where(s => !s.IsDeleted)
+            .Where(s => !s.IsDeleted);
+        studentsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
+            studentsQuery, httpContextAccessor, s => s.CenterId);
+        var students = await studentsQuery
             .Select(s => new GetStudentDto
             {
                 Id = s.Id,
@@ -238,9 +242,8 @@ public class StudentService(
                 UserId = s.UserId,
                 ImagePath = s.ProfileImage,
                 Document = s.Document
-            });
-
-        var students = await studentsQuery.ToListAsync();
+            })
+            .ToListAsync();
 
         foreach (var student in students)
         {
@@ -263,9 +266,9 @@ public class StudentService(
     public async Task<PaginationResponse<List<GetStudentForSelectDto>>> GetStudentForSelect(
         StudentFilterForSelect filter)
     {
-        var studentsQuery = context.Students
-            .Where(s => !s.IsDeleted)
-            .AsQueryable();
+        var studentsQuery = context.Students.Where(s => !s.IsDeleted);
+        studentsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
+            studentsQuery, httpContextAccessor, s => s.CenterId);
 
         if (!string.IsNullOrWhiteSpace(filter.FullName))
         {
@@ -303,30 +306,34 @@ public class StudentService(
 
     public async Task<Response<GetStudentDto>> GetStudentByIdAsync(int id)
     {
-        var student = await context.Students
-            .Where(s => s.Id == id && !s.IsDeleted)
-            .Select(s => new GetStudentDto
-            {
-                Id = s.Id,
-                FullName = s.FullName,
-                Email = s.Email,
-                Address = s.Address,
-                Phone = s.PhoneNumber,
-                Birthday = s.Birthday,
-                Age = s.Age,
-                Gender = s.Gender,
-                ActiveStatus = s.ActiveStatus,
-                PaymentStatus = s.PaymentStatus,
-                ImagePath = s.ProfileImage,
-                Document = s.Document,
-                UserId = s.UserId,
-                CenterId = s.CenterId
-            })
-            .FirstOrDefaultAsync();
+        var studentsQuery = context.Students
+            .Where(s => !s.IsDeleted && s.Id == id);
+        studentsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
+            studentsQuery, httpContextAccessor, s => s.CenterId);
+        var student = await studentsQuery.FirstOrDefaultAsync();
 
-        return student != null
-            ? new Response<GetStudentDto>(student)
-            : new Response<GetStudentDto>(HttpStatusCode.NotFound, "Student not found");
+        if (student == null)
+            return new Response<GetStudentDto>(HttpStatusCode.NotFound, "Student not found");
+
+        var dto = new GetStudentDto
+        {
+            Id = student.Id,
+            FullName = student.FullName,
+            Email = student.Email,
+            Address = student.Address,
+            Phone = student.PhoneNumber,
+            Birthday = student.Birthday,
+            Age = student.Age,
+            Gender = student.Gender,
+            ActiveStatus = student.ActiveStatus,
+            PaymentStatus = student.PaymentStatus,
+            ImagePath = student.ProfileImage,
+            Document = student.Document,
+            UserId = student.UserId,
+            CenterId = student.CenterId
+        };
+
+        return new Response<GetStudentDto>(dto);
     }
 
     public async Task<Response<string>> UpdateStudentDocumentAsync(int studentId, IFormFile? documentFile)
@@ -360,6 +367,8 @@ public class StudentService(
     public async Task<PaginationResponse<List<GetStudentDto>>> GetStudentsPagination(StudentFilter filter)
     {
         var studentsQuery = context.Students.Where(s => !s.IsDeleted).AsQueryable();
+        studentsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
+            studentsQuery, httpContextAccessor, s => s.CenterId);
 
         if (!string.IsNullOrEmpty(filter.FullName))
             studentsQuery = studentsQuery.Where(s => s.FullName.Contains(filter.FullName));
@@ -412,9 +421,11 @@ public class StudentService(
 
     public async Task<Response<byte[]>> GetStudentDocument(int studentId)
     {
-        var student = await context.Students
-            .AsNoTracking()
-            .FirstOrDefaultAsync(s => s.Id == studentId && !s.IsDeleted);
+        var studentsQuery = context.Students
+            .Where(s => !s.IsDeleted && s.Id == studentId);
+        studentsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
+            studentsQuery, httpContextAccessor, s => s.CenterId);
+        var student = await studentsQuery.FirstOrDefaultAsync();
 
         if (student == null)
             return new Response<byte[]>(HttpStatusCode.NotFound, "Student not found");
@@ -465,9 +476,12 @@ public class StudentService(
     {
         try
         {
-            var student = await context.Students
+            var studentsQuery = context.Students
                 .Include(s => s.User)
-                .FirstOrDefaultAsync(s => s.Id == id && !s.IsDeleted);
+                .Where(s => !s.IsDeleted && s.Id == id);
+            studentsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
+                studentsQuery, httpContextAccessor, s => s.CenterId);
+            var student = await studentsQuery.FirstOrDefaultAsync();
 
             if (student == null)
                 return new Response<GetStudentDetailedDto>
@@ -604,7 +618,12 @@ public class StudentService(
 
     public async Task<Response<GetStudentAverageDto>> GetStudentAverageAsync(int studentId, int groupId)
     {
-        var student = await context.Students.FirstOrDefaultAsync(s => s.Id == studentId && !s.IsDeleted);
+        var studentsQuery = context.Students
+            .Where(s => !s.IsDeleted && s.Id == studentId);
+        studentsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
+            studentsQuery, httpContextAccessor, s => s.CenterId);
+        var student = await studentsQuery.FirstOrDefaultAsync();
+
         if (student == null)
             return new Response<GetStudentAverageDto>(HttpStatusCode.NotFound, "Student not found");
 
@@ -632,9 +651,14 @@ public class StudentService(
 
     public async Task<Response<string>> UpdateStudentPaymentStatusAsync(UpdateStudentPaymentStatusDto dto)
     {
-        var student = await context.Students.FirstOrDefaultAsync(s => s.Id == dto.StudentId && !s.IsDeleted);
+        var studentsQuery = context.Students
+            .Where(s => !s.IsDeleted && s.Id == dto.StudentId);
+        studentsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
+            studentsQuery, httpContextAccessor, s => s.CenterId);
+        var student = await studentsQuery.FirstOrDefaultAsync();
+
         if (student == null)
-            return new Response<string>(System.Net.HttpStatusCode.NotFound, "Student not found");
+            return new Response<string>(HttpStatusCode.NotFound, "Student not found");
 
         student.PaymentStatus = dto.Status;
         student.UpdatedAt = DateTime.UtcNow;
@@ -652,7 +676,7 @@ public class StudentService(
 
         var res = await context.SaveChangesAsync();
         return res > 0
-            ? new Response<string>(System.Net.HttpStatusCode.OK, "Payment status updated successfully")
-            : new Response<string>(System.Net.HttpStatusCode.BadRequest, "Failed to update payment status");
+            ? new Response<string>(HttpStatusCode.OK, "Payment status updated successfully")
+            : new Response<string>(HttpStatusCode.BadRequest, "Failed to update payment status");
     }
 }

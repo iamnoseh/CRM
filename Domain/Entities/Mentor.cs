@@ -6,14 +6,11 @@ public class Mentor : BaseEntity
 {
     [Required]
     public required string FullName { get; set; }
-
-
     [Required]
     [EmailAddress(ErrorMessage = "Invalid Email Address")]
     public required string Email { get; set; }
     [Required]
     public string Address { get; set; } = string.Empty;
-
     [Required]
     [StringLength(13, MinimumLength = 9, ErrorMessage = "Phone number must be between 9 and 13 characters")]
     public required string PhoneNumber { get; set; }
@@ -26,7 +23,6 @@ public class Mentor : BaseEntity
     public PaymentStatus PaymentStatus { get; set; }
     public string? ProfileImage { get; set; }
     public string? Document { get; set; }
-    
     public int UserId { get; set; }
     public int CenterId { get; set; }
     public Center Center { get; set; }

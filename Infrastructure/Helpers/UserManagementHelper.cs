@@ -22,7 +22,6 @@ public static class UserManagementHelper
         Func<T, string> getProfileImagePath,
         bool usePhoneNumberAsUsername = true)
     {
-        // Формирование имени пользователя
         string username = getUserNameOrPhoneNumber(createDto);
         if (usePhoneNumberAsUsername)
         {
@@ -30,8 +29,6 @@ public static class UserManagementHelper
             if (username.StartsWith("+"))
                 username = username.Substring(1);
         }
-
-        // Обеспечение уникальности имени пользователя
         var existingUser = await userManager.FindByNameAsync(username);
         int counter = 0;
         string originalUsername = username;
@@ -41,8 +38,6 @@ public static class UserManagementHelper
             username = originalUsername + counter;
             existingUser = await userManager.FindByNameAsync(username);
         }
-
-        // Создание пользователя
         var user = new User
         {
             UserName = username,
@@ -62,8 +57,6 @@ public static class UserManagementHelper
         var result = await userManager.CreateAsync(user, password);
         if (!result.Succeeded)
             return new Response<(User, string, string)>(HttpStatusCode.BadRequest, IdentityHelper.FormatIdentityErrors(result));
-
-        // Назначение роли
         await userManager.AddToRoleAsync(user, role);
 
         return new Response<(User, string, string)>((user, password, username));
