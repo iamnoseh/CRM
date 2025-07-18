@@ -168,7 +168,7 @@ public class UserService(DataContext context, UserManager<User> userManager,
                             u.Email.Contains(searchTerm) || 
                             (u.PhoneNumber != null && u.PhoneNumber.Contains(searchTerm))));
             query = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(query, httpContextAccessor, u => u.CenterId);
-            var users = await query.Take(20) // Ограничиваем количество результатов
+            var users = await query.Take(20) 
                 .ToListAsync();
                 
             if (!users.Any())

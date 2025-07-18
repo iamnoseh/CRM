@@ -102,7 +102,6 @@ public class CenterController(ICenterService centerService) : ControllerBase
     public async Task<Response<List<GetCourseWithStatsDto>>> GetCenterCoursesWithStats(int centerId)
         => await centerService.GetCenterCoursesWithStatsAsync(centerId);
 
-
     [HttpGet("{id}/statistics")]
     public async Task<ActionResult<Response<CenterStatisticsDto>>> GetCenterStatistics(int id)
     {
