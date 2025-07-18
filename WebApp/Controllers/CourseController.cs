@@ -13,14 +13,17 @@ namespace WebApp.Controllers;
 public class CourseController (ICourseService service) : ControllerBase
 {
     [HttpGet]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<Response<List<GetCourseDto>>> GetAllCourse() =>
         await service.GetCourses();
         
     [HttpGet("{id}")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<Response<GetCourseDto>> GetCourseById(int id) => 
         await service.GetCourseByIdAsync(id );
 
     [HttpGet("filter")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<PaginationResponse<List<GetCourseDto>>> 
         GetCoursesPagination([FromQuery] CourseFilter filter) =>
         await service.GetCoursesPagination(filter );
@@ -41,6 +44,7 @@ public class CourseController (ICourseService service) : ControllerBase
         await service.DeleteCourseAsync(id);
 
     [HttpGet("{id}/groups")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<Response<GetCourseGroupsDto>> GetCourseGroupsAndCount(int id)
         => await service.GetCourseGroupsAndCountAsync(id);
 }

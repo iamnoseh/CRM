@@ -14,6 +14,7 @@ public class CenterController(ICenterService centerService) : ControllerBase
 {
 
     [HttpGet]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<ActionResult<Response<List<GetCenterDto>>>> GetCenters()
     {
         var response = await centerService.GetCenters();
@@ -21,6 +22,7 @@ public class CenterController(ICenterService centerService) : ControllerBase
     }
     
     [HttpGet("{id}")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<ActionResult<Response<GetCenterDto>>> GetCenterById(int id)
     {
         var response = await centerService.GetCenterByIdAsync(id);
@@ -28,6 +30,7 @@ public class CenterController(ICenterService centerService) : ControllerBase
     }
     
     [HttpGet("paginated")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<ActionResult<PaginationResponse<List<GetCenterDto>>>> GetCentersPaginated([FromQuery] CenterFilter filter)
     {
         var response = await centerService.GetCentersPaginated(filter);
@@ -35,6 +38,7 @@ public class CenterController(ICenterService centerService) : ControllerBase
     }
 
     [HttpGet("simple-paginated")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<ActionResult<PaginationResponse<List<GetCenterSimpleDto>>>> GetCentersSimplePaginated(
         [FromQuery] int page = 1, 
         [FromQuery] int pageSize = 30)
@@ -44,7 +48,7 @@ public class CenterController(ICenterService centerService) : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "SuperAdmin")]
     public async Task<ActionResult<Response<string>>> CreateCenter([FromForm] CreateCenterDto createCenterDto)
     {
         var response = await centerService.CreateCenterAsync(createCenterDto);
@@ -53,7 +57,7 @@ public class CenterController(ICenterService centerService) : ControllerBase
 
 
     [HttpPut]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "SuperAdmin")]
     public async Task<ActionResult<Response<string>>> UpdateCenter(int id, [FromForm] UpdateCenterDto updateCenterDto)
     {
         var response = await centerService.UpdateCenterAsync(id, updateCenterDto);
@@ -62,7 +66,7 @@ public class CenterController(ICenterService centerService) : ControllerBase
 
 
     [HttpDelete("{id}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "SuperAdmin")]
     public async Task<ActionResult<Response<string>>> DeleteCenter(int id)
     {
         var response = await centerService.DeleteCenterAsync(id);
@@ -70,6 +74,7 @@ public class CenterController(ICenterService centerService) : ControllerBase
     }
 
     [HttpGet("{id}/groups")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<ActionResult<Response<List<GetCenterGroupsDto>>>> GetCenterGroups(int id)
     {
         var response = await centerService.GetCenterGroupsAsync(id);
@@ -78,6 +83,7 @@ public class CenterController(ICenterService centerService) : ControllerBase
 
 
     [HttpGet("{id}/students")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<ActionResult<Response<List<GetCenterStudentsDto>>>> GetCenterStudents(int id)
     {
         var response = await centerService.GetCenterStudentsAsync(id);
@@ -85,6 +91,7 @@ public class CenterController(ICenterService centerService) : ControllerBase
     }
 
     [HttpGet("{id}/mentors")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<ActionResult<Response<List<GetCenterMentorsDto>>>> GetCenterMentors(int id)
     {
         var response = await centerService.GetCenterMentorsAsync(id);
@@ -92,6 +99,7 @@ public class CenterController(ICenterService centerService) : ControllerBase
     }
 
     [HttpGet("{id}/courses")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<ActionResult<Response<List<GetCenterCoursesDto>>>> GetCenterCourses(int id)
     {
         var response = await centerService.GetCenterCoursesAsync(id);
@@ -99,10 +107,12 @@ public class CenterController(ICenterService centerService) : ControllerBase
     }
 
     [HttpGet("{centerId}/courses-with-stats")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<Response<List<GetCourseWithStatsDto>>> GetCenterCoursesWithStats(int centerId)
         => await centerService.GetCenterCoursesWithStatsAsync(centerId);
 
     [HttpGet("{id}/statistics")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<ActionResult<Response<CenterStatisticsDto>>> GetCenterStatistics(int id)
     {
         var response = await centerService.GetCenterStatisticsAsync(id);
