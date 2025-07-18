@@ -141,6 +141,7 @@ public class EmployeeService : IEmployeeService
             // Update additional fields
             user.Salary = request.Salary;
             user.Experience = request.Experience;
+            user.Age = DateUtils.CalculateAge(request.Birthday);
             user.ActiveStatus = request.ActiveStatus;
             user.PaymentStatus = request.PaymentStatus;
             user.DocumentPath = documentPath;

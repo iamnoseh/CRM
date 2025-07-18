@@ -15,7 +15,6 @@ public class CreateEmployeeDto
     [Required] public required Role Role { get; set; }
     public decimal Salary { get; set; }
     public DateTime Birthday { get; set; }
-    public int Age { get; set; }
     public int Experience { get; set; }
     public Gender Gender { get; set; }
     public ActiveStatus ActiveStatus { get; set; }
