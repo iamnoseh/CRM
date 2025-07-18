@@ -45,7 +45,7 @@ public static class Register
         services.AddScoped<ICenterService>(sp =>
             new CenterService(
                 sp.GetRequiredService<DataContext>(),
-                sp.GetRequiredService<IConfiguration>()["UploadPath"] ,sp.GetRequiredService<HttpContextAccessor>()?? throw new InvalidOperationException("UploadPath not configured")
+                sp.GetRequiredService<IConfiguration>()["UploadPath"] ,sp.GetRequiredService<IHttpContextAccessor>()?? throw new InvalidOperationException("UploadPath not configured")
             ));        services.AddScoped<IAttendanceService, AttendanceService>();
         services.AddScoped<IAttendanceStatisticsService, AttendanceStatisticsService>();
         services.AddScoped<IPaymentStatisticsService, PaymentStatisticsService>();
@@ -107,7 +107,7 @@ public static class Register
                 sp.GetRequiredService<UserManager<User>>(),
                 uploadPath,
                 sp.GetRequiredService<IEmailService>(),
-                sp.GetRequiredService<HttpContextAccessor>()));
+                sp.GetRequiredService<IHttpContextAccessor>()));
         services.AddScoped<IStudentService>(st =>
             new StudentService(
                 st.GetRequiredService<DataContext>(),
@@ -138,7 +138,7 @@ public static class Register
             new CenterService(
                 cs.GetRequiredService<DataContext>(),
                 uploadPath,
-                cs.GetRequiredService<HttpContextAccessor>()
+                cs.GetRequiredService<IHttpContextAccessor>()
             ));
             
         services.AddScoped<IGroupService>(gs => 
