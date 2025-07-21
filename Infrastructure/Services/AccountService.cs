@@ -189,6 +189,13 @@ public class AccountService(
             claims.AddRange(roles.Where(role => !string.IsNullOrEmpty(role)).Select(role => new Claim("role", role)));
         }
 
+        // Only add CenterId claim if user is NOT SuperAdmin
+        bool isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
+        if (!isSuperAdmin && user.CenterId.HasValue)
+        {
+            claims.Add(new Claim("CenterId", user.CenterId.Value.ToString()));
+        }
+
         var token = new JwtSecurityToken(
             issuer: configuration["Jwt:Issuer"],
             audience: configuration["Jwt:Audience"],

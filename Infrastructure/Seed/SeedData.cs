@@ -31,34 +31,33 @@ public class SeedData(UserManager<User> userManager, RoleManager<IdentityRole<in
 
     public async Task<bool> SeedUser()
     {
-        var existing = await userManager.FindByNameAsync("admin1234");
+        var existing = await userManager.FindByNameAsync("superadmin");
         if (existing != null)
         {
-            if (!await userManager.IsInRoleAsync(existing, Roles.Admin))
-                await userManager.AddToRoleAsync(existing, Roles.Admin);
+            if (!await userManager.IsInRoleAsync(existing, Roles.SuperAdmin))
+                await userManager.AddToRoleAsync(existing, Roles.SuperAdmin);
             return false;
         }
         
-
         var centerId = await context.Centers.Select(c => c.Id).FirstOrDefaultAsync();
         
         var user = new User()
         {
-            UserName = "admin1234",
-            Email = "nosehtagaymurodzoda@gmail.com",
+            UserName = "superadmin",
+            Email = "superadmin@example.com",
             Address = "Dushanbe",
-            Age = 24,
+            Age = 30,
             Gender = 0,
             ProfileImagePath = "null",
-            FullName = "Admin",
+            FullName = "Super Admin",
             PhoneNumber = "987654321",
-            CenterId = centerId > 0 ? centerId : null
+            CenterId = null
         };
 
         var result = await userManager.CreateAsync(user, "Qwerty123!");
         if (!result.Succeeded) return false;
 
-        var addToRoleResult = await userManager.AddToRoleAsync(user, Roles.Admin);
+        var addToRoleResult = await userManager.AddToRoleAsync(user, Roles.SuperAdmin);
         if (!addToRoleResult.Succeeded)
         {
             // 
