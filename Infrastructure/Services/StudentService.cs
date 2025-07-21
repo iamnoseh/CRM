@@ -371,13 +371,13 @@ public class StudentService(
             studentsQuery, httpContextAccessor, s => s.CenterId);
 
         if (!string.IsNullOrEmpty(filter.FullName))
-            studentsQuery = studentsQuery.Where(s => s.FullName.Contains(filter.FullName));
+            studentsQuery = studentsQuery.Where(s => s.FullName.ToLower().Contains(filter.FullName.ToLower()));
 
         if (!string.IsNullOrEmpty(filter.Email))
-            studentsQuery = studentsQuery.Where(s => s.Email.Contains(filter.Email));
+            studentsQuery = studentsQuery.Where(s => s.Email.ToLower().Contains(filter.Email.ToLower()));
 
         if (!string.IsNullOrEmpty(filter.PhoneNumber))
-            studentsQuery = studentsQuery.Where(s => s.PhoneNumber.Contains(filter.PhoneNumber));
+            studentsQuery = studentsQuery.Where(s => s.PhoneNumber.ToLower().Contains(filter.PhoneNumber.ToLower()));
 
         if (filter.CenterId.HasValue)
             studentsQuery = studentsQuery.Where(s => s.CenterId == filter.CenterId.Value);

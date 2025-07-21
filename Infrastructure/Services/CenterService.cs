@@ -275,7 +275,7 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
             var query = context.Centers.Where(c => !c.IsDeleted).AsQueryable();
             
             if (!string.IsNullOrWhiteSpace(filter.Name))
-                query = query.Where(c => c.Name.Contains(filter.Name));
+                query = query.Where(c => c.Name.ToLower().Contains(filter.Name.ToLower()));
 
             if (filter.IsActive.HasValue)
                 query = query.Where(c => c.IsActive == filter.IsActive.Value);

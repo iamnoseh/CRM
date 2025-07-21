@@ -262,7 +262,7 @@ public class CourseService(DataContext context, string uploadPath,IHttpContextAc
             // Применение фильтров
             if (!string.IsNullOrEmpty(filter.Name))
             {
-                coursesQuery = coursesQuery.Where(c => c.CourseName.Contains(filter.Name));
+                coursesQuery = coursesQuery.Where(c => c.CourseName.ToLower().Contains(filter.Name.ToLower()));
             }
 
             if (filter.Price.HasValue)

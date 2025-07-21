@@ -292,7 +292,7 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
         query = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
             query, httpContextAccessor, g => g.Course.CenterId);
         if (!string.IsNullOrEmpty(filter.Name))
-            query = query.Where(g => g.Name.Contains(filter.Name));
+            query = query.Where(g => g.Name.ToLower().Contains(filter.Name.ToLower()));
         if (filter.CourseId.HasValue)
             query = query.Where(g => g.CourseId == filter.CourseId.Value);
         if (filter.MentorId.HasValue)

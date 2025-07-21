@@ -316,9 +316,9 @@ public class MentorService(
         mentorsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
             mentorsQuery, httpContextAccessor, m => m.CenterId);
         if (!string.IsNullOrEmpty(filter.FullName))
-            mentorsQuery = mentorsQuery.Where(m => m.FullName.Contains(filter.FullName));
+            mentorsQuery = mentorsQuery.Where(m => m.FullName.ToLower().Contains(filter.FullName.ToLower()));
         if (!string.IsNullOrEmpty(filter.PhoneNumber))
-            mentorsQuery = mentorsQuery.Where(m => m.PhoneNumber.Contains(filter.PhoneNumber));
+            mentorsQuery = mentorsQuery.Where(m => m.PhoneNumber.ToLower().Contains(filter.PhoneNumber.ToLower()));
         if (filter.CenterId.HasValue)
             mentorsQuery = mentorsQuery.Where(m => m.CenterId == filter.CenterId.Value);
         if (filter.Age.HasValue)
