@@ -27,6 +27,14 @@ public class EmployeesController(IEmployeeService service) : ControllerBase
         return StatusCode(result.StatusCode, result);
     }
 
+    [HttpGet("managers/select")]
+    [Authorize(Roles = "SuperAdmin,Manager")]
+    public async Task<ActionResult<Response<List<ManagerSelectDto>>>> GetManagersForSelect()
+    {
+        var result = await service.GetManagersForSelectAsync();
+        return StatusCode(result.StatusCode, result);
+    }
+
     [HttpPost]
     [Authorize(Roles = "SuperAdmin,Manager")]
     public async Task<ActionResult<Response<string>>> Create([FromForm] CreateEmployeeDto dto)

@@ -8,6 +8,7 @@ using Infrastructure.Interfaces;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using System.Net;
+using Domain.Enums;
 using Infrastructure.Services.EmailService;
 using Microsoft.AspNetCore.Http;
 
@@ -123,6 +124,13 @@ public class EmployeeService : IEmployeeService
                     return new Response<string>((HttpStatusCode)docResult.StatusCode, docResult.Message);
                 documentPath = docResult.Data;
             }
+            int? safeCenterId = null;
+            if (request.CenterId.HasValue)
+            {
+                var centerExists = await _context.Centers.AnyAsync(c => c.Id == request.CenterId.Value);
+                if (centerExists)
+                    safeCenterId = request.CenterId;
+            }
             var userResult = await UserManagementHelper.CreateUserAsync(
                 request,
                 _userManager,
@@ -133,21 +141,19 @@ public class EmployeeService : IEmployeeService
                 dto => dto.Birthday,
                 dto => dto.Gender,
                 dto => dto.Address,
-                dto => dto.CenterId,
+                _ => safeCenterId,
                 _ => imagePath);
             if (userResult.StatusCode != 200)
                 return new Response<string>((HttpStatusCode)userResult.StatusCode, userResult.Message);
             var (user, password, username) = userResult.Data;
-            // Update additional fields
             user.Salary = request.Salary;
             user.Experience = request.Experience;
             user.Age = DateUtils.CalculateAge(request.Birthday);
-            user.ActiveStatus = request.ActiveStatus;
-            user.PaymentStatus = request.PaymentStatus;
+            user.ActiveStatus = ActiveStatus.Active;
+            user.PaymentStatus = PaymentStatus.Completed;
             user.DocumentPath = documentPath;
             user.UpdatedAt = DateTime.UtcNow;
             await _userManager.UpdateAsync(user);
-            // Send email with login info
             if (!string.IsNullOrEmpty(request.Email))
             {
                 await EmailHelper.SendLoginDetailsEmailAsync(
@@ -218,5 +224,26 @@ public class EmployeeService : IEmployeeService
         return result.Succeeded
             ? new Response<string>(HttpStatusCode.OK, "Корманд бо муваффақият нест шуд")
             : new Response<string>(HttpStatusCode.BadRequest, IdentityHelper.FormatIdentityErrors(result));
+    }
+
+    public async Task<Response<List<ManagerSelectDto>>> GetManagersForSelectAsync()
+    {
+        var usersQuery = _context.Users.Where(u => !u.IsDeleted);
+        usersQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(usersQuery, _httpContextAccessor, u => u.CenterId);
+        var users = await usersQuery.ToListAsync();
+        var managers = new List<ManagerSelectDto>();
+        foreach (var u in users)
+        {
+            var roles = await _userManager.GetRolesAsync(u);
+            if (roles.Contains("Manager"))
+            {
+                managers.Add(new ManagerSelectDto
+                {
+                    Id = u.Id,
+                    FullName = u.FullName ?? string.Empty
+                });
+            }
+        }
+        return new Response<List<ManagerSelectDto>>(managers);
     }
 }

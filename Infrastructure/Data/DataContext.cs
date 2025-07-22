@@ -191,7 +191,14 @@ public class DataContext(DbContextOptions<DataContext> options) : IdentityDbCont
             .WithOne(u => u.MentorProfile)
             .HasForeignKey<Mentor>(m => m.UserId)
             .OnDelete(DeleteBehavior.Cascade);
-            
+
+        // Center vs Manager (User)
+        modelBuilder.Entity<Center>()
+            .HasOne(c => c.Manager)
+            .WithOne(u => u.ManagedCenter)
+            .HasForeignKey<Center>(c => c.ManagerId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         // Center vs User, Student, Mentor
         modelBuilder.Entity<User>()
             .HasOne(u => u.Center)

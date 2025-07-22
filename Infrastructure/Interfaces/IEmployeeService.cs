@@ -11,4 +11,5 @@ public interface IEmployeeService
     Task<Response<string>> CreateEmployeeAsync(CreateEmployeeDto request);
     Task<Response<string>> UpdateEmployeeAsync(UpdateEmployeeDto request);
     Task<Response<string>> DeleteEmployeeAsync(int employeeId);
+    Task<Response<List<ManagerSelectDto>>> GetManagersForSelectAsync();
 }

@@ -13,7 +13,8 @@ public class GetCenterDto
     public bool IsActive { get; set; }
     public string? ContactEmail { get; set; }
     public string? ContactPhone { get; set; }
-    public string? ManagerName { get; set; }
+    public int? ManagerId { get; set; }
+    public string? ManagerFullName { get; set; }
     
     // Дополнительные свойства, которые могут быть полезны при получении данных
     public int TotalStudents { get; set; }

@@ -53,7 +53,13 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
                 imagePath = $"/uploads/centers/{uniqueFileName}";
             }
 
-            
+            if (createCenterDto.ManagerId.HasValue)
+            {
+                var manager = await context.Users.FirstOrDefaultAsync(u => u.Id == createCenterDto.ManagerId.Value && !u.IsDeleted);
+                if (manager == null)
+                    return new Response<string>(HttpStatusCode.BadRequest, "Manager not found");
+            }
+
             var center = new Center
             {
                 Name = createCenterDto.Name,
@@ -61,7 +67,7 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
                 Address = createCenterDto.Address,
                 ContactPhone = createCenterDto.ContactPhone,
                 Email = createCenterDto.ContactEmail,
-                ManagerName = createCenterDto.ManagerName,
+                ManagerId = createCenterDto.ManagerId,
                 Image = imagePath,
                 MonthlyIncome = 0, 
                 YearlyIncome = 0, 
@@ -129,12 +135,19 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
                 imagePath = $"/uploads/centers/{uniqueFileName}";
             }
 
+            if (updateCenterDto.ManagerId.HasValue)
+            {
+                var manager = await context.Users.FirstOrDefaultAsync(u => u.Id == updateCenterDto.ManagerId.Value && !u.IsDeleted);
+                if (manager == null)
+                    return new Response<string>(HttpStatusCode.BadRequest, "Manager not found");
+            }
+
             center.Name = updateCenterDto.Name;
             center.Description = updateCenterDto.Description ?? string.Empty;
             center.Address = updateCenterDto.Address;
             center.ContactPhone = updateCenterDto.ContactPhone;
             center.Email = updateCenterDto.ContactEmail;
-            center.ManagerName = updateCenterDto.ManagerName;
+            center.ManagerId = updateCenterDto.ManagerId;
             center.Image = imagePath;
             center.StudentCapacity = updateCenterDto.StudentCapacity;
             center.IsActive = updateCenterDto.IsActive;
@@ -195,6 +208,7 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
         {
             var centers = await context.Centers
                 .Where(c => !c.IsDeleted)
+                .Include(c => c.Manager) 
                 .Select(c => new GetCenterDto
                 {
                     Id = c.Id,
@@ -208,7 +222,8 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
                     IsActive = c.IsActive,
                     ContactEmail = c.Email,
                     ContactPhone = c.ContactPhone,
-                    ManagerName = c.ManagerName,
+                    ManagerId = c.ManagerId,
+                    ManagerFullName = c.Manager != null ? c.Manager.FullName : null,
                     TotalStudents = context.Students.Count(s => s.CenterId == c.Id && !s.IsDeleted),
                     TotalMentors = context.Mentors.Count(m => m.CenterId == c.Id && !m.IsDeleted),
                     TotalCourses = context.Courses.Count(co => co.CenterId == c.Id && !co.IsDeleted),
@@ -235,6 +250,7 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
         {
             var center = await context.Centers
                 .Where(c => c.Id == id && !c.IsDeleted)
+                .Include(c => c.Manager)
                 .Select(c => new GetCenterDto
                 {
                     Id = c.Id,
@@ -248,7 +264,8 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
                     IsActive = c.IsActive,
                     ContactEmail = c.Email,
                     ContactPhone = c.ContactPhone,
-                    ManagerName = c.ManagerName,
+                    ManagerId = c.ManagerId,
+                    ManagerFullName = c.Manager != null ? c.Manager.FullName : null,
                     TotalStudents = context.Students.Count(s => s.CenterId == c.Id && !s.IsDeleted),
                     TotalMentors = context.Mentors.Count(m => m.CenterId == c.Id && !m.IsDeleted),
                     TotalCourses = context.Courses.Count(co => co.CenterId == c.Id && !co.IsDeleted),
@@ -288,6 +305,7 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
             var skip = (filter.PageNumber - 1) * filter.PageSize;
             var centers = await query
                 .OrderByDescending(c => c.CreatedAt) 
+                .Include(c => c.Manager)
                 .Skip(skip)
                 .Take(filter.PageSize)
                 .Select(c => new GetCenterDto
@@ -303,7 +321,8 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
                     IsActive = c.IsActive,
                     ContactEmail = c.Email,
                     ContactPhone = c.ContactPhone,
-                    ManagerName = c.ManagerName,
+                    ManagerId = c.ManagerId,
+                    ManagerFullName = c.Manager != null ? c.Manager.FullName : null,
                     TotalStudents = context.Students.Count(s => s.CenterId == c.Id && !s.IsDeleted),
                     TotalMentors = context.Mentors.Count(m => m.CenterId == c.Id && !m.IsDeleted),
                     TotalCourses = context.Courses.Count(co => co.CenterId == c.Id && !co.IsDeleted),

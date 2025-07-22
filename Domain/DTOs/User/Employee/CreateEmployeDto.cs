@@ -17,9 +17,7 @@ public class CreateEmployeeDto
     public DateTime Birthday { get; set; }
     public int Experience { get; set; }
     public Gender Gender { get; set; }
-    public ActiveStatus ActiveStatus { get; set; }
-    public PaymentStatus PaymentStatus { get; set; }
     public IFormFile? Image { get; set; }
     public IFormFile? Document { get; set; }
-    public int CenterId { get; set; }
+    public int? CenterId { get; set; }
 }

@@ -18,7 +18,7 @@ public static class UserManagementHelper
         Func<T, DateTime> getBirthday,
         Func<T, Gender> getGender,
         Func<T, string> getAddress,
-        Func<T, int> getCenterId,
+        Func<T, int?> getCenterId,
         Func<T, string> getProfileImagePath,
         bool usePhoneNumberAsUsername = true)
     {
@@ -73,7 +73,7 @@ public static class UserManagementHelper
         Func<T, Gender> getGender,
         Func<T, string> getAddress,
         Func<T, ActiveStatus> getActiveStatus,
-        Func<T, int> getCenterId,
+        Func<T, int?> getCenterId,
         Func<T, PaymentStatus?> getPaymentStatus = null,
         Func<T, string> getProfileImagePath = null)
     {
@@ -84,6 +84,7 @@ public static class UserManagementHelper
         user.Age = DateUtils.CalculateAge(getBirthday(updateDto));
         user.Gender = getGender(updateDto);
         user.Address = getAddress(updateDto);
+        user.CenterId = getCenterId(updateDto);
 
         var activeStatus = getActiveStatus(updateDto);
         if (Enum.IsDefined(typeof(ActiveStatus), activeStatus))

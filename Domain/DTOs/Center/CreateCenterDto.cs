@@ -23,7 +23,7 @@ public class CreateCenterDto
     [EmailAddress]
     public string? ContactEmail { get; set; }
     
-    public string? ManagerName { get; set; }
+    public int? ManagerId { get; set; }
     
     public IFormFile? ImageFile { get; set; }
     

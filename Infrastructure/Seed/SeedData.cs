@@ -20,7 +20,6 @@ public class SeedData(UserManager<User> userManager, RoleManager<IdentityRole<in
             IsActive = true,
             ContactPhone = "+992 000 00 00",
             Email = "contact@example.com",
-            ManagerName = "Admin"
         };
         
         await context.Centers.AddAsync(defaultCenter);
@@ -89,10 +88,53 @@ public class SeedData(UserManager<User> userManager, RoleManager<IdentityRole<in
         return true;
     }
     
+    public async Task<bool> SeedManager()
+    {
+        var existingManager = await userManager.FindByNameAsync("manager1");
+        if (existingManager != null)
+        {
+            if (!await userManager.IsInRoleAsync(existingManager, Roles.Manager))
+                await userManager.AddToRoleAsync(existingManager, Roles.Manager);
+            return false;
+        }
+
+        var center = await context.Centers.FirstOrDefaultAsync();
+        if (center == null)
+            return false;
+
+        var manager = new User
+        {
+            UserName = "manager1",
+            Email = "manager1@example.com",
+            Address = "Dushanbe",
+            Age = 28,
+            Gender = 0,
+            ProfileImagePath = null,
+            FullName = "Manager One",
+            PhoneNumber = "900000001",
+            CenterId = center.Id,
+            ActiveStatus = Domain.Enums.ActiveStatus.Active,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        var result = await userManager.CreateAsync(manager, "Manager123!");
+        if (!result.Succeeded) return false;
+
+        var addToRoleResult = await userManager.AddToRoleAsync(manager, Roles.Manager);
+        if (!addToRoleResult.Succeeded) return false;
+        center.ManagerId = manager.Id;
+        context.Centers.Update(center);
+        await context.SaveChangesAsync();
+
+        return true;
+    }
+
     public async Task SeedAllData()
     {
         await SeedRole();
         await SeedCenter();
         await SeedUser();
+        await SeedManager();
     }
 }

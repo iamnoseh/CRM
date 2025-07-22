@@ -17,8 +17,10 @@ public class Center : BaseEntity
     public bool IsActive { get; set; } = true;
     public string? Email { get; set; }
     public string? ContactPhone { get; set; }
-    public string? ManagerName { get; set; }
     
+    public int? ManagerId { get; set; }
+    public User? Manager { get; set; }
+
     public List<Course> Courses { get; set; } = [];
     public List<Student> Students { get; set; } = [];
     public List<Mentor> Mentors { get; set; } = [];

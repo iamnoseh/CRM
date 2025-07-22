@@ -27,6 +27,7 @@ public class User : IdentityUser<int>
     public bool TelegramNotificationsEnabled { get; set; } = true;
     public int? CenterId { get; set; }
     public Center? Center { get; set; }
+    public Center? ManagedCenter { get; set; }
     public Student StudentProfile { get; set; }
     public Mentor MentorProfile { get; set; }
 }
