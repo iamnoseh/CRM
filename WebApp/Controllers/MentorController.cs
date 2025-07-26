@@ -14,6 +14,7 @@ namespace WebApp.Controllers;
 public class MentorController(IMentorService mentorService) : ControllerBase
 {
     [HttpGet]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<ActionResult<Response<List<GetMentorDto>>>> GetMentors()
     {
         var response = await mentorService.GetMentors();
@@ -21,6 +22,7 @@ public class MentorController(IMentorService mentorService) : ControllerBase
     }
     
     [HttpGet("{id}")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Teacher")]
     public async Task<ActionResult<Response<GetMentorDto>>> GetMentorById(int id)
     {
         var response = await mentorService.GetMentorByIdAsync(id);
@@ -28,6 +30,7 @@ public class MentorController(IMentorService mentorService) : ControllerBase
     }
     
     [HttpGet("paginated")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<ActionResult<PaginationResponse<List<GetMentorDto>>>> GetMentorsPagination([FromQuery] MentorFilter filter)
     {
         var response = await mentorService.GetMentorsPagination(filter);
@@ -35,7 +38,7 @@ public class MentorController(IMentorService mentorService) : ControllerBase
     }
     
     [HttpPost]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<ActionResult<Response<string>>> CreateMentor([FromForm] CreateMentorDto createMentorDto)
     {
         var response = await mentorService.CreateMentorAsync(createMentorDto);
@@ -44,7 +47,7 @@ public class MentorController(IMentorService mentorService) : ControllerBase
 
 
     [HttpPut]
-    [Authorize(Roles = "Admin,Teacher")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<ActionResult<Response<string>>> UpdateMentor(int id, [FromForm] UpdateMentorDto updateMentorDto)
     {
         var response = await mentorService.UpdateMentorAsync(id, updateMentorDto);
@@ -53,7 +56,7 @@ public class MentorController(IMentorService mentorService) : ControllerBase
 
 
     [HttpDelete]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<ActionResult<Response<string>>> DeleteMentor(int id)
     {
         var response = await mentorService.DeleteMentorAsync(id);
@@ -70,6 +73,7 @@ public class MentorController(IMentorService mentorService) : ControllerBase
     }
 
     [HttpGet("by-group/{groupId}")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<ActionResult<Response<List<GetMentorDto>>>> GetMentorsByGroup(int groupId)
     {
         var response = await mentorService.GetMentorsByGroupAsync(groupId);

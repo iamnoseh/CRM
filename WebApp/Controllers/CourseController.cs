@@ -29,12 +29,12 @@ public class CourseController (ICourseService service) : ControllerBase
         await service.GetCoursesPagination(filter );
         
     [HttpPost]
-    [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin}")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<Response<string>> CreateCourse([FromForm] CreateCourseDto course) => 
         await service.CreateCourseAsync(course);
         
     [HttpPut]
-    [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin}")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<Response<string>> UpdateCourse(int id, [FromForm] UpdateCourseDto dto) =>
         await service.UpdateCourseAsync(dto);
 

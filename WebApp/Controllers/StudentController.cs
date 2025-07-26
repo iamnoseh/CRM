@@ -28,10 +28,7 @@ public class StudentController (IStudentService service) : ControllerBase
     [HttpGet("{id}")]
     public async Task<Response<GetStudentDto>> GetStudentById(int id ) => 
         await service.GetStudentByIdAsync(id );
-
-    [HttpGet("studentAverage/{id}")]
-    public async Task<Response<GetStudentAverageDto>> GetStudentAverageById(int studentId, int groupId) =>
-        await service.GetStudentAverageAsync(studentId, groupId);
+    
     [HttpGet("filter")]
     public async Task<PaginationResponse<List<GetStudentDto>>> 
         GetStudentsPagination([FromQuery] StudentFilter filter ) =>
@@ -61,11 +58,7 @@ public class StudentController (IStudentService service) : ControllerBase
     [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin}")]
     public async Task<Response<string>> DeleteStudent(int id) =>
         await service.DeleteStudentAsync(id);
-
-
-    [HttpGet("details/{id}")]
-    public async Task<Response<GetStudentDetailedDto>> GetStudentDetailed(int id ) =>
-        await service.GetStudentDetailedAsync(id );
+    
         
     [HttpGet("document/{studentId}")]
     [Authorize]

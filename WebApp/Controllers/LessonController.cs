@@ -1,82 +1,157 @@
 using Domain.DTOs.Lesson;
-using Domain.Filters;
-using Domain.Responses;
 using Infrastructure.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-
 
 namespace WebApp.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class LessonController(ILessonService lessonService) : ControllerBase
 {
-    [HttpGet]
-    public async Task<ActionResult<Response<List<GetLessonDto>>>> GetAllLessons()
+    [HttpPost]
+    public async Task<IActionResult> CreateLesson([FromBody] CreateLessonDto createDto)
     {
-        var response = await lessonService.GetLessons();
-        return StatusCode(response.StatusCode, response);
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var response = await lessonService.CreateLessonAsync(createDto);
+        
+        if (response.StatusCode == 200)
+        {
+            return Ok(response);
+        }
+        
+        if (response.StatusCode == 409) // Conflict
+        {
+            return Conflict(response);
+        }
+        
+        return BadRequest(response);
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<Response<GetLessonDto>>> GetLessonById(int id)
+    public async Task<IActionResult> GetLesson(int id)
     {
-        var response = await lessonService.GetLessonById(id);
-        return StatusCode(response.StatusCode, response);
+        var response = await lessonService.GetLessonByIdAsync(id);
+        
+        if (response.StatusCode == 200)
+        {
+            return Ok(response);
+        }
+        
+        return NotFound(response);
     }
-    
-    [HttpGet("paginated")]
-    public async Task<ActionResult<PaginationResponse<List<GetLessonDto>>>> GetLessonsPaginated([FromQuery] BaseFilter filter)
-    {
-        var response = await lessonService.GetLessonsPaginated(filter);
-        return StatusCode(response.StatusCode, response);
-    }
-    
+
     [HttpGet("group/{groupId}")]
-    public async Task<ActionResult<Response<List<GetLessonDto>>>> GetLessonsByGroup(int groupId)
+    public async Task<IActionResult> GetLessonsByGroup(int groupId)
     {
-        var response = await lessonService.GetLessonsByGroup(groupId);
-        return StatusCode(response.StatusCode, response);
+        var response = await lessonService.GetLessonsByGroupAsync(groupId);
+        
+        if (response.StatusCode == 200)
+        {
+            return Ok(response);
+        }
+        
+        return BadRequest(response);
     }
-    
-    [HttpPost]
-    [Authorize(Roles = "Admin,Teacher")]
-    public async Task<ActionResult<Response<string>>> CreateLesson([FromBody] CreateLessonDto createLessonDto)
+
+    [HttpGet("classroom/{classroomId}")]
+    public async Task<IActionResult> GetLessonsByClassroom(
+        int classroomId,
+        [FromQuery] DateOnly? startDate = null,
+        [FromQuery] DateOnly? endDate = null)
     {
-        var response = await lessonService.CreateLesson(createLessonDto);
-        return StatusCode(response.StatusCode, response);
+        var response = await lessonService.GetLessonsByClassroomAsync(classroomId, startDate, endDate);
+        
+        if (response.StatusCode == 200)
+        {
+            return Ok(response);
+        }
+        
+        return BadRequest(response);
     }
-    
-    [HttpPost("weekly")]
-    [Authorize(Roles = "Admin,Teacher")]
-    public async Task<ActionResult<Response<string>>> CreateWeeklyLessons(int groupId, int weekIndex, [FromBody] DateTimeOffset startDate)
+
+    [HttpGet("schedule/{scheduleId}")]
+    public async Task<IActionResult> GetLessonsBySchedule(int scheduleId)
     {
-        var response = await lessonService.CreateWeeklyLessons(groupId, weekIndex, startDate);
-        return StatusCode(response.StatusCode, response);
+        var response = await lessonService.GetLessonsByScheduleAsync(scheduleId);
+        
+        if (response.StatusCode == 200)
+        {
+            return Ok(response);
+        }
+        
+        return BadRequest(response);
     }
-    
+
     [HttpPut]
-    [Authorize(Roles = "Admin,Teacher")]
-    public async Task<ActionResult<Response<string>>> UpdateLesson([FromBody] UpdateLessonDto updateLessonDto)
+    public async Task<IActionResult> UpdateLesson([FromBody] UpdateLessonDto updateDto)
     {
-        var response = await lessonService.UpdateLesson(updateLessonDto);
-        return StatusCode(response.StatusCode, response);
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var response = await lessonService.UpdateLessonAsync(updateDto);
+        
+        if (response.StatusCode == 200)
+        {
+            return Ok(response);
+        }
+        
+        if (response.StatusCode == 409) // Conflict
+        {
+            return Conflict(response);
+        }
+        
+        return BadRequest(response);
     }
-    
+
     [HttpDelete("{id}")]
-    [Authorize(Roles = "Admin")]
-    public async Task<ActionResult<Response<string>>> DeleteLesson(int id)
+    public async Task<IActionResult> DeleteLesson(int id)
     {
-        var response = await lessonService.DeleteLesson(id);
-        return StatusCode(response.StatusCode, response);
+        var response = await lessonService.DeleteLessonAsync(id);
+        
+        if (response.StatusCode == 200)
+        {
+            return Ok(response);
+        }
+        
+        return BadRequest(response);
     }
-    
-    [HttpPost("{lessonId}/mark-student-present/{studentId}")]
-    [Authorize(Roles = "Admin,Teacher")]
-    public async Task<ActionResult<Response<string>>> MarkStudentPresent(int lessonId, int studentId)
+
+    [HttpGet("group/{groupId}/weekly")]
+    public async Task<IActionResult> GetWeeklyLessons(
+        int groupId,
+        [FromQuery] DateOnly weekStart)
     {
-        var response = await lessonService.MarkStudentPresent(lessonId, studentId);
-        return StatusCode(response.StatusCode, response);
+        var response = await lessonService.GetWeeklyLessonsAsync(groupId, weekStart);
+        
+        if (response.StatusCode == 200)
+        {
+            return Ok(response);
+        }
+        
+        return BadRequest(response);
     }
-}
+
+    [HttpGet("classroom/{classroomId}/can-schedule")]
+    public async Task<IActionResult> CanScheduleLesson(
+        int classroomId,
+        [FromQuery] DateTimeOffset startTime,
+        [FromQuery] DateTimeOffset endTime)
+    {
+        var response = await lessonService.CanScheduleLessonAsync(classroomId, startTime, endTime);
+        
+        if (response.StatusCode == 200)
+        {
+            return Ok(response);
+        }
+        
+        return BadRequest(response);
+    }
+} 

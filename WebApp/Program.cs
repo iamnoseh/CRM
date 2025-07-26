@@ -19,10 +19,10 @@ builder.Services.AddSingleton(emailConfig);
 builder.Services.AddApplicationServices(builder.Configuration, uploadPath);
 builder.Services.AddSwaggerServices();
 builder.Services.AddHangfireServices(builder.Configuration);
-builder.Services.AddBackgroundServices();
+// builder.Services.AddBackgroundServices();
 builder.Services.AddControllers();
-builder.Services.AddScoped<IStudentExportService, StudentExportService>();
-builder.Services.AddScoped<IMentorExportService, MentorExportService>();
+// builder.Services.AddScoped<IStudentExportService, StudentExportService>();
+// builder.Services.AddScoped<IMentorExportService, MentorExportService>();
 var app = builder.Build();
 await app.ApplyMigrationsAndSeedData();
 if (app.Environment.IsDevelopment())

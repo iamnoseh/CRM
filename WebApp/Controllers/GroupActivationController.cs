@@ -11,7 +11,7 @@ namespace WebApp.Controllers;
 public class GroupActivationController(IGroupActivationService service) : ControllerBase
 {
     [HttpPost("activate/{groupId}")]
-    [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin}")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<Response<string>> ActivateGroup(int groupId)
     {
         return await service.ActivateGroupAsync(groupId);
