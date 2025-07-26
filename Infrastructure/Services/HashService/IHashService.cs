@@ -2,5 +2,7 @@ namespace Infrastructure.Services.HashService;
 
 public interface IHashService
 {
-    string ConvertToHash(string rawData);
+    string HashPassword(string password);
+    bool VerifyPassword(string password, string hashedPassword);
+    Task<string> GenerateRandomCode(int length);
 }

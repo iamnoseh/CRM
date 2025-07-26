@@ -8,14 +8,14 @@ public static class FileUploadHelper
 {
     private static readonly string[] AllowedImageExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".svg" };
     private static readonly string[] AllowedDocumentExtensions = { ".pdf", ".doc", ".docx", ".jpg", ".jpeg", ".png",".exel" };
-    private const long MaxImageSize = 50 * 1024 * 1024; // 50 MB
+    private const long MaxImageSize = 50 * 1024 * 1024; 
     private const long MaxDocumentSize = 50 * 1024 * 1024;
 
     public static async Task<Response<string>> UploadFileAsync(
         IFormFile file,
         string uploadPath,
         string entityType,
-        string fileType, // "profile" или "document"
+        string fileType, 
         bool deleteOldFile = false,
         string? oldFilePath = null)
     {

@@ -31,8 +31,7 @@ public class Group : BaseEntity
     public List<Schedule> Schedules { get; set; } = new();
     public int CurrentWeek { get; set; } = 1;
     
-    // Automatic Lesson Scheduling Properties
-    public string? LessonDays { get; set; } // JSON string of DayOfWeek values (e.g., "1,2,6" for Mon,Tue,Sat)
+    public string? LessonDays { get; set; } 
     public TimeOnly? LessonStartTime { get; set; }
     public TimeOnly? LessonEndTime { get; set; }
     public bool AutoGenerateLessons { get; set; } = false;

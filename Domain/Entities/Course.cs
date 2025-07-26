@@ -9,7 +9,6 @@ public class Course : BaseEntity
 {
     [Required]
     public required string CourseName { get; set; }
-    
     [Required]
     public required string Description { get; set; }
     [Required]

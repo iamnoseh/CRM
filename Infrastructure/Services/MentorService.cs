@@ -27,25 +27,28 @@ public class MentorService(
         {
             var centerId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
             if (centerId == null)
-                return new Response<string>(HttpStatusCode.BadRequest, "CenterId not found in token");
+                return new Response<string>(HttpStatusCode.BadRequest, "CenterId дар токен ёфт нашуд");
+            
             string profileImagePath = string.Empty;
             if (createMentorDto.ProfileImage != null)
             {
                 var imageResult = await FileUploadHelper.UploadFileAsync(
                     createMentorDto.ProfileImage, uploadPath, "mentor", "profile");
-                if (imageResult.StatusCode != 200)
+                if (imageResult.StatusCode != (int)HttpStatusCode.OK)
                     return new Response<string>((HttpStatusCode)imageResult.StatusCode, imageResult.Message);
                 profileImagePath = imageResult.Data;
             }
+            
             string documentPath = string.Empty;
             if (createMentorDto.DocumentFile != null)
             {
                 var docResult = await FileUploadHelper.UploadFileAsync(
                     createMentorDto.DocumentFile, uploadPath, "mentor", "document");
-                if (docResult.StatusCode != 200)
+                if (docResult.StatusCode != (int)HttpStatusCode.OK)
                     return new Response<string>((HttpStatusCode)docResult.StatusCode, docResult.Message);
                 documentPath = docResult.Data;
             }
+            
             var userResult = await UserManagementHelper.CreateUserAsync(
                 createMentorDto,
                 userManager,
@@ -58,7 +61,8 @@ public class MentorService(
                 dto => dto.Address,
                 dto => centerId.Value,
                 _ => profileImagePath);
-            if (userResult.StatusCode != 200)
+                
+            if (userResult.StatusCode != (int)HttpStatusCode.OK)
                 return new Response<string>((HttpStatusCode)userResult.StatusCode, userResult.Message);
 
             var (user, password, username) = userResult.Data;
@@ -73,6 +77,7 @@ public class MentorService(
                     "#4776E6",
                     "#8E54E9");
             }
+            
             var mentor = new Mentor
             {
                 FullName = createMentorDto.FullName,
@@ -89,8 +94,8 @@ public class MentorService(
                 ProfileImage = profileImagePath,
                 Document = documentPath,
                 ActiveStatus = ActiveStatus.Active,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow,
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow,
                 PaymentStatus = PaymentStatus.Completed,
             };
 
@@ -98,12 +103,12 @@ public class MentorService(
             var res = await context.SaveChangesAsync();
 
             return res > 0
-                ? new Response<string>(HttpStatusCode.Created, "Ментор успешно создан")
-                : new Response<string>(HttpStatusCode.BadRequest, "Не удалось создать ментора");
+                ? new Response<string>(HttpStatusCode.Created, "Устод бо муваффақият сохта шуд")
+                : new Response<string>(HttpStatusCode.BadRequest, "Хатогӣ ҳангоми сохтани устод");
         }
         catch (Exception ex)
         {
-            return new Response<string>(HttpStatusCode.InternalServerError, $"Ошибка при создании ментора: {ex.Message}");
+            return new Response<string>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми сохтани устод: {ex.Message}");
         }
     }
 
@@ -113,16 +118,17 @@ public class MentorService(
         {
             var mentor = await context.Mentors.FirstOrDefaultAsync(m => m.Id == id && !m.IsDeleted);
             if (mentor == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Ментор не найден");
+                return new Response<string>(HttpStatusCode.NotFound, "Устод ёфт нашуд");
 
             var center = await context.Centers.FirstOrDefaultAsync(c => c.Id == updateMentorDto.CenterId && !c.IsDeleted);
             if (center == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Центр не найден");
+                return new Response<string>(HttpStatusCode.NotFound, "Маркази таълимӣ ёфт нашуд");
+                
             if (updateMentorDto.ProfileImage != null)
             {
                 var imageResult = await FileUploadHelper.UploadFileAsync(
                     updateMentorDto.ProfileImage, uploadPath, "mentor", "profile", true, mentor.ProfileImage);
-                if (imageResult.StatusCode != 200)
+                if (imageResult.StatusCode != (int)HttpStatusCode.OK)
                     return new Response<string>((HttpStatusCode)imageResult.StatusCode, imageResult.Message);
                 mentor.ProfileImage = imageResult.Data;
             }
@@ -138,7 +144,7 @@ public class MentorService(
             mentor.Salary = updateMentorDto.Salary;
             mentor.ActiveStatus = updateMentorDto.ActiveStatus;
             mentor.PaymentStatus = updateMentorDto.PaymentStatus;
-            mentor.UpdatedAt = DateTime.UtcNow;
+            mentor.UpdatedAt = DateTimeOffset.UtcNow;
 
             if (mentor.UserId != null)
             {
@@ -158,7 +164,7 @@ public class MentorService(
                         dto => dto.ActiveStatus,
                         dto => updateMentorDto.CenterId,
                         dto => dto.PaymentStatus);
-                    if (updateResult.StatusCode != 200)
+                    if (updateResult.StatusCode != (int)HttpStatusCode.OK)
                         return updateResult;
                 }
             }
@@ -167,12 +173,12 @@ public class MentorService(
             var res = await context.SaveChangesAsync();
 
             return res > 0
-                ? new Response<string>(HttpStatusCode.OK, "Ментор успешно обновлен")
-                : new Response<string>(HttpStatusCode.InternalServerError, "Не удалось обновить ментора");
+                ? new Response<string>(HttpStatusCode.OK, "Устод бо муваффақият навсозӣ шуд")
+                : new Response<string>(HttpStatusCode.InternalServerError, "Хатогӣ ҳангоми навсозии устод");
         }
         catch (Exception ex)
         {
-            return new Response<string>(HttpStatusCode.InternalServerError, $"Ошибка при обновлении ментора: {ex.Message}");
+            return new Response<string>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми навсозии устод: {ex.Message}");
         }
     }
 
@@ -182,10 +188,10 @@ public class MentorService(
         {
             var mentor = await context.Mentors.FirstOrDefaultAsync(m => m.Id == id && !m.IsDeleted);
             if (mentor == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Ментор не найден");
+                return new Response<string>(HttpStatusCode.NotFound, "Устод ёфт нашуд");
 
             mentor.IsDeleted = true;
-            mentor.UpdatedAt = DateTime.UtcNow;
+            mentor.UpdatedAt = DateTimeOffset.UtcNow;
             context.Mentors.Update(mentor);
 
             var user = await context.Users.FirstOrDefaultAsync(u => u.Id == mentor.UserId && !u.IsDeleted);
@@ -204,7 +210,7 @@ public class MentorService(
             {
                 mentorGroup.IsActive = false;
                 mentorGroup.IsDeleted = true;
-                mentorGroup.UpdatedAt = DateTime.UtcNow;
+                mentorGroup.UpdatedAt = DateTimeOffset.UtcNow;
             }
 
             if (mentorGroups.Any())
@@ -213,12 +219,12 @@ public class MentorService(
             var result = await context.SaveChangesAsync();
 
             return result > 0
-                ? new Response<string>(HttpStatusCode.OK, "Ментор успешно удален")
-                : new Response<string>(HttpStatusCode.InternalServerError, "Не удалось удалить ментора");
+                ? new Response<string>(HttpStatusCode.OK, "Устод бо муваффақият нест карда шуд")
+                : new Response<string>(HttpStatusCode.InternalServerError, "Хатогӣ ҳангоми несткунии устод");
         }
         catch (Exception ex)
         {
-            return new Response<string>(HttpStatusCode.InternalServerError, $"Ошибка при удалении ментора: {ex.Message}");
+            return new Response<string>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми несткунии устод: {ex.Message}");
         }
     }
 
@@ -258,7 +264,7 @@ public class MentorService(
             mentorsQuery, httpContextAccessor, m => m.CenterId);
         var m = await mentorsQuery.FirstOrDefaultAsync();
         if (m == null)
-            return new Response<GetMentorDto>(System.Net.HttpStatusCode.NotFound, "Mentor not found");
+            return new Response<GetMentorDto>(HttpStatusCode.NotFound, "Устод ёфт нашуд");
         var dto = new GetMentorDto
         {
             Id = m.Id,
@@ -284,28 +290,28 @@ public class MentorService(
     {
         var mentor = await context.Mentors.FirstOrDefaultAsync(s => s.Id == mentorId && !s.IsDeleted);
         if (mentor == null)
-            return new Response<string>(HttpStatusCode.NotFound, "Ментор не найден");
+            return new Response<string>(HttpStatusCode.NotFound, "Устод ёфт нашуд");
 
         var docResult = await FileUploadHelper.UploadFileAsync(
             documentFile, uploadPath, "mentor", "document", true, mentor.Document);
-        if (docResult.StatusCode != 200)
+        if (docResult.StatusCode != (int)HttpStatusCode.OK)
             return new Response<string>((HttpStatusCode)docResult.StatusCode, docResult.Message);
 
         mentor.Document = docResult.Data;
-        mentor.UpdatedAt = DateTime.UtcNow;
+        mentor.UpdatedAt = DateTimeOffset.UtcNow;
         context.Mentors.Update(mentor);
         var res = await context.SaveChangesAsync();
 
         return res > 0
-            ? new Response<string>(HttpStatusCode.OK, "Mentor document updated successfully")
-            : new Response<string>(HttpStatusCode.BadRequest, "Failed to update mentor document");
+            ? new Response<string>(HttpStatusCode.OK, "Ҳуҷҷати устод бо муваффақият навсозӣ шуд")
+            : new Response<string>(HttpStatusCode.BadRequest, "Хатогӣ ҳангоми навсозии ҳуҷҷати устод");
     }
 
     public async Task<Response<byte[]>> GetMentorDocument(int mentorId)
     {
         var mentor = await context.Mentors.FirstOrDefaultAsync(s => s.Id == mentorId && !s.IsDeleted);
         if (mentor == null)
-            return new Response<byte[]>(HttpStatusCode.NotFound, "Ментор не найден");
+            return new Response<byte[]>(HttpStatusCode.NotFound, "Устод ёфт нашуд");
 
         return await FileUploadHelper.GetFileAsync(mentor.Document, uploadPath);
     }
@@ -366,7 +372,7 @@ public class MentorService(
         {
             var group = await context.Groups.FirstOrDefaultAsync(g => g.Id == groupId && !g.IsDeleted);
             if (group == null)
-                return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound, "Группа не найдена");
+                return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound, "Гурӯҳ ёфт нашуд");
 
             var mentorIds = await context.MentorGroups
                 .Where(mg => mg.GroupId == groupId && (bool)mg.IsActive && !mg.IsDeleted)
@@ -374,7 +380,7 @@ public class MentorService(
                 .ToListAsync();
 
             if (mentorIds.Count == 0)
-                return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound, "Менторы не найдены для данной группы");
+                return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound, "Устодон барои ин гурӯҳ ёфт нашуданд");
 
             var mentors = await context.Mentors
                 .Where(u => mentorIds.Contains(u.Id) && !u.IsDeleted)
@@ -416,7 +422,7 @@ public class MentorService(
         }
         catch (Exception ex)
         {
-            return new Response<List<GetMentorDto>>(HttpStatusCode.InternalServerError, $"Ошибка при получении менторов группы: {ex.Message}");
+            return new Response<List<GetMentorDto>>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми гирифтани устодони гурӯҳ: {ex.Message}");
         }
     }
 
@@ -426,7 +432,7 @@ public class MentorService(
         {
             var course = await context.Courses.FirstOrDefaultAsync(c => c.Id == courseId && !c.IsDeleted);
             if (course == null)
-                return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound, "Курс не найден");
+                return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound, "Курс ёфт нашуд");
 
             var groupIds = await context.Groups
                 .Where(g => g.CourseId == courseId && !g.IsDeleted)
@@ -434,7 +440,7 @@ public class MentorService(
                 .ToListAsync();
 
             if (groupIds.Count == 0)
-                return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound, "Группы не найдены для данного курса");
+                return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound, "Гурӯҳҳо барои ин курс ёфт нашуданд");
 
             var mentorIds = await context.MentorGroups
                 .Where(mg => groupIds.Contains(mg.GroupId) && (bool)mg.IsActive && !mg.IsDeleted)
@@ -443,7 +449,7 @@ public class MentorService(
                 .ToListAsync();
 
             if (mentorIds.Count == 0)
-                return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound, "Менторы не найдены для данного курса");
+                return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound, "Устодон барои ин курс ёфт нашуданд");
 
             var mentors = await context.Mentors
                 .Where(u => mentorIds.Contains(u.Id) && !u.IsDeleted)
@@ -485,7 +491,7 @@ public class MentorService(
         }
         catch (Exception ex)
         {
-            return new Response<List<GetMentorDto>>(HttpStatusCode.InternalServerError, $"Ошибка при получении менторов курса: {ex.Message}");
+            return new Response<List<GetMentorDto>>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми гирифтани устодони курс: {ex.Message}");
         }
     }
 
@@ -493,15 +499,15 @@ public class MentorService(
     {
         var mentor = await context.Mentors.FirstOrDefaultAsync(m => m.Id == id && !m.IsDeleted);
         if (mentor == null)
-            return new Response<string>(HttpStatusCode.NotFound, "Ментор не найден");
+            return new Response<string>(HttpStatusCode.NotFound, "Устод ёфт нашуд");
 
         var imageResult = await FileUploadHelper.UploadFileAsync(
             profileImage, uploadPath, "mentor", "profile", true, mentor.ProfileImage);
-        if (imageResult.StatusCode != 200)
+        if (imageResult.StatusCode != (int)HttpStatusCode.OK)
             return new Response<string>((HttpStatusCode)imageResult.StatusCode, imageResult.Message);
 
         mentor.ProfileImage = imageResult.Data;
-        mentor.UpdatedAt = DateTime.UtcNow;
+        mentor.UpdatedAt = DateTimeOffset.UtcNow;
 
         if (mentor.UserId != null)
         {
@@ -517,18 +523,18 @@ public class MentorService(
         var res = await context.SaveChangesAsync();
 
         return res > 0
-            ? new Response<string>(HttpStatusCode.OK, "Profile image updated successfully")
-            : new Response<string>(HttpStatusCode.BadRequest, "Failed to update profile image");
+            ? new Response<string>(HttpStatusCode.OK, "Акси профил бо муваффақият навсозӣ шуд")
+            : new Response<string>(HttpStatusCode.BadRequest, "Хатогӣ ҳангоми навсозии акси профил");
     }
 
     public async Task<Response<string>> UpdateMentorPaymentStatusAsync(int mentorId, PaymentStatus status)
     {
         var mentor = await context.Mentors.FirstOrDefaultAsync(m => m.Id == mentorId && !m.IsDeleted);
         if (mentor == null)
-            return new Response<string>(HttpStatusCode.NotFound, "Mentor not found");
+            return new Response<string>(HttpStatusCode.NotFound, "Устод ёфт нашуд");
 
         mentor.PaymentStatus = status;
-        mentor.UpdatedAt = DateTime.UtcNow;
+        mentor.UpdatedAt = DateTimeOffset.UtcNow;
         context.Mentors.Update(mentor);
 
         if (mentor.UserId != null)
@@ -543,7 +549,7 @@ public class MentorService(
 
         var res = await context.SaveChangesAsync();
         return res > 0
-            ? new Response<string>(HttpStatusCode.BadRequest, "Failed to update payment status")
-            : new Response<string>(HttpStatusCode.OK, "Payment status updated successfully");
+            ? new Response<string>(HttpStatusCode.OK, "Ҳолати пардохт бо муваффақият навсозӣ шуд")
+            : new Response<string>(HttpStatusCode.BadRequest, "Хатогӣ ҳангоми навсозии ҳолати пардохт");
     }
 }

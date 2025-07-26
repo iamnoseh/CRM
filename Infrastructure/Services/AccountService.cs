@@ -32,22 +32,28 @@ public class AccountService(
         {
             var existingUser = await userManager.FindByNameAsync(model.UserName);
             if (existingUser != null)
-                return new Response<string>(HttpStatusCode.BadRequest, "Username already exists");
+                return new Response<string>(HttpStatusCode.BadRequest, "Чунин номи корбар аллакай вуҷуд дорад");
             
             string profileImagePath = string.Empty;
             if (model.ProfileImage != null)
             {
                 var imageResult = await FileUploadHelper.UploadFileAsync(
-                    model.ProfileImage, uploadPath, "profiles", "profile");
-                if (imageResult.StatusCode != 200)
+                    model.ProfileImage, 
+                    uploadPath,
+                    "profiles",
+                    "profile",
+                    true);
+
+                if (imageResult.StatusCode != (int)HttpStatusCode.OK)
                     return new Response<string>((HttpStatusCode)imageResult.StatusCode, imageResult.Message);
+
                 profileImagePath = imageResult.Data;
             }
 
             var userResult = await UserManagementHelper.CreateUserAsync(
                 model,
                 userManager,
-                Roles.Student.ToString(),
+                Roles.User.ToString(),
                 dto => dto.UserName,
                 dto => dto.Email,
                 dto => dto.FullName,
@@ -56,13 +62,13 @@ public class AccountService(
                 dto => dto.Address,
                 dto => dto.CenterId,
                 _ => profileImagePath,
-                false); // Не использовать номер телефона как имя пользователя
-            if (userResult.StatusCode != 200)
+                false); 
+
+            if (userResult.StatusCode != (int)HttpStatusCode.OK)
                 return new Response<string>((HttpStatusCode)userResult.StatusCode, userResult.Message);
 
             var (_, password, username) = userResult.Data;
 
-            // Отправка email
             if (!string.IsNullOrEmpty(model.Email))
             {
                 await EmailHelper.SendLoginDetailsEmailAsync(
@@ -75,11 +81,11 @@ public class AccountService(
                     "#4EA8DE");
             }
 
-            return new Response<string>("User registered successfully. Login credentials sent to user's email.");
+            return new Response<string>(HttpStatusCode.Created, "Корбар бо муваффақият сохта шуд. Маълумоти воридшавӣ ба почтаи электронӣ фиристода шуд.");
         }
         catch (Exception ex)
         {
-            return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
+            return new Response<string>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми бақайдгирии корбар: {ex.Message}");
         }
     }
 
@@ -87,30 +93,30 @@ public class AccountService(
     {
         var user = await userManager.FindByNameAsync(login.Username);
         if (user == null)
-            return new Response<string>(HttpStatusCode.NotFound, "Your password or username is invalid");
+            return new Response<string>(HttpStatusCode.NotFound, "Номи корбар ё рамз нодуруст аст");
 
         var isPasswordValid = await userManager.CheckPasswordAsync(user, login.Password);
         if (!isPasswordValid)
-            return new Response<string>(HttpStatusCode.BadRequest, "Your password or username is invalid");
+            return new Response<string>(HttpStatusCode.BadRequest, "Номи корбар ё рамз нодуруст аст");
 
         var token = await GenerateJwtToken(user);
-        return new Response<string>(token) { Message = "Login successful" };
+        return new Response<string>(token) { Message = "Воридшавӣ бо муваффақият анҷом ёфт" };
     }
 
     public async Task<Response<string>> AddRoleToUser(RoleDto userRole)
     {
         var user = await userManager.FindByIdAsync(userRole.UserId);
         if (user == null)
-            return new Response<string>(HttpStatusCode.NotFound, "User not found");
+            return new Response<string>(HttpStatusCode.NotFound, "Корбар ёфт нашуд");
 
         if (!await roleManager.RoleExistsAsync(userRole.RoleName))
-            return new Response<string>(HttpStatusCode.BadRequest, "Role does not exist");
+            return new Response<string>(HttpStatusCode.BadRequest, "Нақш вуҷуд надорад");
 
         var result = await userManager.AddToRoleAsync(user, userRole.RoleName);
         if (!result.Succeeded)
             return new Response<string>(HttpStatusCode.BadRequest, IdentityHelper.FormatIdentityErrors(result));
 
-        return new Response<string>("Role added successfully");
+        return new Response<string>(HttpStatusCode.OK, "Нақш бо муваффақият илова карда шуд");
     }
 
     public async Task<Response<List<string>>> GetUserRoles(int userId)
@@ -119,14 +125,14 @@ public class AccountService(
         {
             var user = await userManager.FindByIdAsync(userId.ToString());
             if (user == null)
-                return new Response<List<string>>(HttpStatusCode.NotFound, "User not found");
+                return new Response<List<string>>(HttpStatusCode.NotFound, "Корбар ёфт нашуд");
 
             var roles = await userManager.GetRolesAsync(user);
-            return new Response<List<string>>(roles.ToList()) { Message = "User roles retrieved successfully" };
+            return new Response<List<string>>(roles.ToList()) { Message = "Нақшҳои корбар бо муваффақият гирифта шуданд" };
         }
         catch (Exception ex)
         {
-            return new Response<List<string>>(HttpStatusCode.InternalServerError, ex.Message);
+            return new Response<List<string>>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми гирифтани нақшҳои корбар: {ex.Message}");
         }
     }
 
@@ -134,19 +140,20 @@ public class AccountService(
     {
         var user = await userManager.FindByIdAsync(userRole.UserId);
         if (user == null)
-            return new Response<string>(HttpStatusCode.NotFound, "User not found");
+            return new Response<string>(HttpStatusCode.NotFound, "Корбар ёфт нашуд");
 
         var result = await userManager.RemoveFromRoleAsync(user, userRole.RoleName);
         if (!result.Succeeded)
             return new Response<string>(HttpStatusCode.BadRequest, IdentityHelper.FormatIdentityErrors(result));
 
-        return new Response<string>("Role removed successfully");
+        return new Response<string>(HttpStatusCode.OK, "Нақш бо муваффақият нест карда шуд");
     }
+
     private async Task<string> GenerateJwtToken(User user)
     {
         if (user == null)
         {
-            throw new ArgumentNullException(nameof(user), "User cannot be null");
+            throw new ArgumentNullException(nameof(user), "Корбар наметавонад null бошад");
         }
 
         var key = Encoding.UTF8.GetBytes(configuration["Jwt:Key"]);
@@ -155,7 +162,7 @@ public class AccountService(
 
         var claims = new List<Claim>
         {
-            new Claim(JwtRegisteredClaimNames.NameId, user.Id.ToString() )
+            new Claim(JwtRegisteredClaimNames.NameId, user.Id.ToString())
         };
 
         if (!string.IsNullOrEmpty(user.UserName))
@@ -188,7 +195,6 @@ public class AccountService(
             claims.AddRange(roles.Where(role => !string.IsNullOrEmpty(role)).Select(role => new Claim("role", role)));
         }
 
-        // Only add CenterId claim if user is NOT SuperAdmin
         bool isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
         if (!isSuperAdmin && user.CenterId.HasValue)
         {
@@ -199,7 +205,6 @@ public class AccountService(
             issuer: configuration["Jwt:Issuer"],
             audience: configuration["Jwt:Audience"],
             claims: claims,
-            expires: DateTime.UtcNow.AddDays(3),
             signingCredentials: credentials
         );
 
@@ -212,18 +217,18 @@ public class AccountService(
         try
         {
             if (resetPasswordDto == null)
-                return new Response<string>(HttpStatusCode.BadRequest, "Invalid request data");
+                return new Response<string>(HttpStatusCode.BadRequest, "Маълумоти дархост нодуруст аст");
 
             var existingUser = await userManager.Users.FirstOrDefaultAsync(x => x.Email == resetPasswordDto.Email);
             if (existingUser == null)
-                return new Response<string>(HttpStatusCode.NotFound, "User not found");
+                return new Response<string>(HttpStatusCode.NotFound, "Корбар ёфт нашуд");
 
             if (resetPasswordDto.Code != existingUser.Code)
-                return new Response<string>(HttpStatusCode.BadRequest, "Invalid code");
+                return new Response<string>(HttpStatusCode.BadRequest, "Рамзи тасдиқ нодуруст аст");
 
             var timeElapsed = DateTimeOffset.UtcNow - existingUser.CodeDate;
             if (timeElapsed.TotalMinutes > 3)
-                return new Response<string>(HttpStatusCode.BadRequest, "Code expired");
+                return new Response<string>(HttpStatusCode.BadRequest, "Мӯҳлати рамзи тасдиқ гузаштааст");
 
             var resetToken = await userManager.GeneratePasswordResetTokenAsync(existingUser);
             var resetResult = await userManager.ResetPasswordAsync(existingUser, resetToken, resetPasswordDto.Password);
@@ -234,11 +239,11 @@ public class AccountService(
             existingUser.CodeDate = default;
             await context.SaveChangesAsync();
 
-            return new Response<string>(HttpStatusCode.OK, "Password reset successfully");
+            return new Response<string>(HttpStatusCode.OK, "Рамз бо муваффақият иваз карда шуд");
         }
         catch (Exception ex)
         {
-            return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
+            return new Response<string>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми ивазкунии рамз: {ex.Message}");
         }
     }
 
@@ -247,11 +252,11 @@ public class AccountService(
         try
         {
             if (forgotPasswordDto == null)
-                return new Response<string>(HttpStatusCode.BadRequest, "Invalid request data");
+                return new Response<string>(HttpStatusCode.BadRequest, "Маълумоти дархост нодуруст аст");
 
             var existingUser = await context.Users.FirstOrDefaultAsync(x => x.Email == forgotPasswordDto.Email);
             if (existingUser == null)
-                return new Response<string>(HttpStatusCode.NotFound, "User not found");
+                return new Response<string>(HttpStatusCode.NotFound, "Корбар ёфт нашуд");
 
             var code = new Random().Next(1000, 9999).ToString();
             existingUser.Code = code;
@@ -259,15 +264,15 @@ public class AccountService(
 
             var res = await context.SaveChangesAsync();
             if (res <= 0)
-                return new Response<string>(HttpStatusCode.BadRequest, "Could not generate reset code");
+                return new Response<string>(HttpStatusCode.BadRequest, "Хатогӣ ҳангоми сохтани рамзи тасдиқ");
 
             await EmailHelper.SendResetPasswordCodeEmailAsync(emailService, forgotPasswordDto.Email, code);
 
-            return new Response<string>(HttpStatusCode.OK, "Reset code sent successfully");
+            return new Response<string>(HttpStatusCode.OK, "Рамзи тасдиқ бо муваффақият фиристода шуд");
         }
         catch (Exception ex)
         {
-            return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
+            return new Response<string>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми фиристодани рамзи тасдиқ: {ex.Message}");
         }
     }
 
@@ -276,21 +281,21 @@ public class AccountService(
         try
         {
             if (passwordDto == null)
-                return new Response<string>(HttpStatusCode.BadRequest, "Invalid password data");
+                return new Response<string>(HttpStatusCode.BadRequest, "Маълумоти рамз нодуруст аст");
 
             var existingUser = await userManager.Users.FirstOrDefaultAsync(x => x.Id == userId);
             if (existingUser == null)
-                return new Response<string>(HttpStatusCode.NotFound, "User not found");
+                return new Response<string>(HttpStatusCode.NotFound, "Корбар ёфт нашуд");
 
             var changePassResult = await userManager.ChangePasswordAsync(existingUser, passwordDto.OldPassword, passwordDto.Password);
             if (!changePassResult.Succeeded)
                 return new Response<string>(HttpStatusCode.BadRequest, IdentityHelper.FormatIdentityErrors(changePassResult));
 
-            return new Response<string>(HttpStatusCode.OK, "Password changed successfully");
+            return new Response<string>(HttpStatusCode.OK, "Рамз бо муваффақият иваз карда шуд");
         }
         catch (Exception ex)
         {
-            return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
+            return new Response<string>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми ивазкунии рамз: {ex.Message}");
         }
     }
 }
