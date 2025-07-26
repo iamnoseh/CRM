@@ -606,27 +606,27 @@ public class ClassroomService : IClassroomService
         }
     }
 
-    private List<TimeSlotDto> GenerateAvailableTimeSlots(List<GetScheduleDto> schedules, DateOnly startDate, DateOnly endDate)
+    private List<TimeSlotDto> GenerateAvailableTimeSlots(
+        List<GetScheduleSimpleDto> schedules, 
+        DateOnly startDate, 
+        DateOnly endDate)
     {
         var timeSlots = new List<TimeSlotDto>();
-        
-        var workingStart = new TimeOnly(8, 0);
-        var workingEnd = new TimeOnly(20, 0);
+        var currentDate = startDate;
 
-        for (var date = startDate; date <= endDate; date = date.AddDays(1))
+        while (currentDate <= endDate)
         {
-            var dayOfWeek = date.DayOfWeek;
-            
-            if (dayOfWeek == DayOfWeek.Sunday)
-                continue;
-
+            var dayOfWeek = (DayOfWeek)currentDate.DayOfWeek;
             var daySchedules = schedules
-                .Where(s => s.DayOfWeek == dayOfWeek)
+                .Where(s => s.DayOfWeek == dayOfWeek &&
+                           s.StartDate <= currentDate &&
+                           (s.EndDate == null || s.EndDate >= currentDate))
                 .OrderBy(s => s.StartTime)
                 .ToList();
 
-            var currentTime = workingStart;
-            
+            var currentTime = new TimeOnly(8, 0); // Start at 8 AM
+            var endOfDay = new TimeOnly(22, 0);   // End at 10 PM
+
             foreach (var schedule in daySchedules)
             {
                 if (currentTime < schedule.StartTime)
@@ -646,22 +646,24 @@ public class ClassroomService : IClassroomService
                     StartTime = schedule.StartTime,
                     EndTime = schedule.EndTime,
                     IsAvailable = false,
-                    OccupiedBy = schedule.Group?.Name ?? "Дарси номаълум"
+                    OccupiedBy = schedule.GroupName
                 });
 
                 currentTime = schedule.EndTime;
             }
 
-            if (currentTime < workingEnd)
+            if (currentTime < endOfDay)
             {
                 timeSlots.Add(new TimeSlotDto
                 {
                     DayOfWeek = dayOfWeek,
                     StartTime = currentTime,
-                    EndTime = workingEnd,
+                    EndTime = endOfDay,
                     IsAvailable = true
                 });
             }
+
+            currentDate = currentDate.AddDays(1);
         }
 
         return timeSlots;
