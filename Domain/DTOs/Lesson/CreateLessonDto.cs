@@ -4,13 +4,13 @@ namespace Domain.DTOs.Lesson;
 
 public class CreateLessonDto
 {
-    [Required(ErrorMessage = "Интихоби гурӯҳ зарур аст")]
+    [Required]
     public int GroupId { get; set; }
     
-    [Required(ErrorMessage = "Вақти оғоз зарур аст")]
+    [Required]
     public DateTimeOffset StartTime { get; set; }
     
-    [Required(ErrorMessage = "Вақти хитом зарур аст")]
+    [Required]
     public DateTimeOffset EndTime { get; set; }
     
     public int? ClassroomId { get; set; }
@@ -20,6 +20,5 @@ public class CreateLessonDto
     public int DayOfWeekIndex { get; set; }
     public int DayIndex { get; set; }
     
-    [StringLength(500, ErrorMessage = "Изоҳот набояд аз 500 ҳарф зиёд бошад")]
     public string? Notes { get; set; }
 }

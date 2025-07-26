@@ -26,18 +26,8 @@ public class CreateGroupDto
     [Required(ErrorMessage = "Санаи анҷоми дарсҳо зарур аст")]
     public DateTimeOffset? EndDate { get; set; }
     
-    /// <summary>
-    /// Рӯзҳои дарс - рақамҳо бо вергул ҷудо карда шудаанд:
-    /// 0=Якшанбе, 1=Душанбе, 2=Сешанбе, 3=Чоршанбе, 4=Панҷшанбе, 5=Ҷумъа, 6=Шанбе
-    /// Мисол барои Душанбе, Чоршанбе, Ҷумъа: "1,3,5"
-    /// </summary>
     [Required(ErrorMessage = "Рӯзҳои дарс интихоб кунед")]
     public string? LessonDays { get; set; }
-
-    /// <summary>
-    /// Рӯзҳои дарс баъд аз коркард (parsed):
-    /// 0=Якшанбе, 1=Душанбе, 2=Сешанбе, 3=Чоршанбе, 4=Панҷшанбе, 5=Ҷумъа, 6=Шанбе
-    /// </summary>
     public List<int>? ParsedLessonDays 
     {
         get 

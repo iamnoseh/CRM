@@ -26,5 +26,32 @@ namespace Infrastructure.Services.HashService
             }
         }
         #endregion
+
+        public string HashPassword(string password)
+        {
+            using var sha256 = SHA256.Create();
+            var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
+            return Convert.ToBase64String(hashedBytes);
+        }
+
+        public bool VerifyPassword(string password, string hashedPassword)
+        {
+            var hashedInput = HashPassword(password);
+            return hashedInput == hashedPassword;
+        }
+
+        public async Task<string> GenerateRandomCode(int length)
+        {
+            using var rng = RandomNumberGenerator.Create();
+            var bytes = new byte[length];
+            await Task.Run(() => rng.GetBytes(bytes));
+            
+            var code = new StringBuilder();
+            for (int i = 0; i < length; i++)
+            {
+                code.Append((bytes[i] % 10).ToString());
+            }
+            return code.ToString();
+        }
     }
 }

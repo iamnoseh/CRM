@@ -18,5 +18,5 @@ public class TimeSlotDto
     public TimeOnly StartTime { get; set; }
     public TimeOnly EndTime { get; set; }
     public bool IsAvailable { get; set; }
-    public string? OccupiedBy { get; set; } // Group name if occupied
+    public string? OccupiedBy { get; set; } 
 } 

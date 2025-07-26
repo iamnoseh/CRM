@@ -11,28 +11,29 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Services;
 
-public class CourseService(DataContext context, string uploadPath,IHttpContextAccessor httpContextAccessor) : ICourseService
+public class CourseService(DataContext context, string uploadPath, IHttpContextAccessor httpContextAccessor) : ICourseService
 {
-    private readonly string[] _allowedImageExtensions = [".jpg", ".jpeg", ".png", ".gif"];
-    private const long MaxImageSize = 50 * 1024 * 1024; 
-
-    #region CreateCourseAsync
     public async Task<Response<string>> CreateCourseAsync(CreateCourseDto createCourseDto)
     {
         try
         {
             var centerId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
             if (centerId == null)
-                return new Response<string>(HttpStatusCode.BadRequest, "CenterId not found in token");
+                return new Response<string>(HttpStatusCode.BadRequest, "CenterId дар токен ёфт нашуд");
 
+            string imagePath = string.Empty;
             if (createCourseDto.ImageFile != null)
             {
-                var extension = Path.GetExtension(createCourseDto.ImageFile.FileName).ToLower();
-                if (!_allowedImageExtensions.Contains(extension))
-                    return new Response<string>(HttpStatusCode.BadRequest, "Invalid image format. Allowed formats: jpg, jpeg, png, gif");
+                var imageResult = await FileUploadHelper.UploadFileAsync(
+                    createCourseDto.ImageFile, 
+                    uploadPath,
+                    "courses",
+                    "course");
 
-                if (createCourseDto.ImageFile.Length > MaxImageSize)
-                    return new Response<string>(HttpStatusCode.BadRequest, $"Image size exceeds the maximum allowed size of {MaxImageSize / (1024 * 1024)}MB");
+                if (imageResult.StatusCode != (int)HttpStatusCode.OK)
+                    return new Response<string>((HttpStatusCode)imageResult.StatusCode, imageResult.Message);
+
+                imagePath = imageResult.Data;
             }
 
             var course = new Course
@@ -42,142 +43,111 @@ public class CourseService(DataContext context, string uploadPath,IHttpContextAc
                 DurationInMonth = createCourseDto.DurationInMonth,
                 Price = createCourseDto.Price,
                 Status = createCourseDto.Status,
-                CenterId = centerId.Value
+                CenterId = centerId.Value,
+                ImagePath = imagePath,
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow
             };
-
-            if (createCourseDto.ImageFile != null)
-            {
-                var uploadsFolder = Path.Combine(uploadPath, "uploads", "courses");
-                if (!Directory.Exists(uploadsFolder))
-                    Directory.CreateDirectory(uploadsFolder);
-
-                var uniqueFileName = $"{Guid.NewGuid()}{Path.GetExtension(createCourseDto.ImageFile.FileName)}";
-                var filePath = Path.Combine(uploadsFolder, uniqueFileName);
-                
-                using var stream = new FileStream(filePath, FileMode.Create);
-                await createCourseDto.ImageFile.CopyToAsync(stream);
-                
-                course.ImagePath = $"/uploads/courses/{uniqueFileName}";
-            }
 
             await context.Courses.AddAsync(course);
             var result = await context.SaveChangesAsync();
 
             return result > 0
-                ? new Response<string>(HttpStatusCode.Created, "Course created successfully")
-                : new Response<string>(HttpStatusCode.BadRequest, "Failed to create course");
+                ? new Response<string>(HttpStatusCode.Created, "Курс бо муваффақият сохта шуд")
+                : new Response<string>(HttpStatusCode.BadRequest, "Хатогӣ ҳангоми сохтани курс");
         }
         catch (Exception ex)
         {
-            return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
+            return new Response<string>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми сохтани курс: {ex.Message}");
         }
     }
-    #endregion
 
-    #region UpdateCourseAsync
     public async Task<Response<string>> UpdateCourseAsync(UpdateCourseDto updateCourseDto)
     {
         try
         {
             var course = await context.Courses.FirstOrDefaultAsync(c => c.Id == updateCourseDto.Id && !c.IsDeleted);
             if (course == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Course not found");
+                return new Response<string>(HttpStatusCode.NotFound, "Курс ёфт нашуд");
 
-            // Проверяем существование центра
             if (course.CenterId != updateCourseDto.CenterId)
             {
                 var center = await context.Centers.FirstOrDefaultAsync(c => c.Id == updateCourseDto.CenterId && !c.IsDeleted);
                 if (center == null)
-                    return new Response<string>(HttpStatusCode.BadRequest, "Center not found");
+                    return new Response<string>(HttpStatusCode.BadRequest, "Маркази таълимӣ ёфт нашуд");
             }
 
-            // Проверка изображения, если оно обновляется
             if (updateCourseDto.ImageFile != null)
             {
-                var extension = Path.GetExtension(updateCourseDto.ImageFile.FileName).ToLower();
-                if (!_allowedImageExtensions.Contains(extension))
-                    return new Response<string>(HttpStatusCode.BadRequest, "Invalid image format. Allowed formats: jpg, jpeg, png, gif");
-
-                if (updateCourseDto.ImageFile.Length > MaxImageSize)
-                    return new Response<string>(HttpStatusCode.BadRequest, $"Image size exceeds the maximum allowed size of {MaxImageSize / (1024 * 1024)}MB");
-
-                // Удаление старого изображения
                 if (!string.IsNullOrEmpty(course.ImagePath))
                 {
-                    var oldImagePath = Path.Combine(uploadPath, course.ImagePath.TrimStart('/'));
-                    if (File.Exists(oldImagePath))
-                        File.Delete(oldImagePath);
+                    FileDeleteHelper.DeleteFile(course.ImagePath, uploadPath);
                 }
 
-                // Сохранение нового изображения
-                var fileName = Guid.NewGuid().ToString() + Path.GetExtension(updateCourseDto.ImageFile.FileName);
-                var filePath = Path.Combine(uploadPath, fileName);
-                
-                Directory.CreateDirectory(Path.GetDirectoryName(filePath));
-                
-                using var stream = new FileStream(filePath, FileMode.Create);
-                await updateCourseDto.ImageFile.CopyToAsync(stream);
-                
-                course.ImagePath = "/uploads/" + fileName;
+                var imageResult = await FileUploadHelper.UploadFileAsync(
+                    updateCourseDto.ImageFile, 
+                    uploadPath,
+                    "courses",
+                    "course",
+                    true,
+                    course.ImagePath);
+
+                if (imageResult.StatusCode != (int)HttpStatusCode.OK)
+                    return new Response<string>((HttpStatusCode)imageResult.StatusCode, imageResult.Message);
+
+                course.ImagePath = imageResult.Data;
             }
 
-            // Обновление данных курса
             course.CourseName = updateCourseDto.CourseName;
             course.Description = updateCourseDto.Description;
             course.DurationInMonth = updateCourseDto.DurationInMonth;
             course.Price = updateCourseDto.Price;
             course.Status = updateCourseDto.Status;
             course.CenterId = updateCourseDto.CenterId;
-            course.UpdatedAt = DateTime.UtcNow;
+            course.UpdatedAt = DateTimeOffset.UtcNow;
 
             context.Courses.Update(course);
             var result = await context.SaveChangesAsync();
 
             return result > 0
-                ? new Response<string>(HttpStatusCode.OK, "Course updated successfully")
-                : new Response<string>(HttpStatusCode.BadRequest, "Failed to update course");
+                ? new Response<string>(HttpStatusCode.OK, "Курс бо муваффақият навсозӣ шуд")
+                : new Response<string>(HttpStatusCode.BadRequest, "Хатогӣ ҳангоми навсозии курс");
         }
         catch (Exception ex)
         {
-            return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
+            return new Response<string>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми навсозии курс: {ex.Message}");
         }
     }
-    #endregion
 
-    #region DeleteCourseAsync
     public async Task<Response<string>> DeleteCourseAsync(int id)
     {
         try
         {
             var course = await context.Courses.FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
             if (course == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Course not found");
+                return new Response<string>(HttpStatusCode.NotFound, "Курс ёфт нашуд");
 
             course.IsDeleted = true;
-            course.UpdatedAt = DateTime.UtcNow;
+            course.UpdatedAt = DateTimeOffset.UtcNow;
 
             if (!string.IsNullOrEmpty(course.ImagePath))
             {
-                var imagePath = Path.Combine(uploadPath, course.ImagePath.TrimStart('/'));
-                if (File.Exists(imagePath))
-                    File.Delete(imagePath);
+                FileDeleteHelper.DeleteFile(course.ImagePath, uploadPath);
             }
 
             context.Courses.Update(course);
             var result = await context.SaveChangesAsync();
 
             return result > 0
-                ? new Response<string>(HttpStatusCode.OK, "Course deleted successfully")
-                : new Response<string>(HttpStatusCode.BadRequest, "Failed to delete course");
+                ? new Response<string>(HttpStatusCode.OK, "Курс бо муваффақият нест карда шуд")
+                : new Response<string>(HttpStatusCode.BadRequest, "Хатогӣ ҳангоми несткунии курс");
         }
         catch (Exception ex)
         {
-            return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
+            return new Response<string>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми несткунии курс: {ex.Message}");
         }
     }
-    #endregion
 
-    #region GetCourses
     public async Task<Response<List<GetCourseDto>>> GetCourses()
     {
         try
@@ -204,16 +174,14 @@ public class CourseService(DataContext context, string uploadPath,IHttpContextAc
 
              return courses.Any()
                 ? new Response<List<GetCourseDto>>(courses)
-                : new Response<List<GetCourseDto>>(System.Net.HttpStatusCode.NotFound, "No courses found");
+                : new Response<List<GetCourseDto>>(HttpStatusCode.NotFound, "Курсҳо ёфт нашуданд");
         }
         catch (Exception ex)
         {
-            return new Response<List<GetCourseDto>>(System.Net.HttpStatusCode.InternalServerError, ex.Message);
+            return new Response<List<GetCourseDto>>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми гирифтани курсҳо: {ex.Message}");
         }
     }
-    #endregion
 
-    #region GetCourseByIdAsync
     public async Task<Response<GetCourseDto>> GetCourseByIdAsync(int id)
     {
         try
@@ -226,7 +194,7 @@ public class CourseService(DataContext context, string uploadPath,IHttpContextAc
             var course = await coursesQuery.FirstOrDefaultAsync();
 
             if (course == null)
-                return new Response<GetCourseDto>(System.Net.HttpStatusCode.NotFound, "Course not found");
+                return new Response<GetCourseDto>(HttpStatusCode.NotFound, "Курс ёфт нашуд");
 
             var courseDto = new GetCourseDto
             {
@@ -245,21 +213,21 @@ public class CourseService(DataContext context, string uploadPath,IHttpContextAc
         }
         catch (Exception ex)
         {
-            return new Response<GetCourseDto>(System.Net.HttpStatusCode.InternalServerError, ex.Message);
+            return new Response<GetCourseDto>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми гирифтани курс: {ex.Message}");
         }
     }
-    #endregion
 
-    #region GetCoursesPagination
     public async Task<PaginationResponse<List<GetCourseDto>>> GetCoursesPagination(CourseFilter filter)
     {
         try
         {
-            var coursesQuery = context.Courses.Where(c => !c.IsDeleted).AsQueryable();
+            var coursesQuery = context.Courses
+                .Include(c => c.Center)
+                .Where(c => !c.IsDeleted)
+                .AsQueryable();
             coursesQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
                 coursesQuery, httpContextAccessor, c => c.CenterId);
 
-            // Применение фильтров
             if (!string.IsNullOrEmpty(filter.Name))
             {
                 coursesQuery = coursesQuery.Where(c => c.CourseName.ToLower().Contains(filter.Name.ToLower()));
@@ -303,12 +271,10 @@ public class CourseService(DataContext context, string uploadPath,IHttpContextAc
         }
         catch (Exception ex)
         {
-            return new PaginationResponse<List<GetCourseDto>>(System.Net.HttpStatusCode.InternalServerError, ex.Message);
+            return new PaginationResponse<List<GetCourseDto>>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми гирифтани курсҳо: {ex.Message}");
         }
     }
-    #endregion
 
-    #region GetCoursesByMentorAsync
     public async Task<Response<List<GetCourseDto>>> GetCoursesByMentorAsync(int mentorId)
     {
         try
@@ -316,10 +282,11 @@ public class CourseService(DataContext context, string uploadPath,IHttpContextAc
             var mentor = await context.Mentors
                 .Include(m => m.Groups)
                 .ThenInclude(g => g.Course)
+                .ThenInclude(c => c.Center)
                 .FirstOrDefaultAsync(m => m.Id == mentorId && !m.IsDeleted);
 
             if (mentor == null)
-                return new Response<List<GetCourseDto>>(System.Net.HttpStatusCode.NotFound, "Mentor not found");
+                return new Response<List<GetCourseDto>>(HttpStatusCode.NotFound, "Устод ёфт нашуд");
 
             var courses = mentor.Groups
                 .Where(g => !g.IsDeleted && g.Course != null && !g.Course.IsDeleted)
@@ -343,16 +310,14 @@ public class CourseService(DataContext context, string uploadPath,IHttpContextAc
 
             return courseDtos.Any()
                 ? new Response<List<GetCourseDto>>(courseDtos)
-                : new Response<List<GetCourseDto>>(System.Net.HttpStatusCode.NotFound, "No courses found for this mentor");
+                : new Response<List<GetCourseDto>>(HttpStatusCode.NotFound, "Барои ин устод курсҳо ёфт нашуданд");
         }
         catch (Exception ex)
         {
-            return new Response<List<GetCourseDto>>(System.Net.HttpStatusCode.InternalServerError, ex.Message);
+            return new Response<List<GetCourseDto>>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми гирифтани курсҳои устод: {ex.Message}");
         }
     }
-    #endregion
 
-    #region GetCourseGroupsAndCount
     public async Task<Response<GetCourseGroupsDto>> GetCourseGroupsAndCountAsync(int courseId)
     {
         try
@@ -389,8 +354,7 @@ public class CourseService(DataContext context, string uploadPath,IHttpContextAc
         }
         catch (Exception ex)
         {
-            return new Response<GetCourseGroupsDto>(System.Net.HttpStatusCode.InternalServerError, ex.Message);
+            return new Response<GetCourseGroupsDto>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми гирифтани гурӯҳҳои курс: {ex.Message}");
         }
     }
-    #endregion
 }

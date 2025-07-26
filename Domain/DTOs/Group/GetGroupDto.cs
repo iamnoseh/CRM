@@ -25,7 +25,6 @@ public class GetGroupDto
     public int? ClassroomId { get; set; }
     public GetClassroomDto? Classroom { get; set; }
     
-    // Automatic Lesson Scheduling
     public string? LessonDays { get; set; }
     public List<int>? ParsedLessonDays 
     {
