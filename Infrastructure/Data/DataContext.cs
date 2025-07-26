@@ -11,19 +11,14 @@ public class DataContext(DbContextOptions<DataContext> options) : IdentityDbCont
     public DbSet<Group> Groups { get; set; }
     public DbSet<Student> Students { get; set; }
     public DbSet<Mentor> Mentors { get; set; }
-    public DbSet<Lesson> Lessons { get; set; }
-    public DbSet<Grade> Grades { get; set; }
-    public DbSet<Exam> Exams { get; set; }
-    public DbSet<Attendance> Attendances { get; set; }
     public DbSet<StudentGroup> StudentGroups { get; set; }
     public DbSet<MentorGroup> MentorGroups { get; set; }
-    public DbSet<Comment> Comments { get; set; }
     public DbSet<Center> Centers { get; set; }
     public DbSet<Payment> Payments { get; set; }
-    public DbSet<StudentPerformance> StudentPerformances { get; set; }
-    public DbSet<StudentStatistics> StudentStatistics { get; set; }
-    public DbSet<MonthlySummary> MonthlySummaries { get; set; }
-    public DbSet<NotificationLog> NotificationLogs { get; set; }    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    public DbSet<Classroom> Classrooms { get; set; }
+    public DbSet<Schedule> Schedules { get; set; }
+    public DbSet<Lesson> Lessons { get; set; }
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         base.OnConfiguring(optionsBuilder);
         
@@ -67,77 +62,7 @@ public class DataContext(DbContextOptions<DataContext> options) : IdentityDbCont
             .HasForeignKey(l => l.GroupId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        //  Grade vs Lesson, Student, Group
-        modelBuilder.Entity<Grade>()
-            .HasOne(g => g.Lesson)
-            .WithMany(l => l.Grades)
-            .HasForeignKey(g => g.LessonId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<Grade>()
-            .HasOne(g => g.Student)
-            .WithMany(s => s.Grades)
-            .HasForeignKey(g => g.StudentId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        modelBuilder.Entity<Grade>()
-            .HasOne(g => g.Group)
-            .WithMany()
-            .HasForeignKey(g => g.GroupId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        // Exam связь с Group
-        modelBuilder.Entity<Exam>()
-            .HasOne(e => e.Group)
-            .WithMany(g => g.Exams)
-            .HasForeignKey(e => e.GroupId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        // Связь Grade с Exam 
-        modelBuilder.Entity<Grade>()
-            .HasOne(g => g.Exam)
-            .WithMany(e => e.Grades)
-            .HasForeignKey(g => g.ExamId)
-            .OnDelete(DeleteBehavior.SetNull);
-
-        //  Attendance vs Lesson, Student, Group
-        modelBuilder.Entity<Attendance>()
-            .HasOne(a => a.Lesson)
-            .WithMany(l => l.Attendances)
-            .HasForeignKey(a => a.LessonId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<Attendance>()
-            .HasOne(a => a.Student)
-            .WithMany(s => s.Attendances)
-            .HasForeignKey(a => a.StudentId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        modelBuilder.Entity<Attendance>()
-            .HasOne(a => a.Group)
-            .WithMany()
-            .HasForeignKey(a => a.GroupId)
-            .OnDelete(DeleteBehavior.Restrict);
-            
-        // Comment vs Student, Group, Lesson
-        modelBuilder.Entity<Comment>()
-            .HasOne(c => c.Student)
-            .WithMany(s => s.Comments)
-            .HasForeignKey(c => c.StudentId)
-            .OnDelete(DeleteBehavior.Restrict);
-            
-        modelBuilder.Entity<Comment>()
-            .HasOne(c => c.Group)
-            .WithMany(g => g.Comments)
-            .HasForeignKey(c => c.GroupId)
-            .OnDelete(DeleteBehavior.Restrict);
-            
-        modelBuilder.Entity<Comment>()
-            .HasOne(c => c.Lesson)
-            .WithMany(l => l.Comments)
-            .HasForeignKey(c => c.LessonId)
-            .OnDelete(DeleteBehavior.Cascade);
-        
+       
 
         //  StudentGroup (many to many)
         modelBuilder.Entity<StudentGroup>()
@@ -243,121 +168,91 @@ public class DataContext(DbContextOptions<DataContext> options) : IdentityDbCont
         modelBuilder.Entity<Payment>()
             .HasIndex(p => new { p.Month, p.Year });
             
-        modelBuilder.Entity<StudentPerformance>()
-            .HasOne(sp => sp.Student)
-            .WithMany()
-            .HasForeignKey(sp => sp.StudentId)
-            .OnDelete(DeleteBehavior.Cascade);
-            
-        modelBuilder.Entity<StudentPerformance>()
-            .HasOne(sp => sp.Group)
-            .WithMany()
-            .HasForeignKey(sp => sp.GroupId)
-            .OnDelete(DeleteBehavior.Cascade);
-            
-        modelBuilder.Entity<StudentStatistics>()
-            .HasOne(ss => ss.Student)
-            .WithMany()
-            .HasForeignKey(ss => ss.StudentId)
-            .OnDelete(DeleteBehavior.Cascade);
-            
-        modelBuilder.Entity<StudentStatistics>()
-            .HasOne(ss => ss.Group)
-            .WithMany()
-            .HasForeignKey(ss => ss.GroupId)
-            .OnDelete(DeleteBehavior.Cascade);
-            
-        modelBuilder.Entity<MonthlySummary>()
-            .HasOne(ms => ms.Center)
-            .WithMany(c => c.MonthlySummaries)
-            .HasForeignKey(ms => ms.CenterId)
-            .OnDelete(DeleteBehavior.Cascade);
-            
-        modelBuilder.Entity<NotificationLog>()
-            .HasOne(nl => nl.Student)
-            .WithMany()
-            .HasForeignKey(nl => nl.StudentId)
-            .OnDelete(DeleteBehavior.SetNull);
-            
-        modelBuilder.Entity<NotificationLog>()
-            .HasOne(nl => nl.Group)
-            .WithMany()
-            .HasForeignKey(nl => nl.GroupId)
-            .OnDelete(DeleteBehavior.SetNull);
-            
-        modelBuilder.Entity<NotificationLog>()
-            .HasOne(nl => nl.Center)
-            .WithMany()
-            .HasForeignKey(nl => nl.CenterId)
-            .OnDelete(DeleteBehavior.SetNull);
-
+       
         modelBuilder.Entity<Group>()
             .HasIndex(g => g.CourseId);
 
         modelBuilder.Entity<Group>()
             .HasIndex(g => g.MentorId);
 
+        // Group lesson scheduling configuration
+        modelBuilder.Entity<Group>()
+            .Property(g => g.LessonDays)
+            .HasMaxLength(50); // For comma-separated day numbers
+
+        modelBuilder.Entity<Group>()
+            .Property(g => g.LessonStartTime)
+            .HasColumnType("time");
+
+        modelBuilder.Entity<Group>()
+            .Property(g => g.LessonEndTime)
+            .HasColumnType("time");
+
         modelBuilder.Entity<Lesson>()
             .HasIndex(l => l.GroupId);
 
-        modelBuilder.Entity<Grade>()
-            .HasIndex(g => g.LessonId);
+        // Classroom vs Center
+        modelBuilder.Entity<Classroom>()
+            .HasOne(c => c.Center)
+            .WithMany(center => center.Classrooms)
+            .HasForeignKey(c => c.CenterId)
+            .OnDelete(DeleteBehavior.Cascade);
 
-        modelBuilder.Entity<Grade>()
-            .HasIndex(g => g.StudentId);
+        // Group vs Classroom
+        modelBuilder.Entity<Group>()
+            .HasOne(g => g.Classroom)
+            .WithMany()
+            .HasForeignKey(g => g.ClassroomId)
+            .OnDelete(DeleteBehavior.SetNull);
 
-        modelBuilder.Entity<Grade>()
-            .HasIndex(g => g.GroupId);
+        // Schedule vs Classroom
+        modelBuilder.Entity<Schedule>()
+            .HasOne(s => s.Classroom)
+            .WithMany(c => c.Schedules)
+            .HasForeignKey(s => s.ClassroomId)
+            .OnDelete(DeleteBehavior.Cascade);
 
-        modelBuilder.Entity<Exam>()
-            .HasIndex(e => e.GroupId);
+        // Schedule vs Group
+        modelBuilder.Entity<Schedule>()
+            .HasOne(s => s.Group)
+            .WithMany(g => g.Schedules)
+            .HasForeignKey(s => s.GroupId)
+            .OnDelete(DeleteBehavior.SetNull);
 
-        modelBuilder.Entity<Attendance>()
-            .HasIndex(a => a.LessonId);
+        // Lesson vs Classroom
+        modelBuilder.Entity<Lesson>()
+            .HasOne(l => l.Classroom)
+            .WithMany(c => c.Lessons)
+            .HasForeignKey(l => l.ClassroomId)
+            .OnDelete(DeleteBehavior.SetNull);
 
-        modelBuilder.Entity<Attendance>()
-            .HasIndex(a => a.StudentId);
+        // Lesson vs Schedule
+        modelBuilder.Entity<Lesson>()
+            .HasOne(l => l.Schedule)
+            .WithMany(s => s.Lessons)
+            .HasForeignKey(l => l.ScheduleId)
+            .OnDelete(DeleteBehavior.SetNull);
 
-        modelBuilder.Entity<Attendance>()
-            .HasIndex(a => a.GroupId);
-        
-        modelBuilder.Entity<Comment>()
-            .HasIndex(c => c.StudentId);
-            
-        modelBuilder.Entity<Comment>()
-            .HasIndex(c => c.GroupId);
-            
-        modelBuilder.Entity<Comment>()
-            .HasIndex(c => c.LessonId);
+        // Indexes for new entities
+        modelBuilder.Entity<Classroom>()
+            .HasIndex(c => c.CenterId);
 
-        modelBuilder.Entity<StudentPerformance>()
-            .HasIndex(sp => sp.StudentId);
-            
-        modelBuilder.Entity<StudentPerformance>()
-            .HasIndex(sp => sp.GroupId);
-            
-        modelBuilder.Entity<StudentStatistics>()
-            .HasIndex(ss => ss.StudentId);
-            
-        modelBuilder.Entity<StudentStatistics>()
-            .HasIndex(ss => ss.GroupId);
-            
-        modelBuilder.Entity<MonthlySummary>()
-            .HasIndex(ms => ms.CenterId);
-            
-        modelBuilder.Entity<MonthlySummary>()
-            .HasIndex(ms => new { ms.Month, ms.Year });
-            
-        modelBuilder.Entity<NotificationLog>()
-            .HasIndex(nl => nl.StudentId);
-            
-        modelBuilder.Entity<NotificationLog>()
-            .HasIndex(nl => nl.GroupId);
-            
-        modelBuilder.Entity<NotificationLog>()
-            .HasIndex(nl => nl.CenterId);
-            
-        modelBuilder.Entity<NotificationLog>()
-            .HasIndex(nl => nl.Type);
+        modelBuilder.Entity<Schedule>()
+            .HasIndex(s => s.ClassroomId);
+
+        modelBuilder.Entity<Schedule>()
+            .HasIndex(s => s.GroupId);
+
+        modelBuilder.Entity<Schedule>()
+            .HasIndex(s => new { s.ClassroomId, s.DayOfWeek, s.StartTime, s.EndTime });
+
+        modelBuilder.Entity<Lesson>()
+            .HasIndex(l => l.ClassroomId);
+
+        modelBuilder.Entity<Lesson>()
+            .HasIndex(l => l.ScheduleId);
+
+        modelBuilder.Entity<Lesson>()
+            .HasIndex(l => new { l.StartTime, l.EndTime, l.ClassroomId });
     }
 }

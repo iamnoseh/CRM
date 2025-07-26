@@ -22,9 +22,18 @@ public class Group : BaseEntity
     public int MentorId { get; set; }
     public Mentor Mentor { get; set; }
     public Course Course { get; set; }
+    
+    public int? ClassroomId { get; set; }
+    public Classroom? Classroom { get; set; }
+    
     public List<StudentGroup> StudentGroups { get; set; } = new();
     public List<Lesson> Lessons { get; set; } = new();
-    public List<Exam> Exams { get; set; } = new();
-    public List<Comment> Comments { get; set; } = new();
+    public List<Schedule> Schedules { get; set; } = new();
     public int CurrentWeek { get; set; } = 1;
+    
+    // Automatic Lesson Scheduling Properties
+    public string? LessonDays { get; set; } // JSON string of DayOfWeek values (e.g., "1,2,6" for Mon,Tue,Sat)
+    public TimeOnly? LessonStartTime { get; set; }
+    public TimeOnly? LessonEndTime { get; set; }
+    public bool AutoGenerateLessons { get; set; } = false;
 }

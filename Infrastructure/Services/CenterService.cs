@@ -694,8 +694,8 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
                 return new Response<string>(HttpStatusCode.NotFound, "Center not found");
             
             // Текущий месяц и год
-            var currentMonth = DateTime.Now.Month;
-            var currentYear = DateTime.Now.Year;
+            var currentMonth = DateTime.UtcNow.Month;
+            var currentYear = DateTime.UtcNow.Year;
             
             // Расчет месячного дохода (текущий месяц)
             var monthlyIncome = await context.Payments
@@ -708,7 +708,7 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
             
             // Расчет годового дохода (за последние 12 месяцев)
             // Определяем диапазон последних 12 месяцев
-            var startDate = DateTime.Now.AddMonths(-11);
+            var startDate = DateTime.UtcNow.AddMonths(-11);
             var startMonth = startDate.Month;
             var startYear = startDate.Year;
             
@@ -724,7 +724,7 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
             // Обновляем данные центра
             center.MonthlyIncome = monthlyIncome;
             center.YearlyIncome = yearlyIncome;
-            center.UpdatedAt = DateTime.Now;
+            center.UpdatedAt = DateTime.UtcNow;
             
             await context.SaveChangesAsync();
             

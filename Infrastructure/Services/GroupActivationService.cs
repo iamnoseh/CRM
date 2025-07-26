@@ -4,19 +4,29 @@ using Domain.Enums;
 using Domain.Responses;
 using Infrastructure.Data;
 using Infrastructure.Interfaces;
+using Infrastructure.Helpers;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Services;
 
-public class GroupActivationService(DataContext context) : IGroupActivationService
+public class GroupActivationService(DataContext context, IHttpContextAccessor httpContextAccessor) : IGroupActivationService
 {
     public async Task<Response<string>> ActivateGroupAsync(int groupId)
     {
         try
         {
-            var group = await context.Groups.FirstOrDefaultAsync(g => g.Id == groupId);
+            var centerId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+            if (centerId == null)
+                return new Response<string>(HttpStatusCode.BadRequest, "CenterId not found in token");
+
+            var group = await context.Groups
+                .Include(g => g.Course)
+                .ThenInclude(c => c.Center)
+                .FirstOrDefaultAsync(g => g.Id == groupId && g.Course.CenterId == centerId);
+                
             if (group == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Group not found");
+                return new Response<string>(HttpStatusCode.NotFound, "Group not found or doesn't belong to your center");
             
             if (group.Status == ActiveStatus.Active)
                 return new Response<string>(HttpStatusCode.BadRequest, "Group is already active");
@@ -24,7 +34,7 @@ public class GroupActivationService(DataContext context) : IGroupActivationServi
             if (group.Status == ActiveStatus.Completed)
                 return new Response<string>(HttpStatusCode.BadRequest, "Completed groups cannot be activated again");
 
-            var currentDate = DateTimeOffset.Now;
+            var currentDate = DateTimeOffset.UtcNow;
 
             var endDate = currentDate.AddMonths(group.DurationMonth);
 

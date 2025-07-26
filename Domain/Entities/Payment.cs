@@ -13,7 +13,7 @@ public class Payment : BaseEntity
     public string? TransactionId { get; set; }
     public string? Description { get; set; }
     public PaymentStatus Status { get; set; } = PaymentStatus.Pending;
-    public DateTime PaymentDate { get; set; } = DateTime.Now;
+    public DateTime PaymentDate { get; set; } = DateTime.UtcNow;
     public int? CenterId { get; set; }
     public Center? Center { get; set; }
     public int Month { get; set; }

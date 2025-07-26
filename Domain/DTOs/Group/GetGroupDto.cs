@@ -1,3 +1,4 @@
+using Domain.DTOs.Classroom;
 using Domain.Enums;
 
 namespace Domain.DTOs.Group;
@@ -20,4 +21,28 @@ public class GetGroupDto
     public int DayOfWeek { get; set; }
     public string? ImagePath { get; set; }
     public int CurrentWeek { get; set; }
+    
+    public int? ClassroomId { get; set; }
+    public GetClassroomDto? Classroom { get; set; }
+    
+    // Automatic Lesson Scheduling
+    public string? LessonDays { get; set; }
+    public List<int>? ParsedLessonDays 
+    {
+        get 
+        {
+            if (string.IsNullOrEmpty(LessonDays))
+                return null;
+                
+            return LessonDays.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(d => d.Trim())
+                .Where(d => int.TryParse(d, out var dayInt) && dayInt >= 0 && dayInt <= 6)
+                .Select(int.Parse)
+                .Distinct()
+                .ToList();
+        }
+    }
+    public TimeOnly? LessonStartTime { get; set; }
+    public TimeOnly? LessonEndTime { get; set; }
+    public bool AutoGenerateLessons { get; set; }
 }

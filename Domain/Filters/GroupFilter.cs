@@ -4,9 +4,11 @@ namespace Domain.Filters;
 
 public class GroupFilter : BaseFilter
 {
+    public string? Search { get; set; }
     public string? Name { get; set; }
     public int? CourseId { get; set; }
     public int? MentorId { get; set; }
+    public int? ClassroomId { get; set; }
     public bool? Started { get; set; }
     public ActiveStatus? Status { get; set; }
     public DateTime? StartDateFrom { get; set; }

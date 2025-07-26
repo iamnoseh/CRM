@@ -30,12 +30,7 @@ public class Student : BaseEntity
     public DateTime? NextPaymentDueDate { get; set; }
     public int CenterId { get; set; }
     public Center? Center { get; set; }
-    
     public List<StudentGroup> StudentGroups { get; set; } = new();
-    public List<Grade> Grades { get; set; } = new();
-    public List<Exam> Exams { get; set; } = new();
-    public List<Attendance> Attendances { get; set; } = new();
-    public List<Comment> Comments { get; set; } = new();
     public List<Payment> Payments { get; set; } = new();
     public int UserId { get; set; }
     public User User { get; set; }

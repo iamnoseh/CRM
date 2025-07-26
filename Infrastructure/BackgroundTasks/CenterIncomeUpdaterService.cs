@@ -13,7 +13,7 @@ public class CenterIncomeUpdaterService(
 {
     public async Task Run()
     {
-        logger.LogInformation("Manual center income update started at: {time}", DateTimeOffset.Now);
+        logger.LogInformation("Manual center income update started at: {time}", DateTimeOffset.UtcNow);
         
         using var scope = scopeFactory.CreateScope();
         var centerService = scope.ServiceProvider.GetRequiredService<ICenterService>();
@@ -32,7 +32,7 @@ public class CenterIncomeUpdaterService(
         {
             try
             {
-                var now = DateTimeOffset.Now;
+                var now = DateTimeOffset.UtcNow;
                 var scheduledTime = new TimeSpan(0, 15, 0); // 00:15
                 
                 if (now.TimeOfDay > scheduledTime)
@@ -50,7 +50,7 @@ public class CenterIncomeUpdaterService(
                     await Task.Delay(delay, stoppingToken);
                 }
                 
-                logger.LogInformation("Center income update started at: {time}", DateTimeOffset.Now);
+                logger.LogInformation("Center income update started at: {time}", DateTimeOffset.UtcNow);
                 using var scope = scopeFactory.CreateScope();
                 var centerService = scope.ServiceProvider.GetRequiredService<ICenterService>();
                 

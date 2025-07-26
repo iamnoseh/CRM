@@ -11,7 +11,7 @@ public class CreatePaymentDto
     public string? TransactionId { get; set; }
     public string? Description { get; set; }
     public PaymentStatus Status { get; set; } = PaymentStatus.Paid;
-    public DateTime PaymentDate { get; set; } = DateTime.Now;
+    public DateTime PaymentDate { get; set; } = DateTime.UtcNow;
     public int? CenterId { get; set; }
     public int Month { get; set; }
     public int Year { get; set; }

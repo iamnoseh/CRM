@@ -19,7 +19,5 @@ public interface IStudentService
     Task<Response<string>> UpdateStudentDocumentAsync(int studentId, IFormFile? documentFile);
     Task<PaginationResponse<List<GetStudentDto>>> GetStudentsPagination(StudentFilter filter);
     Task<Response<byte[]>> GetStudentDocument(int studentId);
-    Task<Response<GetStudentDetailedDto>> GetStudentDetailedAsync(int id);
-    Task<Response<GetStudentAverageDto>> GetStudentAverageAsync(int studentId,int groupId);
     Task<Response<string>> UpdateStudentPaymentStatusAsync(UpdateStudentPaymentStatusDto dto);
 }

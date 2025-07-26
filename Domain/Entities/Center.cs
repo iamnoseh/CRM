@@ -26,5 +26,5 @@ public class Center : BaseEntity
     public List<Mentor> Mentors { get; set; } = [];
     public List<User> Users { get; set; } = [];
     public List<Payment> Payments { get; set; } = [];
-    public List<MonthlySummary> MonthlySummaries { get; set; } = [];
+    public List<Classroom> Classrooms { get; set; } = [];
 }

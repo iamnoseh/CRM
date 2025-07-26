@@ -44,7 +44,6 @@ public class AccountService(
                 profileImagePath = imageResult.Data;
             }
 
-            // Создание пользователя
             var userResult = await UserManagementHelper.CreateUserAsync(
                 model,
                 userManager,
@@ -164,14 +163,14 @@ public class AccountService(
             claims.Add(new Claim(JwtRegisteredClaimNames.Name, user.UserName));
         }
 
+        if (!string.IsNullOrEmpty(user.FullName))
+        {
+            claims.Add(new Claim("Fullname", user.FullName));
+        }
+
         if (!string.IsNullOrEmpty(user.Email))
         {
             claims.Add(new Claim(JwtRegisteredClaimNames.Email, user.Email));
-        }
-
-        if (user.CenterId.HasValue)
-        {
-            claims.Add(new Claim("CenterId", user.CenterId.Value.ToString()));
         }
 
         if (!string.IsNullOrEmpty(user.ProfileImagePath))

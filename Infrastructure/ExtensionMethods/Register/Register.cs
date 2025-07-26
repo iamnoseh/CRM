@@ -46,15 +46,7 @@ public static class Register
             new CenterService(
                 sp.GetRequiredService<DataContext>(),
                 sp.GetRequiredService<IConfiguration>()["UploadPath"] ,sp.GetRequiredService<IHttpContextAccessor>()?? throw new InvalidOperationException("UploadPath not configured")
-            ));        services.AddScoped<IAttendanceService, AttendanceService>();
-        services.AddScoped<IAttendanceStatisticsService, AttendanceStatisticsService>();
-        services.AddScoped<IPaymentStatisticsService, PaymentStatisticsService>();
-        services.AddScoped<ICommentService, CommentService>();
-        services.AddScoped<IUserService, UserService>();
-        services.AddScoped<ILessonService, LessonService>();
-        services.AddScoped<IGradeService, GradeService>();
-        services.AddScoped<IExamService, ExamService>();
-        services.AddScoped<INotificationService, NotificationService>();
+            ));      
     }
     
 
@@ -140,20 +132,36 @@ public static class Register
                 uploadPath,
                 cs.GetRequiredService<IHttpContextAccessor>()
             ));
+        
             
+      
+        services.AddScoped<IGroupActivationService>(sp => 
+            new GroupActivationService(
+                sp.GetRequiredService<DataContext>(),
+                sp.GetRequiredService<IHttpContextAccessor>()
+            ));
+            
+        services.AddScoped<IStudentGroupService, StudentGroupService>();
+        
+        services.AddScoped<IMentorGroupService, MentorGroupService>();       
+        
+        services.AddScoped<IClassroomService>(cs => 
+            new ClassroomService(
+                cs.GetRequiredService<DataContext>(),
+                cs.GetRequiredService<IHttpContextAccessor>()
+            ));
+        
+        services.AddScoped<IScheduleService, ScheduleService>();
+        
         services.AddScoped<IGroupService>(gs => 
             new GroupService(
                 gs.GetRequiredService<DataContext>(),
                 uploadPath,
                 gs.GetRequiredService<IHttpContextAccessor>()
             ));
-            
-      
-        services.AddScoped<IGroupActivationService, GroupActivationService>();
-            
-        services.AddScoped<IStudentGroupService, StudentGroupService>();
         
-        services.AddScoped<IMentorGroupService, MentorGroupService>();       
+        services.AddScoped<ILessonService, LessonService>();
+        
         services.AddLogging(logging =>
         {
             logging.AddConsole();
