@@ -5,6 +5,7 @@ using Domain.DTOs.Group;
 using Domain.DTOs.Schedule;
 using Domain.Entities;
 using Domain.Enums;
+using Domain.Filters;
 using Domain.Responses;
 using Infrastructure.Data;
 using Infrastructure.Helpers;
@@ -667,5 +668,43 @@ public class ClassroomService : IClassroomService
         }
 
         return timeSlots;
+    }
+
+    public async Task<PaginationResponse<List<GetSimpleClassroomDto>>> GetSimpleClassrooms(BaseFilter filter)
+    {
+        try
+        {
+            var classroomsQuery = _context.Classrooms
+                .Include(c => c.Center)
+                .Where(c => !c.IsDeleted)
+                .AsQueryable();
+            
+            classroomsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
+                classroomsQuery, _httpContextAccessor, c => c.CenterId);
+
+            var totalRecords = await classroomsQuery.CountAsync();
+
+            var skip = (filter.PageNumber - 1) * filter.PageSize;
+            var classrooms = await classroomsQuery
+                .OrderBy(c => c.Name)
+                .Skip(skip)
+                .Take(filter.PageSize)
+                .Select(c => new GetSimpleClassroomDto
+                {
+                    Id = c.Id,
+                    Name = c.Name
+                })
+                .ToListAsync();
+
+            return new PaginationResponse<List<GetSimpleClassroomDto>>(
+                classrooms,
+                totalRecords,
+                filter.PageNumber,
+                filter.PageSize);
+        }
+        catch (Exception ex)
+        {
+            return new PaginationResponse<List<GetSimpleClassroomDto>>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми гирифтани синфхонаҳо: {ex.Message}");
+        }
     }
 } 

@@ -1,5 +1,6 @@
 using Domain.DTOs.Classroom;
 using Domain.DTOs.Schedule;
+using Domain.Filters;
 using Domain.Responses;
 
 namespace Infrastructure.Interfaces;
@@ -16,4 +17,5 @@ public interface IClassroomService
     Task<Response<GetScheduleDto>> CreateScheduleAsync(CreateScheduleDto createDto);
     Task<Response<List<TimeSlotSuggestion>>> GetAvailableTimeSlotsAsync(int classroomId, DayOfWeek dayOfWeek, DateOnly date, TimeSpan duration);
     Task<Response<List<GetClassroomDto>>> GetAvailableClassroomsAsync(int centerId, DayOfWeek dayOfWeek, TimeOnly startTime, TimeOnly endTime, DateOnly date);
+    Task<PaginationResponse<List<GetSimpleClassroomDto>>>  GetSimpleClassrooms(BaseFilter filter);
 } 

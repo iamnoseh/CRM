@@ -1,5 +1,7 @@
 using Domain.DTOs.Classroom;
 using Domain.DTOs.Schedule;
+using Domain.Filters;
+using Domain.Responses;
 using Infrastructure.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -173,4 +175,9 @@ public class ClassroomController(IClassroomService classroomService) : Controlle
         
         return BadRequest(response);
     }
+
+    [HttpGet("simple")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
+    public async Task<PaginationResponse<List<GetSimpleClassroomDto>>> GetSimpleClassrooms([FromQuery] BaseFilter filter) =>
+        await classroomService.GetSimpleClassrooms(filter);
 } 
