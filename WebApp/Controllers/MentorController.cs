@@ -1,4 +1,5 @@
 using Domain.DTOs.Mentor;
+using Domain.DTOs.Student;
 using Domain.Entities;
 using Domain.Filters;
 using Domain.Responses;
@@ -34,6 +35,14 @@ public class MentorController(IMentorService mentorService) : ControllerBase
     public async Task<ActionResult<PaginationResponse<List<GetMentorDto>>>> GetMentorsPagination([FromQuery] MentorFilter filter)
     {
         var response = await mentorService.GetMentorsPagination(filter);
+        return StatusCode(response.StatusCode, response);
+    }
+
+    [HttpGet("simple")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
+    public async Task<ActionResult<PaginationResponse<List<GetSimpleDto>>>> GetSimpleMentorPagination([FromQuery] MentorFilter filter)
+    {
+        var response = await mentorService.GetSimpleMentorPagination(filter);
         return StatusCode(response.StatusCode, response);
     }
     

@@ -1,4 +1,5 @@
 using Domain.DTOs.Mentor;
+using Domain.DTOs.Student;
 using Domain.Filters;
 using Domain.Responses;
 using Microsoft.AspNetCore.Http;
@@ -19,4 +20,5 @@ public interface IMentorService
     Task<Response<List<GetMentorDto>>> GetMentorsByGroupAsync(int groupId);
     Task<Response<List<GetMentorDto>>> GetMentorsByCourseAsync(int courseId);
     Task<Response<string>> UpdateMentorPaymentStatusAsync(int mentorId, Domain.Enums.PaymentStatus status);
+    Task<PaginationResponse<List<GetSimpleDto>>> GetSimpleMentorPagination(MentorFilter filter);
 }
