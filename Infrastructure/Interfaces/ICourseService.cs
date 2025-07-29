@@ -15,4 +15,5 @@ public interface ICourseService
     Task<PaginationResponse<List<GetCourseDto>>> GetCoursesPagination(CourseFilter filter);
     Task<Response<List<GetCourseDto>>> GetCoursesByMentorAsync(int mentorId);
     Task<Response<GetCourseGroupsDto>> GetCourseGroupsAndCountAsync(int courseId);
+    Task<PaginationResponse<List<GetSimpleCourseDto>>>  GetSimpleCourses(BaseFilter  filter);
 }

@@ -47,4 +47,9 @@ public class CourseController (ICourseService service) : ControllerBase
     [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<Response<GetCourseGroupsDto>> GetCourseGroupsAndCount(int id)
         => await service.GetCourseGroupsAndCountAsync(id);
+
+    [HttpGet("simple")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
+    public async Task<PaginationResponse<List<GetSimpleCourseDto>>> GetSimpleCourses([FromQuery] BaseFilter filter) =>
+        await service.GetSimpleCourses(filter);
 }

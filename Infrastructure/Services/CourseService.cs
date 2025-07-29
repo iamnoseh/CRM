@@ -362,4 +362,41 @@ public class CourseService(DataContext context, string uploadPath, IHttpContextA
             return new Response<GetCourseGroupsDto>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми гирифтани гурӯҳҳои курс: {ex.Message}");
         }
     }
+
+    public async Task<PaginationResponse<List<GetSimpleCourseDto>>> GetSimpleCourses(BaseFilter filter)
+    {
+        try
+        {
+            var coursesQuery = context.Courses
+                .Where(c => !c.IsDeleted)
+                .AsQueryable();
+            
+            coursesQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
+                coursesQuery, httpContextAccessor, c => c.CenterId);
+            
+            var totalRecords = await coursesQuery.CountAsync();
+
+            var skip = (filter.PageNumber - 1) * filter.PageSize;
+            var courses = await coursesQuery
+                .OrderBy(c => c.CourseName)
+                .Skip(skip)
+                .Take(filter.PageSize)
+                .Select(c => new GetSimpleCourseDto
+                {
+                    Id = c.Id,
+                    CourseName = c.CourseName
+                })
+                .ToListAsync();
+
+            return new PaginationResponse<List<GetSimpleCourseDto>>(
+                courses,
+                totalRecords,
+                filter.PageNumber,
+                filter.PageSize);
+        }
+        catch (Exception ex)
+        {
+            return new PaginationResponse<List<GetSimpleCourseDto>>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми гирифтани курсҳо: {ex.Message}");
+        }
+    }
 }
