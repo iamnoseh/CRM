@@ -411,8 +411,6 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
                         Id = g.Id,
                         Name = g.Name,
                         Description = g.Description,
-                        MentorId = g.Mentor.Id,
-                        CourseId = g.CourseId,
                         StartDate = g.StartDate,
                         EndDate = g.EndDate,
                         Status = g.Status,

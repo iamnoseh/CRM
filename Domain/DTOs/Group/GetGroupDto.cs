@@ -1,4 +1,6 @@
 using Domain.DTOs.Classroom;
+using Domain.DTOs.Course;
+using Domain.DTOs.Student;
 using Domain.Enums;
 
 namespace Domain.DTOs.Group;
@@ -8,7 +10,7 @@ public class GetGroupDto
     public int Id { get; set; }
     public string? Name { get; set; } 
     public string? Description { get; set; }
-    public int CourseId { get; set; }
+    public GetSimpleCourseDto? Course { get; set; }
     public int DurationMonth { get; set; }
     public int LessonInWeek { get; set; }
     public int TotalWeeks { get; set; }
@@ -17,11 +19,10 @@ public class GetGroupDto
     public ActiveStatus Status { get; set; }
     public DateTimeOffset StartDate { get; set; }
     public DateTimeOffset EndDate { get; set; }
-    public int MentorId { get; set; }
+    public GetSimpleDto Mentor { get; set; }
     public int DayOfWeek { get; set; }
     public string? ImagePath { get; set; }
     public int CurrentWeek { get; set; }
-    
     public int? ClassroomId { get; set; }
     public GetClassroomDto? Classroom { get; set; }
     

@@ -34,6 +34,11 @@ public class StudentController (IStudentService service) : ControllerBase
         GetStudentsPagination([FromQuery] StudentFilter filter ) =>
         await service.GetStudentsPagination(filter );
 
+    [HttpGet("simple")]
+    public async Task<PaginationResponse<List<GetSimpleDto>>> 
+        GetSimpleStudents([FromQuery] StudentFilter filter) =>
+        await service.GetSimpleStudents(filter);
+
     [HttpPost]
     [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin}")]
     public async Task<Response<string>> CreateStudent([FromForm] CreateStudentDto student) => 

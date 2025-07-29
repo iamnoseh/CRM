@@ -1,4 +1,5 @@
 using System.Net;
+using Domain.DTOs.Center;
 using Domain.DTOs.Classroom;
 using Domain.DTOs.Group;
 using Domain.Entities;
@@ -188,7 +189,6 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
     {
         try
         {
-            // Get CenterId from token
             var centerId = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
             if (centerId == null)
             {
@@ -518,7 +518,6 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
             Id = group.Id,
             Name = group.Name,
             Description = group.Description,
-            CourseId = group.CourseId,
             DurationMonth = group.DurationMonth,
             LessonInWeek = group.LessonInWeek,
             TotalWeeks = group.TotalWeeks,
@@ -527,7 +526,11 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
             Status = group.Status,
             StartDate = group.StartDate,
             EndDate = group.EndDate,
-            MentorId = group.MentorId,
+            Mentor = group.Mentor != null ? new Domain.DTOs.Student.GetSimpleDto
+            {
+                Id = group.Mentor.Id,
+                FullName = group.Mentor.FullName
+            } : null,
             DayOfWeek = 0, 
             ImagePath = group.PhotoPath,
             CurrentWeek = group.CurrentWeek,
@@ -539,8 +542,7 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 Description = group.Classroom.Description,
                 Capacity = group.Classroom.Capacity,
                 IsActive = group.Classroom.IsActive,
-                CenterId = group.Classroom.CenterId,
-                Center = group.Classroom.Center != null ? new Domain.DTOs.Center.GetCenterSimpleDto
+                Center = group.Classroom.Center != null ? new GetCenterSimpleDto
                 {
                     Id = group.Classroom.Center.Id,
                     Name = group.Classroom.Center.Name

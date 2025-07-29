@@ -333,17 +333,22 @@ public class CourseService(DataContext context, string uploadPath, IHttpContextA
                 Id = g.Id,
                 Name = g.Name,
                 Description = g.Description,
-                CourseId = g.CourseId,
                 DurationMonth = g.DurationMonth,
                 LessonInWeek = g.LessonInWeek,
                 TotalWeeks = g.TotalWeeks,
                 Started = g.Started,
                 Status = g.Status,
-                MentorId = g.MentorId,
                 ImagePath = g.PhotoPath,
                 CurrentWeek = g.CurrentWeek,
                 StartDate = g.StartDate,
-                EndDate = g.EndDate
+                EndDate = g.EndDate,
+                CurrentStudentsCount = 0,
+                DayOfWeek = 0,
+                ClassroomId = g.ClassroomId,
+                LessonDays = g.LessonDays,
+                LessonStartTime = g.LessonStartTime,
+                LessonEndTime = g.LessonEndTime,
+                AutoGenerateLessons = g.AutoGenerateLessons
             }).ToList();
             var dto = new GetCourseGroupsDto
             {

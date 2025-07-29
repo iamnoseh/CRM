@@ -20,4 +20,5 @@ public interface IStudentService
     Task<PaginationResponse<List<GetStudentDto>>> GetStudentsPagination(StudentFilter filter);
     Task<Response<byte[]>> GetStudentDocument(int studentId);
     Task<Response<string>> UpdateStudentPaymentStatusAsync(UpdateStudentPaymentStatusDto dto);
+    Task<PaginationResponse<List<GetSimpleDto>>>  GetSimpleStudents(StudentFilter filter);
 }
