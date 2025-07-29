@@ -205,6 +205,7 @@ public class AccountService(
             issuer: configuration["Jwt:Issuer"],
             audience: configuration["Jwt:Audience"],
             claims: claims,
+            expires: DateTime.UtcNow.AddDays(3),
             signingCredentials: credentials
         );
 
