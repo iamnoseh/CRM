@@ -201,11 +201,12 @@ public class AccountService(
             claims.Add(new Claim("CenterId", user.CenterId.Value.ToString()));
         }
 
+        var expirationDays = int.TryParse(configuration["Jwt:ExpirationDays"], out var days) ? days : 3;
         var token = new JwtSecurityToken(
             issuer: configuration["Jwt:Issuer"],
             audience: configuration["Jwt:Audience"],
             claims: claims,
-            expires: DateTime.UtcNow.AddDays(3),
+            expires: DateTime.UtcNow.AddDays(expirationDays),
             signingCredentials: credentials
         );
 

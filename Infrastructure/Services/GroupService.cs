@@ -1,6 +1,7 @@
 using System.Net;
 using Domain.DTOs.Center;
 using Domain.DTOs.Classroom;
+using Domain.DTOs.Course;
 using Domain.DTOs.Group;
 using Domain.Entities;
 using Domain.Enums;
@@ -267,7 +268,6 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 };
             }
 
-            // Update group properties
             group.Name = request.Name;
             group.Description = request.Description;
             group.CourseId = request.CourseId;
@@ -281,7 +281,6 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
             group.LessonEndTime = request.LessonEndTime;
             group.AutoGenerateLessons = request.AutoGenerateLessons;
             
-            // Auto-calculated fields
             if (request.DurationMonth.HasValue)
                 group.DurationMonth = request.DurationMonth.Value;
                 
@@ -532,6 +531,11 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 FullName = group.Mentor.FullName
             } : null,
             DayOfWeek = 0, 
+            Course = new GetSimpleCourseDto()
+            {
+                Id = group.Course.Id,
+                CourseName = group.Course.CourseName,
+            },
             ImagePath = group.PhotoPath,
             CurrentWeek = group.CurrentWeek,
             ClassroomId = group.ClassroomId,
@@ -555,7 +559,8 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 : null,
             LessonStartTime = group.LessonStartTime,
             LessonEndTime = group.LessonEndTime,
-            AutoGenerateLessons = group.AutoGenerateLessons
+            AutoGenerateLessons = group.AutoGenerateLessons,
+            
         };
     }
 } 
