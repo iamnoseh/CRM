@@ -44,5 +44,4 @@ public class GetGroupDto
     }
     public TimeOnly? LessonStartTime { get; set; }
     public TimeOnly? LessonEndTime { get; set; }
-    public bool AutoGenerateLessons { get; set; }
 }

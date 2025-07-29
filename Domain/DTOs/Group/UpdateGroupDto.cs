@@ -49,7 +49,6 @@ public class UpdateGroupDto
     [Required(ErrorMessage = "Вақти анҷоми дарс зарур аст")]
     public TimeOnly? LessonEndTime { get; set; }
     
-    public bool AutoGenerateLessons { get; set; } = true;
     public int? DurationMonth => StartDate.HasValue && EndDate.HasValue 
         ? (int)Math.Ceiling((EndDate.Value - StartDate.Value).TotalDays / 30.0) 
         : null;

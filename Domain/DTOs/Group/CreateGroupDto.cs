@@ -49,6 +49,4 @@ public class CreateGroupDto
     
     [Required(ErrorMessage = "Вақти анҷоми дарс зарур аст")]
     public TimeOnly? LessonEndTime { get; set; }
-    
-    public bool AutoGenerateLessons { get; set; } = true;
 }

@@ -34,7 +34,6 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 };
             }
 
-            // Check if mentor exists and belongs to the same center
             var mentorExists = await context.Mentors.AnyAsync(m => m.Id == request.MentorId && 
                                                                    m.CenterId == centerId && 
                                                                    !m.IsDeleted);
@@ -46,8 +45,6 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                     Message = "Омӯзгор ёфт нашуд ё ба ин маркази таълимӣ тааллуқ надорад"
                 };
             }
-
-            // Check if course exists and belongs to the same center
             var courseExists = await context.Courses.AnyAsync(c => c.Id == request.CourseId && 
                                                                    c.CenterId == centerId && 
                                                                    !c.IsDeleted);
@@ -103,7 +100,6 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 }
                 imagePath = uploadResult.Data;
             }
-            // Calculate DurationMonth and LessonInWeek automatically
             var startDate = request.StartDate?.ToUniversalTime() ?? DateTimeOffset.UtcNow.AddDays(1);
             var endDate = request.EndDate?.ToUniversalTime() ?? DateTimeOffset.UtcNow.AddMonths(3);
             
@@ -130,44 +126,12 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 LessonDays = request.LessonDays,
                 LessonStartTime = request.LessonStartTime,
                 LessonEndTime = request.LessonEndTime,
-                AutoGenerateLessons = request.AutoGenerateLessons,
                 CreatedAt = DateTimeOffset.UtcNow,
                 UpdatedAt = DateTimeOffset.UtcNow
             };
 
             context.Groups.Add(group);
             await context.SaveChangesAsync();
-            if (request.AutoGenerateLessons && 
-                request.ParsedLessonDays != null && request.ParsedLessonDays.Count > 0 &&
-                request.LessonStartTime.HasValue && request.LessonEndTime.HasValue &&
-                request.StartDate.HasValue && request.EndDate.HasValue)
-            {
-                var lessonGenerationResult = await LessonSchedulingHelper.GenerateSchedulesAndLessonsAsync(
-                    context,
-                    group,
-                    request.StartDate.Value,
-                    request.EndDate.Value,
-                    request.ParsedLessonDays,
-                    request.LessonStartTime.Value,
-                    request.LessonEndTime.Value);
-
-                if (lessonGenerationResult.StatusCode != 200)
-                {
-                    return new Response<string>
-                    {
-                        StatusCode = (int)HttpStatusCode.Created,
-                        Data = "Гурӯҳ сохта шуд, аммо дарсҳо автоматӣ эҷод нашуданд",
-                        Message = $"Гурӯҳ сохта шуд, аммо дарсҳо автоматӣ эҷод нашуданд: {lessonGenerationResult.Message}"
-                    };
-                }
-
-                return new Response<string>
-                {
-                    StatusCode = (int)HttpStatusCode.Created,
-                    Data = $"Гурӯҳ ва {lessonGenerationResult.Data?.Count ?? 0} дарс бо муваффақият сохта шуданд",
-                    Message = "Гурӯҳ ва дарсҳо бо муваффақият сохта шуданд"
-                };
-            }
 
             return new Response<string>
             {
@@ -212,7 +176,6 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 };
             }
 
-            // Check if mentor exists and belongs to the same center
             var mentorExists = await context.Mentors.AnyAsync(m => m.Id == request.MentorId && 
                                                                    m.CenterId == centerId && 
                                                                    !m.IsDeleted);
@@ -225,7 +188,6 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 };
             }
 
-            // Check if course exists and belongs to the same center
             var courseExists = await context.Courses.AnyAsync(c => c.Id == request.CourseId && 
                                                                    c.CenterId == centerId && 
                                                                    !c.IsDeleted);
@@ -254,8 +216,6 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                     };
                 }
             }
-
-            // Check for duplicate name (excluding current group)
             var existingGroup = await context.Groups
                 .AnyAsync(g => g.Name.ToLower() == request.Name.ToLower() && 
                               g.Id != id && !g.IsDeleted);
@@ -279,7 +239,6 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
             group.LessonDays = request.LessonDays;
             group.LessonStartTime = request.LessonStartTime;
             group.LessonEndTime = request.LessonEndTime;
-            group.AutoGenerateLessons = request.AutoGenerateLessons;
             
             if (request.DurationMonth.HasValue)
                 group.DurationMonth = request.DurationMonth.Value;
@@ -287,7 +246,6 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
             if (request.LessonInWeek.HasValue)
                 group.LessonInWeek = request.LessonInWeek.Value;
 
-            // Handle image update
             if (request.Image != null)
             {
       
@@ -559,7 +517,6 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 : null,
             LessonStartTime = group.LessonStartTime,
             LessonEndTime = group.LessonEndTime,
-            AutoGenerateLessons = group.AutoGenerateLessons,
             
         };
     }

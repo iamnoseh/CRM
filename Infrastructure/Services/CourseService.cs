@@ -347,8 +347,7 @@ public class CourseService(DataContext context, string uploadPath, IHttpContextA
                 ClassroomId = g.ClassroomId,
                 LessonDays = g.LessonDays,
                 LessonStartTime = g.LessonStartTime,
-                LessonEndTime = g.LessonEndTime,
-                AutoGenerateLessons = g.AutoGenerateLessons
+                LessonEndTime = g.LessonEndTime
             }).ToList();
             var dto = new GetCourseGroupsDto
             {
