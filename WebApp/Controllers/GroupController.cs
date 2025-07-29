@@ -14,7 +14,7 @@ namespace WebApp.Controllers;
 public class GroupController(IGroupService groupService, DataContext context) : ControllerBase
 {
     [HttpPost]
-    public async Task<IActionResult> CreateGroup(CreateGroupDto createDto)
+    public async Task<IActionResult> CreateGroup([FromForm]CreateGroupDto createDto)
     {
         if (!ModelState.IsValid)
         {

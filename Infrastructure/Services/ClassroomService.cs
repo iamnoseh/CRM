@@ -329,7 +329,6 @@ public class ClassroomService : IClassroomService
         {
             var conflictDto = new ScheduleConflictDto();
 
-            // Check for time conflicts
             var conflicts = await _context.Schedules
                 .Include(s => s.Classroom)
                 .Include(s => s.Group)
