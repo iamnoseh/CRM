@@ -11,11 +11,18 @@ public interface IStudentGroupService
     Task<Response<string>> DeleteStudentGroupAsync(int id);
     Task<Response<GetStudentGroupDto>> GetStudentGroupByIdAsync(int id);
     Task<Response<List<GetStudentGroupDto>>> GetAllStudentGroupsAsync();
-    Task<PaginationResponse<List<GetStudentGroupDto>>> GetStudentGroupsPaginated(BaseFilter filter);
+    Task<PaginationResponse<List<GetStudentGroupDto>>> GetStudentGroupsPaginated(StudentGroupFilter filter);
     Task<Response<List<GetStudentGroupDto>>> GetStudentGroupsByStudentAsync(int studentId);
     Task<Response<List<GetStudentGroupDto>>> GetStudentGroupsByGroupAsync(int groupId);
     
-    // Операции с множеством записей
     Task<Response<string>> AddMultipleStudentsToGroupAsync(int groupId, List<int> studentIds);
     Task<Response<string>> RemoveStudentFromAllGroupsAsync(int studentId);
+    
+   
+    Task<Response<List<GetStudentGroupDto>>> GetActiveStudentsInGroupAsync(int groupId);
+    Task<Response<List<GetStudentGroupDto>>> GetInactiveStudentsInGroupAsync(int groupId);
+    Task<Response<string>> ActivateStudentInGroupAsync(int studentId, int groupId);
+    Task<Response<string>> DeactivateStudentInGroupAsync(int studentId, int groupId);
+    Task<Response<int>> GetStudentGroupCountAsync(int groupId);
+    Task<Response<int>> GetStudentGroupsCountAsync(int studentId);
 }

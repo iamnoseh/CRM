@@ -188,6 +188,7 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
             // Преобразуем в DTO
             var dto = new GetStudentGroupDto
             {
+                Id = studentGroup.Id,
                 GroupId = studentGroup.GroupId,
                 GroupName = studentGroup.Group?.Name,
                 StudentId = studentGroup.StudentId,
@@ -216,6 +217,7 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
                 .Where(sg => !sg.IsDeleted)
                 .Select(sg => new GetStudentGroupDto
                 {
+                    Id = sg.Id,
                     GroupId = sg.GroupId,
                     GroupName = sg.Group.Name,
                     StudentId = sg.StudentId,
@@ -238,7 +240,7 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
     #endregion
 
     #region GetStudentGroupsPaginated
-    public async Task<PaginationResponse<List<GetStudentGroupDto>>> GetStudentGroupsPaginated(BaseFilter filter)
+    public async Task<PaginationResponse<List<GetStudentGroupDto>>> GetStudentGroupsPaginated(StudentGroupFilter filter)
     {
         try
         {
@@ -248,6 +250,38 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
                 .Include(sg => sg.Group)
                 .Where(sg => !sg.IsDeleted)
                 .AsQueryable();
+
+            // Применяем фильтры
+            if (!string.IsNullOrEmpty(filter.Search))
+            {
+                query = query.Where(sg => sg.Student.FullName.Contains(filter.Search) ||
+                                        sg.Group.Name.Contains(filter.Search));
+            }
+
+            if (filter.StudentId.HasValue)
+            {
+                query = query.Where(sg => sg.StudentId == filter.StudentId);
+            }
+
+            if (filter.GroupId.HasValue)
+            {
+                query = query.Where(sg => sg.GroupId == filter.GroupId);
+            }
+
+            if (filter.IsActive.HasValue)
+            {
+                query = query.Where(sg => sg.IsActive == filter.IsActive);
+            }
+
+            if (filter.JoinedDateFrom.HasValue)
+            {
+                query = query.Where(sg => sg.CreatedAt >= filter.JoinedDateFrom);
+            }
+
+            if (filter.JoinedDateTo.HasValue)
+            {
+                query = query.Where(sg => sg.CreatedAt <= filter.JoinedDateTo);
+            }
 
             // Получаем общее количество записей для пагинации
             var totalCount = await query.CountAsync();
@@ -259,6 +293,7 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
                 .Take(filter.PageSize)
                 .Select(sg => new GetStudentGroupDto
                 {
+                    Id = sg.Id,
                     GroupId = sg.GroupId,
                     GroupName = sg.Group.Name,
                     StudentId = sg.StudentId,
@@ -303,6 +338,7 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
                 .Where(sg => sg.StudentId == studentId && !sg.IsDeleted)
                 .Select(sg => new GetStudentGroupDto
                 {
+                    Id = sg.Id,
                     GroupId = sg.GroupId,
                     GroupName = sg.Group.Name,
                     StudentId = sg.StudentId,
@@ -329,19 +365,19 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
     {
         try
         {
-            // Проверяем существование группы
+           
             var group = await context.Groups
                 .FirstOrDefaultAsync(g => g.Id == groupId && !g.IsDeleted);
             
             if (group == null)
                 return new Response<List<GetStudentGroupDto>>(HttpStatusCode.NotFound, "Group not found");
 
-            // Получаем студентов группы
             var studentGroups = await context.StudentGroups
                 .Include(sg => sg.Student)
                 .Where(sg => sg.GroupId == groupId && !sg.IsDeleted)
                 .Select(sg => new GetStudentGroupDto
                 {
+                    Id = sg.Id,
                     GroupId = sg.GroupId,
                     GroupName = group.Name,
                     StudentId = sg.StudentId,
@@ -462,6 +498,214 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
         catch (Exception ex)
         {
             return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
+        }
+    }
+    #endregion
+
+    #region GetActiveStudentsInGroupAsync
+    public async Task<Response<List<GetStudentGroupDto>>> GetActiveStudentsInGroupAsync(int groupId)
+    {
+        try
+        {
+            // Проверяем существование группы
+            var group = await context.Groups
+                .FirstOrDefaultAsync(g => g.Id == groupId && !g.IsDeleted);
+            
+            if (group == null)
+                return new Response<List<GetStudentGroupDto>>(HttpStatusCode.NotFound, "Group not found");
+
+            // Получаем активных студентов группы
+            var activeStudents = await context.StudentGroups
+                .Include(sg => sg.Student)
+                .Where(sg => sg.GroupId == groupId && 
+                            sg.IsActive == true && 
+                            !sg.IsDeleted)
+                .Select(sg => new GetStudentGroupDto
+                {
+                    Id = sg.Id,
+                    GroupId = sg.GroupId,
+                    GroupName = group.Name,
+                    StudentId = sg.StudentId,
+                    StudentFullName = sg.Student.FullName,
+                    JoinedDate = sg.CreatedAt,
+                    IsActive = sg.IsActive ?? false
+                })
+                .ToListAsync();
+
+            if (!activeStudents.Any())
+                return new Response<List<GetStudentGroupDto>>(HttpStatusCode.NotFound, "No active students in this group");
+
+            return new Response<List<GetStudentGroupDto>>(activeStudents);
+        }
+        catch (Exception ex)
+        {
+            return new Response<List<GetStudentGroupDto>>(HttpStatusCode.InternalServerError, ex.Message);
+        }
+    }
+    #endregion
+
+    #region GetInactiveStudentsInGroupAsync
+    public async Task<Response<List<GetStudentGroupDto>>> GetInactiveStudentsInGroupAsync(int groupId)
+    {
+        try
+        {
+            // Проверяем существование группы
+            var group = await context.Groups
+                .FirstOrDefaultAsync(g => g.Id == groupId && !g.IsDeleted);
+            
+            if (group == null)
+                return new Response<List<GetStudentGroupDto>>(HttpStatusCode.NotFound, "Group not found");
+
+            // Получаем неактивных студентов группы
+            var inactiveStudents = await context.StudentGroups
+                .Include(sg => sg.Student)
+                .Where(sg => sg.GroupId == groupId && 
+                            sg.IsActive == false && 
+                            !sg.IsDeleted)
+                .Select(sg => new GetStudentGroupDto
+                {
+                    Id = sg.Id,
+                    GroupId = sg.GroupId,
+                    GroupName = group.Name,
+                    StudentId = sg.StudentId,
+                    StudentFullName = sg.Student.FullName,
+                    JoinedDate = sg.CreatedAt,
+                    IsActive = sg.IsActive ?? false
+                })
+                .ToListAsync();
+
+            if (!inactiveStudents.Any())
+                return new Response<List<GetStudentGroupDto>>(HttpStatusCode.NotFound, "No inactive students in this group");
+
+            return new Response<List<GetStudentGroupDto>>(inactiveStudents);
+        }
+        catch (Exception ex)
+        {
+            return new Response<List<GetStudentGroupDto>>(HttpStatusCode.InternalServerError, ex.Message);
+        }
+    }
+    #endregion
+
+    #region ActivateStudentInGroupAsync
+    public async Task<Response<string>> ActivateStudentInGroupAsync(int studentId, int groupId)
+    {
+        try
+        {
+            // Находим запись StudentGroup
+            var studentGroup = await context.StudentGroups
+                .FirstOrDefaultAsync(sg => sg.StudentId == studentId && 
+                                         sg.GroupId == groupId && 
+                                         !sg.IsDeleted);
+            
+            if (studentGroup == null)
+                return new Response<string>(HttpStatusCode.NotFound, "Student group membership not found");
+
+            if (studentGroup.IsActive == true)
+                return new Response<string>(HttpStatusCode.BadRequest, "Student is already active in this group");
+
+            // Активируем студента
+            studentGroup.IsActive = true;
+            studentGroup.UpdatedAt = DateTime.UtcNow;
+            
+            context.StudentGroups.Update(studentGroup);
+            var result = await context.SaveChangesAsync();
+
+            return result > 0
+                ? new Response<string>(HttpStatusCode.OK, "Student activated in group successfully")
+                : new Response<string>(HttpStatusCode.InternalServerError, "Failed to activate student in group");
+        }
+        catch (Exception ex)
+        {
+            return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
+        }
+    }
+    #endregion
+
+    #region DeactivateStudentInGroupAsync
+    public async Task<Response<string>> DeactivateStudentInGroupAsync(int studentId, int groupId)
+    {
+        try
+        {
+            // Находим запись StudentGroup
+            var studentGroup = await context.StudentGroups
+                .FirstOrDefaultAsync(sg => sg.StudentId == studentId && 
+                                         sg.GroupId == groupId && 
+                                         !sg.IsDeleted);
+            
+            if (studentGroup == null)
+                return new Response<string>(HttpStatusCode.NotFound, "Student group membership not found");
+
+            if (studentGroup.IsActive == false)
+                return new Response<string>(HttpStatusCode.BadRequest, "Student is already inactive in this group");
+
+            // Деактивируем студента
+            studentGroup.IsActive = false;
+            studentGroup.UpdatedAt = DateTime.UtcNow;
+            
+            context.StudentGroups.Update(studentGroup);
+            var result = await context.SaveChangesAsync();
+
+            return result > 0
+                ? new Response<string>(HttpStatusCode.OK, "Student deactivated in group successfully")
+                : new Response<string>(HttpStatusCode.InternalServerError, "Failed to deactivate student in group");
+        }
+        catch (Exception ex)
+        {
+            return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
+        }
+    }
+    #endregion
+
+    #region GetStudentGroupCountAsync
+    public async Task<Response<int>> GetStudentGroupCountAsync(int groupId)
+    {
+        try
+        {
+            var group = await context.Groups
+                .FirstOrDefaultAsync(g => g.Id == groupId && !g.IsDeleted);
+            
+            if (group == null)
+                return new Response<int>(HttpStatusCode.NotFound, "Group not found");
+
+            var count = await context.StudentGroups
+                .Where(sg => sg.GroupId == groupId && 
+                            sg.IsActive == true && 
+                            !sg.IsDeleted)
+                .CountAsync();
+
+            return new Response<int>(count);
+        }
+        catch (Exception ex)
+        {
+            return new Response<int>(HttpStatusCode.InternalServerError, ex.Message);
+        }
+    }
+    #endregion
+
+    #region GetStudentGroupsCountAsync
+    public async Task<Response<int>> GetStudentGroupsCountAsync(int studentId)
+    {
+        try
+        {
+            // Проверяем существование студента
+            var student = await context.Students
+                .FirstOrDefaultAsync(s => s.Id == studentId && !s.IsDeleted);
+            
+            if (student == null)
+                return new Response<int>(HttpStatusCode.NotFound, "Student not found");
+
+            // Получаем количество активных групп студента
+            var count = await context.StudentGroups
+                .Where(sg => sg.StudentId == studentId && 
+                            sg.IsActive == true && 
+                            !sg.IsDeleted)
+                .CountAsync();
+
+            return new Response<int>(count);
+        }
+        catch (Exception ex)
+        {
+            return new Response<int>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
     #endregion

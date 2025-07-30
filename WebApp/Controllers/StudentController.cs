@@ -15,10 +15,12 @@ namespace WebApp.Controllers;
 public class StudentController (IStudentService service) : ControllerBase
 {
     [HttpGet]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Teacher,Student")]
     public async Task<Response<List<GetStudentDto>>> GetAllStudents() =>
         await service.GetStudents();
 
     [HttpGet("select-students")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<IActionResult> GetStudentForSelect([FromQuery] StudentFilterForSelect filter)
     {
         var result = await service.GetStudentForSelect(filter);
@@ -26,25 +28,29 @@ public class StudentController (IStudentService service) : ControllerBase
     }
 
     [HttpGet("{id}")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Teacher,Student")]
     public async Task<Response<GetStudentDto>> GetStudentById(int id ) => 
         await service.GetStudentByIdAsync(id );
     
     [HttpGet("filter")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Teacher,Student")]
     public async Task<PaginationResponse<List<GetStudentDto>>> 
         GetStudentsPagination([FromQuery] StudentFilter filter ) =>
         await service.GetStudentsPagination(filter );
 
     [HttpGet("simple")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Teacher,Student")]
     public async Task<PaginationResponse<List<GetSimpleDto>>> 
         GetSimpleStudents([FromQuery] StudentFilter filter) =>
         await service.GetSimpleStudents(filter);
 
     [HttpPost]
-    [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin}")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<Response<string>> CreateStudent([FromForm] CreateStudentDto student) => 
         await service.CreateStudentAsync(student);
 
     [HttpPut("{id}")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin},{Roles.Student}")]
     public async Task<Response<string>> UpdateStudent(int id, [FromForm] UpdateStudentDto dto) =>
         await service.UpdateStudentAsync(id, dto);
@@ -55,18 +61,17 @@ public class StudentController (IStudentService service) : ControllerBase
         await service.UpdateUserProfileImageAsync(id, photo);
         
     [HttpPut("document/{id}")]
-    [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin},{Roles.Student}")]
+    [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin}")]
     public async Task<Response<string>> UpdateStudentDocument(int id, IFormFile document) =>
         await service.UpdateStudentDocumentAsync(id, document);
 
-    [HttpDelete("{id}")]
-    [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin}")]
+    [HttpDelete("{id}")][Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<Response<string>> DeleteStudent(int id) =>
         await service.DeleteStudentAsync(id);
     
         
     [HttpGet("document/{studentId}")]
-    [Authorize]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Teacher,Student")]
     public async Task<IActionResult> GetStudentDocument(int studentId)
     {
         var studentDebugResponse = await service.GetStudentByIdAsync(studentId);
@@ -108,7 +113,7 @@ public class StudentController (IStudentService service) : ControllerBase
     
 
     [HttpGet("debug/document/{studentId}")]
-    [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin}")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Teacher,Student")]
     public async Task<IActionResult> DebugStudentDocument(int studentId)
     {
         try
@@ -136,7 +141,7 @@ public class StudentController (IStudentService service) : ControllerBase
     }
 
     [HttpPut("payment-status")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<Response<string>> UpdateStudentPaymentStatus([FromBody] UpdateStudentPaymentStatusDto dto)
         => await service.UpdateStudentPaymentStatusAsync(dto);
 

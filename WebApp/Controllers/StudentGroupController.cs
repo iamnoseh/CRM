@@ -12,7 +12,7 @@ namespace WebApp.Controllers;
 public class StudentGroupController(IStudentGroupService studentGroupService) : ControllerBase
 {
     [HttpPost]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<ActionResult<Response<string>>> CreateStudentGroup([FromBody] CreateStudentGroup request)
     {
         var result = await studentGroupService.CreateStudentGroupAsync(request);
@@ -20,7 +20,7 @@ public class StudentGroupController(IStudentGroupService studentGroupService) : 
     }
     
     [HttpPut]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<ActionResult<Response<string>>> UpdateStudentGroup(int id, [FromBody] UpdateStudentGroupDto request)
     {
         var result = await studentGroupService.UpdateStudentGroupAsync(id, request);
@@ -28,7 +28,7 @@ public class StudentGroupController(IStudentGroupService studentGroupService) : 
     }
     
     [HttpDelete]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<ActionResult<Response<string>>> DeleteStudentGroup(int id)
     {
         var result = await studentGroupService.DeleteStudentGroupAsync(id);
@@ -36,7 +36,7 @@ public class StudentGroupController(IStudentGroupService studentGroupService) : 
     }
     
     [HttpGet("{id}")]
-    [Authorize]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Teacher,Student")]
     public async Task<ActionResult<Response<GetStudentGroupDto>>> GetStudentGroupById(int id)
     {
         var result = await studentGroupService.GetStudentGroupByIdAsync(id);
@@ -45,6 +45,7 @@ public class StudentGroupController(IStudentGroupService studentGroupService) : 
     
     [HttpGet]
     [Authorize]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Teacher,Student")]
     public async Task<ActionResult<Response<List<GetStudentGroupDto>>>> GetAllStudentGroups()
     {
         var result = await studentGroupService.GetAllStudentGroupsAsync();
@@ -53,7 +54,7 @@ public class StudentGroupController(IStudentGroupService studentGroupService) : 
     
     [HttpGet("paginated")]
     [Authorize]
-    public async Task<ActionResult<PaginationResponse<List<GetStudentGroupDto>>>> GetStudentGroupsPaginated([FromQuery] BaseFilter filter)
+    public async Task<ActionResult<PaginationResponse<List<GetStudentGroupDto>>>> GetStudentGroupsPaginated([FromQuery] StudentGroupFilter filter)
     {
         var result = await studentGroupService.GetStudentGroupsPaginated(filter);
         return StatusCode(result.StatusCode, result);
@@ -68,7 +69,7 @@ public class StudentGroupController(IStudentGroupService studentGroupService) : 
     }
     
     [HttpGet("group/{groupId}")]
-    [Authorize]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Teacher,Student")]
     public async Task<ActionResult<Response<List<GetStudentGroupDto>>>> GetStudentGroupsByGroup(int groupId)
     {
         var result = await studentGroupService.GetStudentGroupsByGroupAsync(groupId);
@@ -76,7 +77,7 @@ public class StudentGroupController(IStudentGroupService studentGroupService) : 
     }
     
     [HttpPost("group/{groupId}/students")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<ActionResult<Response<string>>> AddMultipleStudentsToGroup(int groupId, List<int> studentIds)
     {
         var result = await studentGroupService.AddMultipleStudentsToGroupAsync(groupId, studentIds);
@@ -84,10 +85,11 @@ public class StudentGroupController(IStudentGroupService studentGroupService) : 
     }
     
     [HttpDelete("student/{studentId}/remove-from-all")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<ActionResult<Response<string>>> RemoveStudentFromAllGroups(int studentId)
     {
         var result = await studentGroupService.RemoveStudentFromAllGroupsAsync(studentId);
         return StatusCode(result.StatusCode, result);
     }
+
 }

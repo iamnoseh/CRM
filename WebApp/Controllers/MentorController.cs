@@ -1,6 +1,5 @@
 using Domain.DTOs.Mentor;
 using Domain.DTOs.Student;
-using Domain.Entities;
 using Domain.Filters;
 using Domain.Responses;
 using Infrastructure.Interfaces;

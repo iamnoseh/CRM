@@ -25,6 +25,14 @@
 
   <ItemGroup>
     <Folder Include="wwwroot\uploads\" />
+    <Folder Include="wwwroot\uploads\centers\" />
+    <Folder Include="wwwroot\uploads\courses\" />
+    <Folder Include="wwwroot\uploads\documents\employee\" />
+    <Folder Include="wwwroot\uploads\documents\groups\" />
+    <Folder Include="wwwroot\uploads\documents\student\" />
+    <Folder Include="wwwroot\uploads\employee\" />
+    <Folder Include="wwwroot\uploads\mentor\" />
+    <Folder Include="wwwroot\uploads\student\" />
   </ItemGroup>
 
 </Project>
