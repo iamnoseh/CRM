@@ -22,17 +22,13 @@ public class Group : BaseEntity
     public int MentorId { get; set; }
     public Mentor Mentor { get; set; }
     public Course Course { get; set; }
-    
     public int? ClassroomId { get; set; }
     public Classroom? Classroom { get; set; }
-    
     public List<StudentGroup> StudentGroups { get; set; } = new();
     public List<Lesson> Lessons { get; set; } = new();
     public List<Schedule> Schedules { get; set; } = new();
     public int CurrentWeek { get; set; } = 1;
-    
     public string? LessonDays { get; set; } 
     public TimeOnly? LessonStartTime { get; set; }
     public TimeOnly? LessonEndTime { get; set; }
-    public bool AutoGenerateLessons { get; set; } = false;
 }
