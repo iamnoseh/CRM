@@ -554,58 +554,30 @@ public class MentorService(
             : new Response<string>(HttpStatusCode.BadRequest, "Хатогӣ ҳангоми навсозии ҳолати пардохт");
     }
 
-    public async Task<PaginationResponse<List<GetSimpleDto>>> GetSimpleMentorPagination(MentorFilter filter)
+    public async Task<Response<List<GetSimpleDto>>> GetSimpleMentorPagination()
     {
         try
         {
             var query = context.Mentors.Where(m => !m.IsDeleted);
             query = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(query, httpContextAccessor, m => m.CenterId);
-
-            // Apply filters
-            if (filter.Id.HasValue)
-                query = query.Where(m => m.Id == filter.Id.Value);
-
-            if (!string.IsNullOrEmpty(filter.FullName))
-                query = query.Where(m => m.FullName.ToLower().Contains(filter.FullName.ToLower()));
-
-            if (!string.IsNullOrEmpty(filter.PhoneNumber))
-                query = query.Where(m => m.PhoneNumber.ToLower().Contains(filter.PhoneNumber.ToLower()));
-
-            if (filter.Age.HasValue)
-                query = query.Where(m => m.Age == filter.Age.Value);
-
-            if (filter.Gender.HasValue)
-                query = query.Where(m => m.Gender == filter.Gender.Value);
-
-            if (filter.Salary.HasValue)
-                query = query.Where(m => m.Salary == filter.Salary.Value);
-
-            if (filter.CenterId.HasValue)
-                query = query.Where(m => m.CenterId == filter.CenterId.Value);
-
-            var totalRecords = await query.CountAsync();
-            var skip = (filter.PageNumber - 1) * filter.PageSize;
-
-            var mentors = await query
-                .OrderBy(m => m.FullName)
-                .Skip(skip)
-                .Take(filter.PageSize)
-                .Select(m => new GetSimpleDto
-                {
-                    Id = m.Id,
-                    FullName = m.FullName
-                })
-                .ToListAsync();
-
-            return new PaginationResponse<List<GetSimpleDto>>(
-                mentors,
-                totalRecords,
-                filter.PageNumber,
-                filter.PageSize);
+            var mentors = await query.OrderBy(m => m.FullName).Select(m => new GetSimpleDto()
+            {
+                Id = m.Id,
+                FullName = m.FullName
+            }).ToListAsync();
+            if (mentors.Count > 0)
+            {
+                return new Response<List<GetSimpleDto>>(mentors);
+            }
+            else
+            {
+                
+                return new Response<List<GetSimpleDto>>(HttpStatusCode.NotFound,"Mentors not found");
+            }
         }
         catch (Exception ex)
         {
-            return new PaginationResponse<List<GetSimpleDto>>(HttpStatusCode.InternalServerError
+            return new Response<List<GetSimpleDto>>(HttpStatusCode.InternalServerError
             ,"Something went wrong");
         }
     }

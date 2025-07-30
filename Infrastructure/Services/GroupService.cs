@@ -424,6 +424,11 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                                         g.Description.Contains(filter.Search));
             }
 
+            if (!string.IsNullOrEmpty(filter.Name))
+            {
+                query = query.Where(g => g.Name.Contains(filter.Name));
+            }
+
             if (filter.CourseId.HasValue)
             {
                 query = query.Where(g => g.CourseId == filter.CourseId);
@@ -439,9 +444,34 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 query = query.Where(g => g.ClassroomId == filter.ClassroomId);
             }
 
+            if (filter.Started.HasValue)
+            {
+                query = query.Where(g => g.Started == filter.Started);
+            }
+
             if (filter.Status.HasValue)
             {
                 query = query.Where(g => g.Status == filter.Status);
+            }
+
+            if (filter.StartDateFrom.HasValue)
+            {
+                query = query.Where(g => g.StartDate >= filter.StartDateFrom);
+            }
+
+            if (filter.StartDateTo.HasValue)
+            {
+                query = query.Where(g => g.StartDate <= filter.StartDateTo);
+            }
+
+            if (filter.EndDateFrom.HasValue)
+            {
+                query = query.Where(g => g.EndDate >= filter.EndDateFrom);
+            }
+
+            if (filter.EndDateTo.HasValue)
+            {
+                query = query.Where(g => g.EndDate <= filter.EndDateTo);
             }
 
             var totalRecords = await query.CountAsync();

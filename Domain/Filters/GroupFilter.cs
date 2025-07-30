@@ -4,7 +4,6 @@ namespace Domain.Filters;
 
 public class GroupFilter : BaseFilter
 {
-    public string? Search { get; set; }
     public string? Name { get; set; }
     public int? CourseId { get; set; }
     public int? MentorId { get; set; }

@@ -1,7 +1,6 @@
 using Domain.DTOs.Group;
 using Domain.Filters;
 using Infrastructure.Interfaces;
-using Infrastructure.Helpers;
 using Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

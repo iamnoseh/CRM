@@ -40,9 +40,9 @@ public class MentorController(IMentorService mentorService) : ControllerBase
 
     [HttpGet("simple")]
     [Authorize(Roles = "Admin,SuperAdmin,Manager")]
-    public async Task<ActionResult<PaginationResponse<List<GetSimpleDto>>>> GetSimpleMentorPagination([FromQuery] MentorFilter filter)
+    public async Task<ActionResult<PaginationResponse<List<GetSimpleDto>>>> GetSimpleMentorPagination()
     {
-        var response = await mentorService.GetSimpleMentorPagination(filter);
+        var response = await mentorService.GetSimpleMentorPagination();
         return StatusCode(response.StatusCode, response);
     }
     
