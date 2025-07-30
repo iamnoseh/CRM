@@ -417,13 +417,7 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 .Include(g => g.StudentGroups.Where(sg => !sg.IsDeleted))
                 .Where(g => !g.IsDeleted)
                 .AsQueryable();
-
-            if (!string.IsNullOrEmpty(filter.Search))
-            {
-                query = query.Where(g => g.Name.Contains(filter.Search) ||
-                                        g.Description.Contains(filter.Search));
-            }
-
+            
             if (!string.IsNullOrEmpty(filter.Name))
             {
                 query = query.Where(g => g.Name.Contains(filter.Name));
