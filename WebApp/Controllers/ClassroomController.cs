@@ -14,6 +14,7 @@ namespace WebApp.Controllers;
 public class ClassroomController(IClassroomService classroomService) : ControllerBase
 {
     [HttpPost]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<IActionResult> CreateClassroom([FromBody] CreateClassroomDto createDto)
     {
         if (!ModelState.IsValid)
@@ -31,6 +32,19 @@ public class ClassroomController(IClassroomService classroomService) : Controlle
         return BadRequest(response);
     }
 
+    [HttpGet]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
+    public async Task<IActionResult> GetAllClassrooms([FromQuery]ClassroomFilter filter)
+    {
+        var res = await classroomService.GetAllClassrooms(filter);
+        if (res.StatusCode == 200)
+        {
+            return Ok(res);
+        }
+
+        return NotFound(res);
+    }
+    
     [HttpGet("{id}")]
     public async Task<IActionResult> GetClassroom(int id)
     {
@@ -58,6 +72,7 @@ public class ClassroomController(IClassroomService classroomService) : Controlle
     }
 
     [HttpPut]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<IActionResult> UpdateClassroom([FromBody] UpdateClassroomDto updateDto)
     {
         if (!ModelState.IsValid)
@@ -76,6 +91,7 @@ public class ClassroomController(IClassroomService classroomService) : Controlle
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<IActionResult> DeleteClassroom(int id)
     {
         var response = await classroomService.DeleteClassroomAsync(id);
@@ -105,6 +121,7 @@ public class ClassroomController(IClassroomService classroomService) : Controlle
     }
 
     [HttpPost("schedule/check-conflict")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<IActionResult> CheckScheduleConflict([FromBody] CreateScheduleDto scheduleDto)
     {
         if (!ModelState.IsValid)
@@ -123,6 +140,7 @@ public class ClassroomController(IClassroomService classroomService) : Controlle
     }
 
     [HttpPost("schedule")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<IActionResult> CreateSchedule([FromBody] CreateScheduleDto createDto)
     {
         if (!ModelState.IsValid)

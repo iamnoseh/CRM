@@ -8,6 +8,7 @@ namespace Infrastructure.Interfaces;
 public interface IClassroomService
 {
     Task<Response<GetClassroomDto>> CreateClassroomAsync(CreateClassroomDto createDto);
+    Task<PaginationResponse<List<GetClassroomDto>>> GetAllClassrooms(ClassroomFilter filter);
     Task<Response<GetClassroomDto>> GetClassroomByIdAsync(int id);
     Task<Response<List<GetClassroomDto>>> GetClassroomsByCenterAsync(int centerId);
     Task<Response<GetClassroomDto>> UpdateClassroomAsync(UpdateClassroomDto updateDto);

@@ -73,6 +73,64 @@ public class ClassroomService : IClassroomService
         }
     }
 
+    public async Task<PaginationResponse<List<GetClassroomDto>>> GetAllClassrooms(ClassroomFilter filter)
+    {
+        try
+        {
+            var query = _context.Classrooms
+                .Include(c => c.Center)
+                .Where(c => !c.IsDeleted)
+                .AsQueryable();
+
+            query = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(query, _httpContextAccessor, c => c.CenterId);
+
+            if (!string.IsNullOrEmpty(filter.Name))
+            {
+                query = query.Where(c => c.Name.ToLower().Contains(filter.Name.ToLower()));
+            }
+
+            if (filter.Capacity.HasValue)
+            {
+                query = query.Where(c => c.Capacity == filter.Capacity);
+            }
+
+            var totalRecords = await query.CountAsync();
+            var skip = (filter.PageNumber - 1) * filter.PageSize;
+            
+            var classrooms = await query
+                .OrderBy(c => c.Name)
+                .Skip(skip)
+                .Take(filter.PageSize)
+                .ToListAsync();
+
+            var classroomDtos = classrooms.Select(classroom => new GetClassroomDto
+            {
+                Id = classroom.Id,
+                Name = classroom.Name,
+                Description = classroom.Description,
+                Capacity = classroom.Capacity,
+                IsActive = classroom.IsActive,
+                CenterId = classroom.CenterId,
+                Center = new GetCenterSimpleDto
+                {
+                    Id = classroom.Center.Id,
+                    Name = classroom.Center.Name,
+                },
+                CreatedAt = classroom.CreatedAt,
+                UpdatedAt = classroom.UpdatedAt
+            }).ToList();
+
+            return new PaginationResponse<List<GetClassroomDto>>(classroomDtos, totalRecords, filter.PageNumber, filter.PageSize)
+            {
+                StatusCode = (int)HttpStatusCode.OK
+            };
+        }
+        catch (Exception ex)
+        {
+            return new PaginationResponse<List<GetClassroomDto>>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми гирифтани синфхонаҳо: {ex.Message}");
+        }
+    }
+
     public async Task<Response<GetClassroomDto>> GetClassroomByIdAsync(int id)
     {
         try
@@ -550,13 +608,10 @@ public class ClassroomService : IClassroomService
     {
         try
         {
-            // Get all classrooms in the center
             var allClassrooms = await _context.Classrooms
                 .Include(c => c.Center)
                 .Where(c => c.CenterId == centerId && c.IsActive && !c.IsDeleted)
                 .ToListAsync();
-
-            // Get classrooms that have conflicts
             var conflictedClassroomIds = await _context.Schedules
                 .Where(s => allClassrooms.Select(c => c.Id).Contains(s.ClassroomId) &&
                            s.DayOfWeek == dayOfWeek &&
@@ -568,7 +623,6 @@ public class ClassroomService : IClassroomService
                 .Select(s => s.ClassroomId)
                 .ToListAsync();
 
-            // Filter available classrooms
             var availableClassrooms = allClassrooms
                 .Where(c => !conflictedClassroomIds.Contains(c.Id))
                 .Select(c => new GetClassroomDto
@@ -624,8 +678,8 @@ public class ClassroomService : IClassroomService
                 .OrderBy(s => s.StartTime)
                 .ToList();
 
-            var currentTime = new TimeOnly(8, 0); // Start at 8 AM
-            var endOfDay = new TimeOnly(22, 0);   // End at 10 PM
+            var currentTime = new TimeOnly(8, 0); 
+            var endOfDay = new TimeOnly(22, 0); 
 
             foreach (var schedule in daySchedules)
             {
