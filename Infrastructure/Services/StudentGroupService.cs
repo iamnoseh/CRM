@@ -188,6 +188,7 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
                     FullName = studentGroup.Student.FullName,
                     PhoneNumber = studentGroup.Student.PhoneNumber,
                     JoinedDate = studentGroup.CreatedAt,  
+                    PaymentStatus = studentGroup.Student.PaymentStatus
                 },
                 IsActive = studentGroup.IsActive ?? false
             };
@@ -222,6 +223,7 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
                         FullName = sg.Student.FullName,
                         PhoneNumber = sg.Student.PhoneNumber,
                         JoinedDate = sg.CreatedAt,
+                        PaymentStatus = sg.Student.PaymentStatus
                     },
                     IsActive = sg.IsActive ?? false
                 })
@@ -301,6 +303,7 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
                         FullName = sg.Student.FullName,
                         PhoneNumber = sg.Student.PhoneNumber,
                         JoinedDate = sg.CreatedAt,
+                        PaymentStatus = sg.Student.PaymentStatus
                     },
                     IsActive = sg.IsActive ?? false
                 })
@@ -349,6 +352,7 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
                         FullName = sg.Student.FullName,
                         PhoneNumber = sg.Student.PhoneNumber,
                         JoinedDate = sg.CreatedAt,
+                        PaymentStatus = sg.Student.PaymentStatus
                     },
                     IsActive = sg.IsActive ?? false
                 })
@@ -393,6 +397,7 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
                         FullName = sg.Student.FullName,
                         PhoneNumber = sg.Student.PhoneNumber,
                         JoinedDate = sg.CreatedAt,
+                        PaymentStatus = sg.Student.PaymentStatus
                     },
                     IsActive = sg.IsActive ?? false
                 })
@@ -415,14 +420,13 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
             if (studentIds == null || !studentIds.Any())
                 return new Response<string>(HttpStatusCode.BadRequest, "No students specified");
 
-            // Проверяем существование группы
+           
             var group = await context.Groups
                 .FirstOrDefaultAsync(g => g.Id == groupId && !g.IsDeleted);
             
             if (group == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Group not found");
 
-            // Проверяем существование всех студентов
             var existingStudents = await context.Students
                 .Where(s => studentIds.Contains(s.Id) && !s.IsDeleted)
                 .Select(s => s.Id)
@@ -432,21 +436,18 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
             if (missingStudentIds.Any())
                 return new Response<string>(HttpStatusCode.NotFound, $"Students with IDs {string.Join(", ", missingStudentIds)} not found");
 
-            // Получаем существующие связи студентов с этой группой
             var existingStudentGroups = await context.StudentGroups
                 .Where(sg => sg.GroupId == groupId && studentIds.Contains(sg.StudentId) && !sg.IsDeleted)
                 .ToListAsync();
             
-            // Обновляем существующие записи, делая их активными
             foreach (var sg in existingStudentGroups)
             {
                 sg.IsActive = true;
                 sg.UpdatedAt = DateTime.UtcNow;
                 context.StudentGroups.Update(sg);
-                studentIds.Remove(sg.StudentId); // Удаляем ID, чтобы не создавать новую запись
+                studentIds.Remove(sg.StudentId); 
             }
 
-            // Создаем новые записи для оставшихся студентов
             var newStudentGroups = studentIds.Select(studentId => new StudentGroup
             {
                 StudentId = studentId,
@@ -475,14 +476,12 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
     {
         try
         {
-            // Проверяем существование студента
             var student = await context.Students
                 .FirstOrDefaultAsync(s => s.Id == studentId && !s.IsDeleted);
             
             if (student == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Student not found");
 
-            // Получаем все активные группы студента
             var studentGroups = await context.StudentGroups
                 .Where(sg => sg.StudentId == studentId && !sg.IsDeleted)
                 .ToListAsync();
@@ -490,7 +489,6 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
             if (!studentGroups.Any())
                 return new Response<string>(HttpStatusCode.NotFound, "Student is not assigned to any groups");
 
-            // Отмечаем все связи как удаленные
             foreach (var sg in studentGroups)
             {
                 sg.IsDeleted = true;
@@ -538,6 +536,7 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
                         FullName = sg.Student.FullName,
                         PhoneNumber = sg.Student.PhoneNumber,
                         JoinedDate = sg.CreatedAt,
+                        PaymentStatus = sg.Student.PaymentStatus
                     },
                     IsActive = sg.IsActive ?? false
                 })
@@ -583,6 +582,7 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
                         FullName = sg.Student.FullName,
                         PhoneNumber = sg.Student.PhoneNumber,
                         JoinedDate = sg.CreatedAt,
+                        PaymentStatus = sg.Student.PaymentStatus
                     },
                     IsActive = sg.IsActive ?? false
                 })
@@ -605,7 +605,6 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
     {
         try
         {
-            // Находим запись StudentGroup
             var studentGroup = await context.StudentGroups
                 .FirstOrDefaultAsync(sg => sg.StudentId == studentId && 
                                          sg.GroupId == groupId && 
@@ -617,7 +616,6 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
             if (studentGroup.IsActive == true)
                 return new Response<string>(HttpStatusCode.BadRequest, "Student is already active in this group");
 
-            // Активируем студента
             studentGroup.IsActive = true;
             studentGroup.UpdatedAt = DateTime.UtcNow;
             
@@ -640,7 +638,6 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
     {
         try
         {
-            // Находим запись StudentGroup
             var studentGroup = await context.StudentGroups
                 .FirstOrDefaultAsync(sg => sg.StudentId == studentId && 
                                          sg.GroupId == groupId && 
@@ -652,7 +649,6 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
             if (studentGroup.IsActive == false)
                 return new Response<string>(HttpStatusCode.BadRequest, "Student is already inactive in this group");
 
-            // Деактивируем студента
             studentGroup.IsActive = false;
             studentGroup.UpdatedAt = DateTime.UtcNow;
             

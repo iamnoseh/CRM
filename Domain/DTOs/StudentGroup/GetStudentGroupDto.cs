@@ -1,3 +1,5 @@
+using Domain.Enums;
+
 namespace Domain.DTOs.StudentGroup;
 
 public class GetStudentGroupDto
@@ -16,4 +18,5 @@ public class StudentDTO
     public int Age { get; set; }
     public string PhoneNumber { get; set; }
     public DateTimeOffset JoinedDate { get; set; }
+    public PaymentStatus PaymentStatus { get; set; }
 }
