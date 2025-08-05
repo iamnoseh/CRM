@@ -1,7 +1,6 @@
 using Domain.DTOs.Course;
 using Domain.Filters;
 using Domain.Responses;
-using Microsoft.AspNetCore.Http;
 
 namespace Infrastructure.Interfaces;
 

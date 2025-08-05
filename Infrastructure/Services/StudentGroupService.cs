@@ -16,17 +16,14 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
     {
         try
         {
-            // Проверка существования студента
             var student = await context.Students.FirstOrDefaultAsync(s => s.Id == request.StudentId && !s.IsDeleted);
             if (student == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Student not found");
 
-            // Проверка существования группы
             var group = await context.Groups.FirstOrDefaultAsync(g => g.Id == request.GroupId && !g.IsDeleted);
             if (group == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Group not found");
 
-            // Проверка, не состоит ли студент уже в этой группе
             var existingStudentGroup = await context.StudentGroups
                 .FirstOrDefaultAsync(sg => sg.StudentId == request.StudentId && 
                                           sg.GroupId == request.GroupId && 
@@ -37,7 +34,6 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
                 if (existingStudentGroup.IsActive == true)
                     return new Response<string>(HttpStatusCode.BadRequest, "Student is already assigned to this group");
                 
-                // Если запись уже существует, но деактивирована, активируем её
                 existingStudentGroup.IsActive = true;
                 existingStudentGroup.UpdatedAt = DateTime.UtcNow;
                 context.StudentGroups.Update(existingStudentGroup);
@@ -48,7 +44,6 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
                     : new Response<string>(HttpStatusCode.InternalServerError, "Failed to reactivate student's group membership");
             }
 
-            // Создание новой записи StudentGroup
             var studentGroup = new StudentGroup
             {
                 StudentId = request.StudentId,
@@ -176,16 +171,11 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
     {
         try
         {
-            // Находим запись StudentGroup по ID со связанными данными
             var studentGroup = await context.StudentGroups
                 .Include(sg => sg.Student)
                 .Include(sg => sg.Group)
                 .FirstOrDefaultAsync(sg => sg.Id == id && !sg.IsDeleted);
             
-            if (studentGroup == null)
-                return new Response<GetStudentGroupDto>(HttpStatusCode.NotFound, "Student group membership not found");
-
-            // Преобразуем в DTO
             var dto = new GetStudentGroupDto
             {
                 Id = studentGroup.Id,
@@ -244,14 +234,13 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
     {
         try
         {
-            // Базовый запрос
+           
             var query = context.StudentGroups
                 .Include(sg => sg.Student)
                 .Include(sg => sg.Group)
                 .Where(sg => !sg.IsDeleted)
                 .AsQueryable();
 
-            // Применяем фильтры
             if (!string.IsNullOrEmpty(filter.Search))
             {
                 query = query.Where(sg => sg.Student.FullName.Contains(filter.Search) ||
@@ -386,10 +375,7 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
                     IsActive = sg.IsActive ?? false
                 })
                 .ToListAsync();
-
-            if (!studentGroups.Any())
-                return new Response<List<GetStudentGroupDto>>(HttpStatusCode.NotFound, "No students assigned to this group");
-
+            
             return new Response<List<GetStudentGroupDto>>(studentGroups);
         }
         catch (Exception ex)
@@ -687,14 +673,12 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
     {
         try
         {
-            // Проверяем существование студента
             var student = await context.Students
                 .FirstOrDefaultAsync(s => s.Id == studentId && !s.IsDeleted);
             
             if (student == null)
                 return new Response<int>(HttpStatusCode.NotFound, "Student not found");
 
-            // Получаем количество активных групп студента
             var count = await context.StudentGroups
                 .Where(sg => sg.StudentId == studentId && 
                             sg.IsActive == true && 

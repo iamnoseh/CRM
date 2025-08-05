@@ -18,11 +18,8 @@ public class Schedule : BaseEntity
     public DayOfWeek DayOfWeek { get; set; }
     [Required]
     public DateOnly StartDate { get; set; }
-    
     public DateOnly? EndDate { get; set; }
-    
     public bool IsRecurring { get; set; } = true;
-    
     public ActiveStatus Status { get; set; } = ActiveStatus.Active;
     
     [StringLength(500)]
