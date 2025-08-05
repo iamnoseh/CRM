@@ -169,8 +169,8 @@ public static class LessonSchedulingHelper
             .ToListAsync();
 
         var availableSlots = new List<string>();
-        var currentTime = new TimeOnly(8, 0); // Start at 8 AM
-        var endOfDay = new TimeOnly(22, 0);   // End at 10 PM
+        var currentTime = new TimeOnly(8, 0); 
+        var endOfDay = new TimeOnly(22, 0);  
 
         foreach (var slot in busySlots)
         {

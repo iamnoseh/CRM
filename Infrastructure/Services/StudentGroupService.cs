@@ -181,8 +181,13 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
                 Id = studentGroup.Id,
                 GroupId = studentGroup.GroupId,
                 GroupName = studentGroup.Group?.Name,
-                StudentId = studentGroup.StudentId,
-                StudentFullName = studentGroup.Student?.FullName,
+                student = new StudentDTO()
+                {
+                    Id = studentGroup.Student.Id,
+                    Age = studentGroup.Student.Age,
+                    FullName = studentGroup.Student.FullName,
+                    PhoneNumber = studentGroup.Student.PhoneNumber,
+                },
                 JoinedDate = studentGroup.CreatedAt,
                 IsActive = studentGroup.IsActive ?? false
             };
@@ -210,8 +215,13 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
                     Id = sg.Id,
                     GroupId = sg.GroupId,
                     GroupName = sg.Group.Name,
-                    StudentId = sg.StudentId,
-                    StudentFullName = sg.Student.FullName,
+                    student = new StudentDTO()
+                    {
+                        Id = sg.Student.Id,
+                        Age = sg.Student.Age,
+                        FullName = sg.Student.FullName,
+                        PhoneNumber = sg.Student.PhoneNumber,
+                    },
                     JoinedDate = sg.CreatedAt,
                     IsActive = sg.IsActive ?? false
                 })
@@ -275,7 +285,7 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
             // Получаем общее количество записей для пагинации
             var totalCount = await query.CountAsync();
 
-            // Применяем пагинацию
+           
             var studentGroups = await query
                 .OrderByDescending(sg => sg.CreatedAt)
                 .Skip((filter.PageNumber - 1) * filter.PageSize)
@@ -285,8 +295,13 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
                     Id = sg.Id,
                     GroupId = sg.GroupId,
                     GroupName = sg.Group.Name,
-                    StudentId = sg.StudentId,
-                    StudentFullName = sg.Student.FullName,
+                    student = new StudentDTO()
+                    {
+                        Id = sg.Student.Id,
+                        Age = sg.Student.Age,
+                        FullName = sg.Student.FullName,
+                        PhoneNumber = sg.Student.PhoneNumber,
+                    },
                     JoinedDate = sg.CreatedAt,
                     IsActive = sg.IsActive ?? false
                 })
@@ -321,7 +336,6 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
             if (student == null)
                 return new Response<List<GetStudentGroupDto>>(HttpStatusCode.NotFound, "Student not found");
 
-            // Получаем группы студента
             var studentGroups = await context.StudentGroups
                 .Include(sg => sg.Group)
                 .Where(sg => sg.StudentId == studentId && !sg.IsDeleted)
@@ -330,8 +344,13 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
                     Id = sg.Id,
                     GroupId = sg.GroupId,
                     GroupName = sg.Group.Name,
-                    StudentId = sg.StudentId,
-                    StudentFullName = student.FullName,
+                    student = new StudentDTO()
+                    {
+                        Id = sg.Student.Id,
+                        Age = sg.Student.Age,
+                        FullName = sg.Student.FullName,
+                        PhoneNumber = sg.Student.PhoneNumber,
+                    },
                     JoinedDate = sg.CreatedAt,
                     IsActive = sg.IsActive ?? false
                 })
@@ -369,8 +388,13 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
                     Id = sg.Id,
                     GroupId = sg.GroupId,
                     GroupName = group.Name,
-                    StudentId = sg.StudentId,
-                    StudentFullName = sg.Student.FullName,
+                    student = new StudentDTO()
+                    {
+                        Id = sg.Student.Id,
+                        Age = sg.Student.Age,
+                        FullName = sg.Student.FullName,
+                        PhoneNumber = sg.Student.PhoneNumber,
+                    },
                     JoinedDate = sg.CreatedAt,
                     IsActive = sg.IsActive ?? false
                 })
@@ -493,14 +517,12 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
     {
         try
         {
-            // Проверяем существование группы
             var group = await context.Groups
                 .FirstOrDefaultAsync(g => g.Id == groupId && !g.IsDeleted);
             
             if (group == null)
                 return new Response<List<GetStudentGroupDto>>(HttpStatusCode.NotFound, "Group not found");
 
-            // Получаем активных студентов группы
             var activeStudents = await context.StudentGroups
                 .Include(sg => sg.Student)
                 .Where(sg => sg.GroupId == groupId && 
@@ -511,8 +533,13 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
                     Id = sg.Id,
                     GroupId = sg.GroupId,
                     GroupName = group.Name,
-                    StudentId = sg.StudentId,
-                    StudentFullName = sg.Student.FullName,
+                    student = new StudentDTO()
+                    {
+                        Id = sg.Student.Id,
+                        Age = sg.Student.Age,
+                        FullName = sg.Student.FullName,
+                        PhoneNumber = sg.Student.PhoneNumber,
+                    },
                     JoinedDate = sg.CreatedAt,
                     IsActive = sg.IsActive ?? false
                 })
@@ -535,14 +562,12 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
     {
         try
         {
-            // Проверяем существование группы
             var group = await context.Groups
                 .FirstOrDefaultAsync(g => g.Id == groupId && !g.IsDeleted);
             
             if (group == null)
                 return new Response<List<GetStudentGroupDto>>(HttpStatusCode.NotFound, "Group not found");
 
-            // Получаем неактивных студентов группы
             var inactiveStudents = await context.StudentGroups
                 .Include(sg => sg.Student)
                 .Where(sg => sg.GroupId == groupId && 
@@ -553,8 +578,13 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
                     Id = sg.Id,
                     GroupId = sg.GroupId,
                     GroupName = group.Name,
-                    StudentId = sg.StudentId,
-                    StudentFullName = sg.Student.FullName,
+                    student = new StudentDTO()
+                    {
+                        Id = sg.Student.Id,
+                        Age = sg.Student.Age,
+                        FullName = sg.Student.FullName,
+                        PhoneNumber = sg.Student.PhoneNumber,
+                    },
                     JoinedDate = sg.CreatedAt,
                     IsActive = sg.IsActive ?? false
                 })

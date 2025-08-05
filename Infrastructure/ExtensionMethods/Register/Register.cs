@@ -162,6 +162,7 @@ public static class Register
         
         services.AddScoped<ILessonService, LessonService>();
         
+        
         services.AddLogging(logging =>
         {
             logging.AddConsole();

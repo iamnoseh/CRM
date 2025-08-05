@@ -29,7 +29,6 @@ public class DataContext(DbContextOptions<DataContext> options) : IdentityDbCont
     {
         base.OnModelCreating(modelBuilder);
 
-        // Configure all DateTime properties to use timestamp with time zone
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
             foreach (var property in entityType.GetProperties())
@@ -175,10 +174,9 @@ public class DataContext(DbContextOptions<DataContext> options) : IdentityDbCont
         modelBuilder.Entity<Group>()
             .HasIndex(g => g.MentorId);
 
-        // Group lesson scheduling configuration
         modelBuilder.Entity<Group>()
             .Property(g => g.LessonDays)
-            .HasMaxLength(50); // For comma-separated day numbers
+            .HasMaxLength(50);
 
         modelBuilder.Entity<Group>()
             .Property(g => g.LessonStartTime)
@@ -254,5 +252,6 @@ public class DataContext(DbContextOptions<DataContext> options) : IdentityDbCont
 
         modelBuilder.Entity<Lesson>()
             .HasIndex(l => new { l.StartTime, l.EndTime, l.ClassroomId });
+        
     }
 }
