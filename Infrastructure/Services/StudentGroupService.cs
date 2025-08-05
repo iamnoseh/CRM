@@ -187,8 +187,8 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
                     Age = studentGroup.Student.Age,
                     FullName = studentGroup.Student.FullName,
                     PhoneNumber = studentGroup.Student.PhoneNumber,
+                    JoinedDate = studentGroup.CreatedAt,  
                 },
-                JoinedDate = studentGroup.CreatedAt,
                 IsActive = studentGroup.IsActive ?? false
             };
 
@@ -221,8 +221,8 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
                         Age = sg.Student.Age,
                         FullName = sg.Student.FullName,
                         PhoneNumber = sg.Student.PhoneNumber,
+                        JoinedDate = sg.CreatedAt,
                     },
-                    JoinedDate = sg.CreatedAt,
                     IsActive = sg.IsActive ?? false
                 })
                 .ToListAsync();
@@ -282,7 +282,6 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
                 query = query.Where(sg => sg.CreatedAt <= filter.JoinedDateTo);
             }
 
-            // Получаем общее количество записей для пагинации
             var totalCount = await query.CountAsync();
 
            
@@ -301,8 +300,8 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
                         Age = sg.Student.Age,
                         FullName = sg.Student.FullName,
                         PhoneNumber = sg.Student.PhoneNumber,
+                        JoinedDate = sg.CreatedAt,
                     },
-                    JoinedDate = sg.CreatedAt,
                     IsActive = sg.IsActive ?? false
                 })
                 .ToListAsync();
@@ -329,7 +328,6 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
     {
         try
         {
-            // Проверяем существование студента
             var student = await context.Students
                 .FirstOrDefaultAsync(s => s.Id == studentId && !s.IsDeleted);
             
@@ -350,8 +348,8 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
                         Age = sg.Student.Age,
                         FullName = sg.Student.FullName,
                         PhoneNumber = sg.Student.PhoneNumber,
+                        JoinedDate = sg.CreatedAt,
                     },
-                    JoinedDate = sg.CreatedAt,
                     IsActive = sg.IsActive ?? false
                 })
                 .ToListAsync();
@@ -394,8 +392,8 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
                         Age = sg.Student.Age,
                         FullName = sg.Student.FullName,
                         PhoneNumber = sg.Student.PhoneNumber,
+                        JoinedDate = sg.CreatedAt,
                     },
-                    JoinedDate = sg.CreatedAt,
                     IsActive = sg.IsActive ?? false
                 })
                 .ToListAsync();
@@ -539,8 +537,8 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
                         Age = sg.Student.Age,
                         FullName = sg.Student.FullName,
                         PhoneNumber = sg.Student.PhoneNumber,
+                        JoinedDate = sg.CreatedAt,
                     },
-                    JoinedDate = sg.CreatedAt,
                     IsActive = sg.IsActive ?? false
                 })
                 .ToListAsync();
@@ -584,8 +582,8 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
                         Age = sg.Student.Age,
                         FullName = sg.Student.FullName,
                         PhoneNumber = sg.Student.PhoneNumber,
+                        JoinedDate = sg.CreatedAt,
                     },
-                    JoinedDate = sg.CreatedAt,
                     IsActive = sg.IsActive ?? false
                 })
                 .ToListAsync();
