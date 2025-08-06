@@ -26,6 +26,13 @@ public class StudentGroupController(IStudentGroupService studentGroupService) : 
         var result = await studentGroupService.UpdateStudentGroupAsync(id, request);
         return StatusCode(result.StatusCode, result);
     }
+    [HttpDelete("student/{studentId}/group/{groupId}")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
+    public async Task<ActionResult<Response<string>>> RemoveStudentFromGroup(int studentId, int groupId)
+    {
+        var result = await studentGroupService.RemoveStudentFromGroup(studentId, groupId);
+        return StatusCode(result.StatusCode, result);
+    }
     
     [HttpDelete]
     [Authorize(Roles = "Admin,SuperAdmin,Manager")]
@@ -91,5 +98,5 @@ public class StudentGroupController(IStudentGroupService studentGroupService) : 
         var result = await studentGroupService.RemoveStudentFromAllGroupsAsync(studentId);
         return StatusCode(result.StatusCode, result);
     }
-
+    
 }

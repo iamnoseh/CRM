@@ -141,7 +141,7 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
     {
         try
         {
-            // Находим запись StudentGroup по ID
+           
             var studentGroup = await context.StudentGroups
                 .FirstOrDefaultAsync(sg => sg.Id == id && !sg.IsDeleted);
             
@@ -506,6 +506,49 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
             return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
+
+    #region RemoveStudentFromGroup
+    public async Task<Response<string>> RemoveStudentFromGroup(int studentId, int groupId)
+    {
+        try
+        {
+            var student = await context.Students
+                .FirstOrDefaultAsync(s => s.Id == studentId && !s.IsDeleted);
+            
+            if (student == null)
+                return new Response<string>(HttpStatusCode.NotFound, "Student not found");
+
+            var group = await context.Groups
+                .FirstOrDefaultAsync(g => g.Id == groupId && !g.IsDeleted);
+            
+            if (group == null)
+                return new Response<string>(HttpStatusCode.NotFound, "Group not found");
+
+            var studentGroup = await context.StudentGroups
+                .FirstOrDefaultAsync(sg => sg.StudentId == studentId && 
+                                           sg.GroupId == groupId && 
+                                           !sg.IsDeleted);
+            
+            if (studentGroup == null)
+                return new Response<string>(HttpStatusCode.NotFound, "Student is not assigned to this group");
+
+            studentGroup.IsDeleted = true;
+            studentGroup.UpdatedAt = DateTime.UtcNow;
+            
+            context.StudentGroups.Update(studentGroup);
+            var result = await context.SaveChangesAsync();
+
+            return result > 0
+                ? new Response<string>(HttpStatusCode.OK, "Student removed from group successfully")
+                : new Response<string>(HttpStatusCode.InternalServerError, "Failed to remove student from group");
+        }
+        catch (Exception ex)
+        {
+            return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
+        }
+    }
+    #endregion
+
     #endregion
 
     #region GetActiveStudentsInGroupAsync

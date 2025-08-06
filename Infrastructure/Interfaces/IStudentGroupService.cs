@@ -17,8 +17,8 @@ public interface IStudentGroupService
     
     Task<Response<string>> AddMultipleStudentsToGroupAsync(int groupId, List<int> studentIds);
     Task<Response<string>> RemoveStudentFromAllGroupsAsync(int studentId);
-    
-   
+
+    Task<Response<string>> RemoveStudentFromGroup(int studentId, int groupId);
     Task<Response<List<GetStudentGroupDto>>> GetActiveStudentsInGroupAsync(int groupId);
     Task<Response<List<GetStudentGroupDto>>> GetInactiveStudentsInGroupAsync(int groupId);
     Task<Response<string>> ActivateStudentInGroupAsync(int studentId, int groupId);
