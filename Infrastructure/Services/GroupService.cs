@@ -503,6 +503,7 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
             LessonInWeek = group.LessonInWeek,
             TotalWeeks = group.TotalWeeks,
             Started = group.Started,
+            HasWeeklyExam = group.HasWeeklyExam,
             CurrentStudentsCount = group.StudentGroups?.Count(sg => !sg.IsDeleted) ?? 0,
             Status = group.Status,
             StartDate = group.StartDate,

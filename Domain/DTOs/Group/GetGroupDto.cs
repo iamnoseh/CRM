@@ -24,6 +24,7 @@ public class GetGroupDto
     public string? ImagePath { get; set; }
     public int CurrentWeek { get; set; }
     public int? ClassroomId { get; set; }
+    public bool HasWeeklyExam { get; set; }
     public GetClassroomDto? Classroom { get; set; }
     
     public string? LessonDays { get; set; }
