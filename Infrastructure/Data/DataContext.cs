@@ -6,12 +6,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Data;
 
-public class DataContext : IdentityDbContext<User, IdentityRole<int>, int>
+public class DataContext(DbContextOptions<DataContext> options)
+    : IdentityDbContext<User, IdentityRole<int>, int>(options)
 {
-    public DataContext(DbContextOptions<DataContext> options) : base(options)
-    {
-    }
-
     public DbSet<Course> Courses { get; set; }
     public DbSet<Group> Groups { get; set; }
     public DbSet<Student> Students { get; set; }

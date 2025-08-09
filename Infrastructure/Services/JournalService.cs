@@ -24,7 +24,7 @@ public class JournalService(DataContext context) : IJournalService
             if (existing != null)
                 return new Response<string>(HttpStatusCode.OK, "Журнал аллакай барои ин ҳафта вуҷуд дорад");
 
-            var weekStart = GetWeekStart(group.StartDate.DateTime, weekNumber);
+            var weekStart = GetWeekStart(group.StartDate.UtcDateTime, weekNumber);
             var weekEnd = weekStart.AddDays(6).AddHours(23).AddMinutes(59).AddSeconds(59);
 
             var journal = new Journal
@@ -58,7 +58,7 @@ public class JournalService(DataContext context) : IJournalService
                 var dayIdxZeroBased = lessonDays[i % lessonDays.Count]; // 0..6 (Sunday..Saturday)
                 var desiredDay = (DayOfWeek)dayIdxZeroBased;
 
-                var weekStartDate = journal.WeekStartDate.Date;
+                var weekStartDate = journal.WeekStartDate.UtcDateTime.Date;
                 var slotDate = Enumerable.Range(0, 7)
                     .Select(offset => weekStartDate.AddDays(offset))
                     .First(d => d.DayOfWeek == desiredDay);
@@ -81,7 +81,7 @@ public class JournalService(DataContext context) : IJournalService
                         StartTime = group.LessonStartTime,
                         EndTime = group.LessonEndTime,
                         AttendanceStatus = AttendanceStatus.Absent,
-                        EntryDate = slotDate
+                        EntryDate = DateTime.SpecifyKind(slotDate, DateTimeKind.Utc)
                     };
                     await context.JournalEntries.AddAsync(entry);
                 }
@@ -185,8 +185,8 @@ public class JournalService(DataContext context) : IJournalService
 
     private static DateTimeOffset GetWeekStart(DateTime groupStart, int weekNumber)
     {
-        var start = groupStart.Date;
-        return new DateTimeOffset(start.AddDays((weekNumber - 1) * 7));
+        var startUtc = DateTime.SpecifyKind(groupStart.Date, DateTimeKind.Utc);
+        return new DateTimeOffset(startUtc.AddDays((weekNumber - 1) * 7), TimeSpan.Zero);
     }
 
     private static List<int> ParseLessonDays(string? lessonDays)
