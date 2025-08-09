@@ -198,6 +198,70 @@ public class JournalService(DataContext context) : IJournalService
         }
     }
 
+    public async Task<Response<GetJournalDto>> GetLatestJournalAsync(int groupId)
+    {
+        try
+        {
+            var journal = await context.Journals
+                .Include(j => j.Group)
+                .Include(j => j.Entries)
+                .Where(j => j.GroupId == groupId && !j.IsDeleted)
+                .OrderByDescending(j => j.WeekNumber)
+                .FirstOrDefaultAsync();
+
+            if (journal == null)
+                return new Response<GetJournalDto>(HttpStatusCode.NotFound, "Журналҳо ёфт нашуданд");
+
+            var studentIds = journal.Entries.Select(e => e.StudentId).Distinct().ToList();
+            var students = await context.Students
+                .Where(s => studentIds.Contains(s.Id) && !s.IsDeleted)
+                .Select(s => new { s.Id, s.FullName })
+                .ToListAsync();
+
+            var progresses = students.Select(s => new StudentProgress
+            {
+                StudentId = s.Id,
+                StudentName = $"{s.FullName}".Trim(),
+                StudentEntries = journal.Entries
+                    .Where(e => e.StudentId == s.Id)
+                    .OrderBy(e => e.LessonNumber)
+                    .ThenBy(e => e.DayOfWeek)
+                    .Select(e => new GetJournalEntryDto
+                    {
+                        Id = e.Id,
+                        DayOfWeek = e.DayOfWeek,
+                        LessonNumber = e.LessonNumber,
+                        LessonType = e.LessonType,
+                        Grade = e.Grade,
+                        BonusPoints = e.BonusPoints,
+                        AttendanceStatus = e.AttendanceStatus,
+                        Comment = e.Comment,
+                        CommentCategory = e.CommentCategory,
+                        EntryDate = e.EntryDate,
+                        StartTime = e.StartTime,
+                        EndTime = e.EndTime
+                    }).ToList()
+            }).ToList();
+
+            var dto = new GetJournalDto
+            {
+                Id = journal.Id,
+                GroupId = journal.GroupId,
+                GroupName = journal.Group?.Name,
+                WeekNumber = journal.WeekNumber,
+                WeekStartDate = journal.WeekStartDate,
+                WeekEndDate = journal.WeekEndDate,
+                Progresses = progresses
+            };
+
+            return new Response<GetJournalDto>(dto);
+        }
+        catch (Exception ex)
+        {
+            return new Response<GetJournalDto>(HttpStatusCode.InternalServerError, ex.Message);
+        }
+    }
+
     public async Task<Response<GetJournalDto>> GetJournalByDateAsync(int groupId, DateTime dateLocal)
     {
         try

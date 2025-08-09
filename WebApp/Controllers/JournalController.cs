@@ -1,4 +1,4 @@
-using ClosedXML.Excel;
+
 using Domain.DTOs.Journal;
 using Domain.Responses;
 using Infrastructure.Interfaces;
@@ -17,9 +17,11 @@ public class JournalController(IJournalService journalService) : ControllerBase
     public async Task<Response<string>> Generate(int groupId, int weekNumber) =>
         await journalService.GenerateWeeklyJournalAsync(groupId, weekNumber);
 
-    [HttpGet("{groupId}/{weekNumber}")]
-    public async Task<Response<GetJournalDto>> Get(int groupId, int weekNumber) =>
-        await journalService.GetJournalAsync(groupId, weekNumber);
+    [HttpGet("{groupId}")]
+    public async Task<Response<GetJournalDto>> Get(int groupId, [FromQuery] int? weekNumber)
+        => weekNumber.HasValue
+            ? await journalService.GetJournalAsync(groupId, weekNumber.Value)
+            : await journalService.GetLatestJournalAsync(groupId);
 
     [HttpGet("{groupId}/by-date")]
     public async Task<Response<GetJournalDto>> GetByDate(int groupId, [FromQuery] DateTime date ) =>
