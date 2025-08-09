@@ -97,7 +97,7 @@ public class MentorController(IMentorService mentorService) : ControllerBase
     }
     
     [HttpPut("document")]
-    [Authorize(Roles = "Admin,Teacher")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<ActionResult<Response<string>>> UpdateMentorDocument(int mentorId, IFormFile documentFile)
     {
         var response = await mentorService.UpdateMentorDocumentAsync(mentorId, documentFile);
@@ -113,14 +113,12 @@ public class MentorController(IMentorService mentorService) : ControllerBase
         if (response.StatusCode != (int)System.Net.HttpStatusCode.OK)
             return StatusCode((int)response.StatusCode, response);
         
-        // Автоматически определяем тип файла на основе данных из базы
         var mentor = await mentorService.GetMentorByIdAsync(mentorId);
         string contentType = "application/octet-stream";
         string fileName = "document";
         
         if (mentor.StatusCode == (int)System.Net.HttpStatusCode.OK && !string.IsNullOrEmpty(mentor.Data.Document))
         {
-            // Получаем расширение файла из пути
             string extension = Path.GetExtension(mentor.Data.Document).ToLowerInvariant();
             fileName = $"document_{mentorId}{extension}";
             
@@ -141,7 +139,7 @@ public class MentorController(IMentorService mentorService) : ControllerBase
     }
 
     [HttpPut("payment-status")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<ActionResult<Response<string>>> UpdateMentorPaymentStatus([FromBody] UpdateMentorPaymentStatusDto dto)
     {
         var response = await mentorService.UpdateMentorPaymentStatusAsync(dto.MentorId, dto.Status);
@@ -149,7 +147,7 @@ public class MentorController(IMentorService mentorService) : ControllerBase
     }
 
     [HttpGet("export/excel")]
-    [Authorize(Roles = "Admin,SuperAdmin")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<IActionResult> ExportMentorsToExcel([FromServices] IMentorExportService exportService)
     {
         var fileBytes = await exportService.ExportAllMentorsToExcelAsync();

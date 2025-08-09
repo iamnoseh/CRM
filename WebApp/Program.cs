@@ -38,6 +38,5 @@ app.UseAuthentication();
 app.UseAuthorization();  
 app.MapControllers(); 
 
-// Removed Hangfire dashboard/server and recurring jobs
 
 app.Run();

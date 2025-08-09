@@ -19,13 +19,72 @@ public class JournalService(DataContext context) : IJournalService
             if (group == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Гурӯҳ ёфт нашуд");
 
+            var existingWeeks = await context.Journals
+                .Where(j => j.GroupId == groupId && !j.IsDeleted)
+                .Select(j => j.WeekNumber)
+                .ToListAsync();
+            var maxExistingWeek = existingWeeks.Count == 0 ? 0 : existingWeeks.Max();
+            var expectedNextWeek = maxExistingWeek + 1;
+
+            if (weekNumber > group.TotalWeeks)
+                return new Response<string>(HttpStatusCode.BadRequest,
+                    $"Шумо наметавонед ҳафтаи {weekNumber}-ро созед. Шумораи умумии ҳафтаҳо: {group.TotalWeeks}. Ҳафтаи навбатӣ: {expectedNextWeek}.");
+
+            if (weekNumber <= maxExistingWeek)
+                return new Response<string>(HttpStatusCode.BadRequest,
+                    $"Ин ҳафта аллакай сохта шудааст ё аз ҳафтаҳои гузашта мебошад. Лутфан ҳафтаи {expectedNextWeek}-ро созед.");
+
+            if (weekNumber != expectedNextWeek)
+                return new Response<string>(HttpStatusCode.BadRequest,
+                    $"Пайдарпайӣ риоя нашудааст. Лутфан аввал ҳафтаи {expectedNextWeek}-ро созед.");
+
             var existing = await context.Journals
                 .FirstOrDefaultAsync(j => j.GroupId == groupId && j.WeekNumber == weekNumber && !j.IsDeleted);
             if (existing != null)
                 return new Response<string>(HttpStatusCode.OK, "Журнал аллакай барои ин ҳафта вуҷуд дорад");
 
-            var weekStart = GetWeekStart(group.StartDate.UtcDateTime, weekNumber);
-            var weekEnd = weekStart.AddDays(6).AddHours(23).AddMinutes(59).AddSeconds(59);
+            var lessonDays = ParseLessonDays(group.LessonDays);
+            if (lessonDays.Count == 0)
+            {
+                lessonDays = new List<int> { 1, 2, 3, 4, 5 };
+            }
+
+            var targetLessons = 6;
+            DateTime cursor;
+            if (weekNumber == 1)
+            {
+                cursor = group.StartDate.UtcDateTime.Date;
+            }
+            else
+            {
+                var prevJournal = await context.Journals
+                    .Where(j => j.GroupId == groupId && j.WeekNumber == weekNumber - 1 && !j.IsDeleted)
+                    .OrderByDescending(j => j.Id)
+                    .FirstOrDefaultAsync();
+                cursor = prevJournal != null
+                    ? prevJournal.WeekEndDate.UtcDateTime.Date.AddDays(1)
+                    : group.StartDate.UtcDateTime.Date.AddDays((weekNumber - 1) * 7);
+            }
+
+            var plannedSlots = new List<(DateTime date, int dayOfWeekOneBased, int lessonNumber)>();
+            while (plannedSlots.Count < targetLessons)
+            {
+                var dowZero = (int)cursor.DayOfWeek;
+                if (lessonDays.Contains(dowZero))
+                {
+                    var dayOfWeekOneBased = dowZero % 7 + 1;
+                    plannedSlots.Add((cursor, dayOfWeekOneBased, plannedSlots.Count + 1));
+                }
+
+                cursor = cursor.AddDays(1);
+            }
+
+            var firstSlotDate = plannedSlots.First().date;
+            var lastSlotDate = plannedSlots.Last().date;
+            var weekStart = new DateTimeOffset(firstSlotDate.Year, firstSlotDate.Month, firstSlotDate.Day, 0, 0, 0,
+                TimeSpan.Zero);
+            var weekEnd = new DateTimeOffset(lastSlotDate.Year, lastSlotDate.Month, lastSlotDate.Day, 23, 59, 59,
+                TimeSpan.Zero);
 
             var journal = new Journal
             {
@@ -40,48 +99,29 @@ public class JournalService(DataContext context) : IJournalService
             await context.Journals.AddAsync(journal);
             await context.SaveChangesAsync();
 
-            var lessonDays = ParseLessonDays(group.LessonDays);
-            if (lessonDays.Count == 0)
-            {
-                lessonDays = new List<int> { 1, 2, 3, 4, 5 };
-            }
-
             var students = await context.StudentGroups
                 .Include(sg => sg.Student)
                 .Where(sg => sg.GroupId == groupId && sg.IsActive && !sg.IsDeleted && !sg.Student!.IsDeleted)
                 .Select(sg => sg.Student!)
                 .ToListAsync();
 
-            for (int i = 0; i < 6; i++)
+            foreach (var slot in plannedSlots)
             {
-                var lessonNumber = i + 1; // 1..6
-                var dayIdxZeroBased = lessonDays[i % lessonDays.Count]; // 0..6 (Sunday..Saturday)
-                var desiredDay = (DayOfWeek)dayIdxZeroBased;
-
-                var weekStartDate = journal.WeekStartDate.UtcDateTime.Date;
-                var slotDate = Enumerable.Range(0, 7)
-                    .Select(offset => weekStartDate.AddDays(offset))
-                    .First(d => d.DayOfWeek == desiredDay);
-
-                var dayOfWeekOneBased = dayIdxZeroBased % 7 + 1; // 1..7
-
-                var lessonType = group.HasWeeklyExam && lessonNumber == 6
-                    ? LessonType.Exam
-                    : LessonType.Regular;
-
+                var isLast = slot.lessonNumber == targetLessons;
+                var lessonType = group.HasWeeklyExam && isLast ? LessonType.Exam : LessonType.Regular;
                 foreach (var student in students)
                 {
                     var entry = new JournalEntry
                     {
                         JournalId = journal.Id,
                         StudentId = student.Id,
-                        DayOfWeek = dayOfWeekOneBased,
-                        LessonNumber = lessonNumber,
+                        DayOfWeek = slot.dayOfWeekOneBased,
+                        LessonNumber = slot.lessonNumber,
                         LessonType = lessonType,
                         StartTime = group.LessonStartTime,
                         EndTime = group.LessonEndTime,
                         AttendanceStatus = AttendanceStatus.Absent,
-                        EntryDate = DateTime.SpecifyKind(slotDate, DateTimeKind.Utc)
+                        EntryDate = DateTime.SpecifyKind(slot.date, DateTimeKind.Utc)
                     };
                     await context.JournalEntries.AddAsync(entry);
                 }
@@ -111,7 +151,80 @@ public class JournalService(DataContext context) : IJournalService
             var studentIds = journal.Entries.Select(e => e.StudentId).Distinct().ToList();
             var students = await context.Students
                 .Where(s => studentIds.Contains(s.Id) && !s.IsDeleted)
-                .Select(s => new { s.Id, s.FullName})
+                .Select(s => new { s.Id, s.FullName })
+                .ToListAsync();
+
+            var progresses = students.Select(s => new StudentProgress
+            {
+                StudentId = s.Id,
+                StudentName = $"{s.FullName}".Trim(),
+                StudentEntries = journal.Entries
+                    .Where(e => e.StudentId == s.Id)
+                    .OrderBy(e => e.LessonNumber)
+                    .ThenBy(e => e.DayOfWeek)
+                    .Select(e => new GetJournalEntryDto
+                    {
+                        Id = e.Id,
+                        DayOfWeek = e.DayOfWeek,
+                        LessonNumber = e.LessonNumber,
+                        LessonType = e.LessonType,
+                        Grade = e.Grade,
+                        BonusPoints = e.BonusPoints,
+                        AttendanceStatus = e.AttendanceStatus,
+                        Comment = e.Comment,
+                        CommentCategory = e.CommentCategory,
+                        EntryDate = e.EntryDate,
+                        StartTime = e.StartTime,
+                        EndTime = e.EndTime
+                    }).ToList()
+            }).ToList();
+
+            var dto = new GetJournalDto
+            {
+                Id = journal.Id,
+                GroupId = journal.GroupId,
+                GroupName = journal.Group?.Name,
+                WeekNumber = journal.WeekNumber,
+                WeekStartDate = journal.WeekStartDate,
+                WeekEndDate = journal.WeekEndDate,
+                Progresses = progresses
+            };
+
+            return new Response<GetJournalDto>(dto);
+        }
+        catch (Exception ex)
+        {
+            return new Response<GetJournalDto>(HttpStatusCode.InternalServerError, ex.Message);
+        }
+    }
+
+    public async Task<Response<GetJournalDto>> GetJournalByDateAsync(int groupId, DateTime dateLocal)
+    {
+        try
+        {
+            var group = await context.Groups.FirstOrDefaultAsync(g => g.Id == groupId && !g.IsDeleted);
+            if (group == null)
+                return new Response<GetJournalDto>(HttpStatusCode.NotFound, "Гурӯҳ ёфт нашуд");
+
+            // Преобразуем локальную дату в UTC-сутки для сопоставления с EntryDate (UTC)
+            var localDate = DateTime.SpecifyKind(dateLocal.Date, DateTimeKind.Unspecified);
+            var localStart = new DateTimeOffset(localDate, TimeSpan.Zero);
+            var localEnd = localStart.AddDays(1);
+
+            // Находим журнал, у которого интервал [WeekStartDate, WeekEndDate] покрывает указанную дату
+            var journal = await context.Journals
+                .Include(j => j.Group)
+                .Include(j => j.Entries)
+                .Where(j => j.GroupId == groupId && !j.IsDeleted)
+                .FirstOrDefaultAsync(j => localStart <= j.WeekEndDate && localEnd > j.WeekStartDate);
+
+            if (journal == null)
+                return new Response<GetJournalDto>(HttpStatusCode.NotFound, "Журнал барои ин сана ёфт нашуд");
+
+            var studentIds = journal.Entries.Select(e => e.StudentId).Distinct().ToList();
+            var students = await context.Students
+                .Where(s => studentIds.Contains(s.Id) && !s.IsDeleted)
+                .Select(s => new { s.Id, s.FullName })
                 .ToListAsync();
 
             var progresses = students.Select(s => new StudentProgress
@@ -200,5 +313,3 @@ public class JournalService(DataContext context) : IJournalService
             .ToList();
     }
 }
-
-

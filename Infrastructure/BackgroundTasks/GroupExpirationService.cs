@@ -18,7 +18,7 @@ public class GroupExpirationService(
         try
         {
             var localNow = DateTimeOffset.UtcNow.ToDushanbeTime();
-            logger.LogInformation("Checking group expiration status at {time}", localNow);
+            logger.LogInformation("Проверка статуса истечения групп в {time}", localNow);
             await CheckExpiredGroups();
         }
         catch (Exception ex)
@@ -29,7 +29,7 @@ public class GroupExpirationService(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        logger.LogInformation("GroupExpirationService started");
+        logger.LogInformation("Служба проверки истечения групп запущена");
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -39,13 +39,13 @@ public class GroupExpirationService(
                 var nextRunTime = CalculateNextRunTime(now);
                 var delay = nextRunTime - now;
 
-                logger.LogInformation($"Next group expiration check scheduled at {nextRunTime.ToDushanbeTime()} (in {delay.TotalHours:F1} hours)");
+                logger.LogInformation($"Следующая проверка истечения групп запланирована на {nextRunTime.ToDushanbeTime()} (через {delay.TotalHours:F1} часов)");
                 await Task.Delay(delay, stoppingToken);
                 await CheckExpiredGroups();
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error occurred while checking group expiration");
+                logger.LogError(ex, "Ошибка при проверке истечения групп");
                 await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
             }
         }
@@ -68,7 +68,7 @@ public class GroupExpirationService(
 
     private async Task CheckExpiredGroups()
     {
-        logger.LogInformation("Starting group expiration check...");
+        logger.LogInformation("Начало проверки истечения групп...");
 
         using var scope = serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<DataContext>();
@@ -82,19 +82,19 @@ public class GroupExpirationService(
 
         if (!expiredGroups.Any())
         {
-            logger.LogInformation("No expired groups found");
+            logger.LogInformation("Просроченных групп не найдено");
             return;
         }
 
-        logger.LogInformation($"Found {expiredGroups.Count} expired groups");
+        logger.LogInformation($"Найдено {expiredGroups.Count} просроченных групп");
         foreach (var group in expiredGroups)
         {
-            group.Status = ActiveStatus.Inactive;
+            group.Status = ActiveStatus.Completed;
             group.UpdatedAt = DateTimeOffset.UtcNow;
-            logger.LogInformation($"Group {group.Id} marked as inactive (expired on {group.EndDate:yyyy-MM-dd})");
+            logger.LogInformation($"Группа {group.Id} помечена как завершённая (истекла {group.EndDate:yyyy-MM-dd})");
         }
 
         await context.SaveChangesAsync();
-        logger.LogInformation($"Successfully updated {expiredGroups.Count} expired groups");
+        logger.LogInformation($"Успешно обновлено {expiredGroups.Count} просроченных групп");
     }
 }

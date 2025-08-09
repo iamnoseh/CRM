@@ -1,5 +1,3 @@
-using System;
-
 namespace Infrastructure.Helpers;
 
 public static class DateTimeConfig

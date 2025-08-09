@@ -25,15 +25,10 @@ public class PaymentStatisticsController(IPaymentStatisticsService paymentStatis
         var response = await paymentStatisticsService.GetStudentPaymentStatisticsAsync(
             studentId, groupId, startDate, endDate);
         return StatusCode(response.StatusCode, response);
-    }    /// <summary>
-    /// Маълумоти пардохтҳои як гурӯҳро нишон медиҳад
-    /// </summary>
-    /// <param name="groupId">ID-и гурӯҳ</param>
-    /// <param name="startDate">Санаи оғоз (ихтиёрӣ)</param>
-    /// <param name="endDate">Санаи анҷом (ихтиёрӣ)</param>
-    /// <returns>Маълумоти муфассал дар бораи пардохтҳои гурӯҳ</returns>
+    }    
+    
     [HttpGet("group/{groupId}")]
-    [Authorize(Roles = "Admin,Manager")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     [ProducesResponseType(typeof(Response<GroupPaymentStatisticsDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -47,12 +42,7 @@ public class PaymentStatisticsController(IPaymentStatisticsService paymentStatis
         return StatusCode(response.StatusCode, response);
     }
 
-    /// <summary>
-    /// Маълумоти пардохтҳои рӯзонаи як гурӯҳро нишон медиҳад
-    /// </summary>
-    /// <param name="groupId">ID-и гурӯҳ</param>
-    /// <param name="date">Сана</param>
-    /// <returns>Маълумоти пардохтҳои рӯзона</returns>
+
     [HttpGet("group/{groupId}/daily")]
     [Authorize(Roles = "Admin,Manager")]
     [ProducesResponseType(typeof(Response<List<GroupPaymentStatisticsDto>>), StatusCodes.Status200OK)]
@@ -65,13 +55,8 @@ public class PaymentStatisticsController(IPaymentStatisticsService paymentStatis
         var response = await paymentStatisticsService.GetDailyGroupPaymentStatisticsAsync(
             groupId, date);
         return StatusCode(response.StatusCode, response);
-    }    /// <summary>
-    /// Маълумоти пардохтҳои моҳонаи як гурӯҳро нишон медиҳад
-    /// </summary>
-    /// <param name="groupId">ID-и гурӯҳ</param>
-    /// <param name="year">Сол</param>
-    /// <param name="month">Моҳ (1-12)</param>
-    /// <returns>Маълумоти пардохтҳои моҳона</returns>
+    }    
+    
     [HttpGet("group/{groupId}/monthly")]
     [Authorize(Roles = "Admin,Manager")]
     [ProducesResponseType(typeof(Response<GroupPaymentStatisticsDto>), StatusCodes.Status200OK)]
@@ -87,13 +72,7 @@ public class PaymentStatisticsController(IPaymentStatisticsService paymentStatis
         return StatusCode(response.StatusCode, response);
     }
 
-    /// <summary>
-    /// Маълумоти пардохтҳои як марказро нишон медиҳад
-    /// </summary>
-    /// <param name="centerId">ID-и марказ</param>
-    /// <param name="startDate">Санаи оғоз (ихтиёрӣ)</param>
-    /// <param name="endDate">Санаи анҷом (ихтиёрӣ)</param>
-    /// <returns>Маълумоти муфассал дар бораи пардохтҳои марказ</returns>
+
     [HttpGet("center/{centerId}")]
     [Authorize(Roles = "Admin,Manager")]
     [ProducesResponseType(typeof(Response<CenterPaymentStatisticsDto>), StatusCodes.Status200OK)]
@@ -107,12 +86,8 @@ public class PaymentStatisticsController(IPaymentStatisticsService paymentStatis
         var response = await paymentStatisticsService.GetCenterPaymentStatisticsAsync(
             centerId, startDate, endDate);
         return StatusCode(response.StatusCode, response);
-    }    /// <summary>
-    /// Маълумоти пардохтҳои рӯзонаи як марказро нишон медиҳад
-    /// </summary>
-    /// <param name="centerId">ID-и марказ</param>
-    /// <param name="date">Сана</param>
-    /// <returns>Маълумоти пардохтҳои рӯзона</returns>
+    }    
+    
     [HttpGet("center/{centerId}/daily")]
     [Authorize(Roles = "Admin,Manager")]
     [ProducesResponseType(typeof(Response<List<CenterPaymentStatisticsDto>>), StatusCodes.Status200OK)]
@@ -126,14 +101,7 @@ public class PaymentStatisticsController(IPaymentStatisticsService paymentStatis
             centerId, date);
         return StatusCode(response.StatusCode, response);
     }
-
-    /// <summary>
-    /// Маълумоти пардохтҳои моҳонаи як марказро нишон медиҳад
-    /// </summary>
-    /// <param name="centerId">ID-и марказ</param>
-    /// <param name="year">Сол</param>
-    /// <param name="month">Моҳ (1-12)</param>
-    /// <returns>Маълумоти пардохтҳои моҳона</returns>
+    
     [HttpGet("center/{centerId}/monthly")]
     [Authorize(Roles = "Admin,Manager")]
     [ProducesResponseType(typeof(Response<CenterPaymentStatisticsDto>), StatusCodes.Status200OK)]

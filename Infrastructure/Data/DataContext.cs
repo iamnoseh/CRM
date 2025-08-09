@@ -43,7 +43,6 @@ public class DataContext(DbContextOptions<DataContext> options)
             }
         }
         
-        // User table names
         modelBuilder.Entity<User>().ToTable("Users");
         modelBuilder.Entity<IdentityRole<int>>().ToTable("Roles");
         modelBuilder.Entity<IdentityUserRole<int>>().ToTable("UserRoles");

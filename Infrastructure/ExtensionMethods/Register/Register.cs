@@ -137,7 +137,8 @@ public static class Register
         services.AddScoped<IGroupActivationService>(sp => 
             new GroupActivationService(
                 sp.GetRequiredService<DataContext>(),
-                sp.GetRequiredService<IHttpContextAccessor>()
+                sp.GetRequiredService<IHttpContextAccessor>(),
+                sp.GetRequiredService<IJournalService>()
             ));
             
         services.AddScoped<IStudentGroupService, StudentGroupService>();
@@ -242,7 +243,7 @@ public static class Register
     
 
     
-    // Hangfire services and jobs removed as unnecessary
+    // Hangfire
     
     public static async Task ApplyMigrationsAndSeedData(this IApplicationBuilder app)
     {

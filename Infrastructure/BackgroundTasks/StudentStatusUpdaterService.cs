@@ -1,4 +1,3 @@
-using Domain.Entities;
 using Domain.Enums;
 using Infrastructure.Data;
 using Infrastructure.Helpers;
@@ -17,7 +16,7 @@ public class StudentStatusUpdaterService(ILogger<StudentStatusUpdaterService> lo
         try
         {
             var localNow = DateTimeOffset.UtcNow.ToDushanbeTime();
-            logger.LogInformation("Updating student statuses at {time}", localNow);
+            logger.LogInformation("Обновление статусов студентов в {time}", localNow);
             await UpdateStudentStatuses();
         }
         catch (Exception ex)
@@ -28,7 +27,7 @@ public class StudentStatusUpdaterService(ILogger<StudentStatusUpdaterService> lo
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        logger.LogInformation("Student Status Updater Service started");
+        logger.LogInformation("Служба обновления статусов студентов запущена");
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -38,13 +37,13 @@ public class StudentStatusUpdaterService(ILogger<StudentStatusUpdaterService> lo
                 var nextRunTime = CalculateNextRunTime(now);
                 var delay = nextRunTime - now;
 
-                logger.LogInformation($"Next student status update scheduled at {nextRunTime.ToDushanbeTime()} (in {delay.TotalHours:F1} hours)");
+                logger.LogInformation($"Следующее обновление статусов студентов запланировано на {nextRunTime.ToDushanbeTime()} (через {delay.TotalHours:F1} часов)");
                 await Task.Delay(delay, stoppingToken);
                 await UpdateStudentStatuses();
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error occurred while updating student statuses");
+                logger.LogError(ex, "Ошибка при обновлении статусов студентов");
                 await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
             }
         }
@@ -53,7 +52,7 @@ public class StudentStatusUpdaterService(ILogger<StudentStatusUpdaterService> lo
     private DateTimeOffset CalculateNextRunTime(DateTimeOffset currentTime)
     {
         var localTime = currentTime.ToDushanbeTime();
-        var targetTime = new TimeSpan(0, 10, 0); // 00:10 AM
+        var targetTime = new TimeSpan(0, 10, 0);
         
         var targetRunTime = localTime.Date.Add(targetTime);
         var targetDateTimeOffset = new DateTimeOffset(targetRunTime, localTime.Offset);
@@ -68,14 +67,15 @@ public class StudentStatusUpdaterService(ILogger<StudentStatusUpdaterService> lo
     
     private async Task UpdateStudentStatuses()
     {
-        logger.LogInformation("Starting student status update...");
+        logger.LogInformation("Начало обновления статусов студентов...");
 
         using var scope = serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<DataContext>();
+        var emailService = scope.ServiceProvider.GetService<Services.EmailService.IEmailService>();
 
         var localNow = DateTimeConfig.NowDushanbe();
 
-        // Get all active students who need payment update
+
         var studentsToUpdate = await context.Students
             .Where(s => s.ActiveStatus == ActiveStatus.Active && !s.IsDeleted)
             .Where(s => s.NextPaymentDueDate != null && s.NextPaymentDueDate <= localNow)
@@ -83,20 +83,35 @@ public class StudentStatusUpdaterService(ILogger<StudentStatusUpdaterService> lo
 
         if (!studentsToUpdate.Any())
         {
-            logger.LogInformation("No students need status update");
+            logger.LogInformation("Нет студентов, требующих обновления статуса");
             return;
         }
 
-        logger.LogInformation($"Found {studentsToUpdate.Count} students needing status update");
+        logger.LogInformation($"Найдено {studentsToUpdate.Count} студентов, требующих обновления статуса");
 
         foreach (var student in studentsToUpdate)
         {
-            student.ActiveStatus = ActiveStatus.Inactive;
+            student.PaymentStatus = PaymentStatus.Pending;
             student.UpdatedAt = DateTimeOffset.UtcNow;
-            logger.LogInformation($"Student {student.Id} marked as inactive (payment due on {student.NextPaymentDueDate:yyyy-MM-dd})");
+            logger.LogInformation($"Студент {student.Id} помечен как неактивный, статус оплаты — Ожидание (срок оплаты {student.NextPaymentDueDate:yyyy-MM-dd})");
+
+            if (emailService != null && !string.IsNullOrWhiteSpace(student.Email))
+            {
+                try
+                {
+                    var subject = "Напоминание: Срок оплаты истёк";
+                    var content = $"Здравствуйте, {student.FullName}!\n\nСрок оплаты истёк. Пожалуйста, выполните оплату как можно скорее.\n\nСпасибо.";
+                    var message = new Domain.DTOs.EmailDTOs.EmailMessageDto(new[] { student.Email }, subject, content);
+                    await emailService.SendEmail(message, MimeKit.Text.TextFormat.Plain);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Failed to send payment reminder email to student {studentId}", student.Id);
+                }
+            }
         }
 
         await context.SaveChangesAsync();
-        logger.LogInformation($"Successfully updated {studentsToUpdate.Count} student statuses");
+        logger.LogInformation($"Успешно обновлены статусы {studentsToUpdate.Count} студентов");
     }
 }

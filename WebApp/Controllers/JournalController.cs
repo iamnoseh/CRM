@@ -1,3 +1,4 @@
+using ClosedXML.Excel;
 using Domain.DTOs.Journal;
 using Domain.Responses;
 using Infrastructure.Interfaces;
@@ -19,6 +20,10 @@ public class JournalController(IJournalService journalService) : ControllerBase
     [HttpGet("{groupId}/{weekNumber}")]
     public async Task<Response<GetJournalDto>> Get(int groupId, int weekNumber) =>
         await journalService.GetJournalAsync(groupId, weekNumber);
+
+    [HttpGet("{groupId}/by-date")]
+    public async Task<Response<GetJournalDto>> GetByDate(int groupId, [FromQuery] DateTime date ) =>
+        await journalService.GetJournalByDateAsync(groupId, date);
 
     [HttpPut("entry/{entryId}")]
     [Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor")] 

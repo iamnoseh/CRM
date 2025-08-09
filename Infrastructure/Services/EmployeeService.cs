@@ -44,7 +44,7 @@ public class EmployeeService : IEmployeeService
             if (!roles.Any(r => r == "Admin" || r == "Manager" || r == "SuperAdmin" || r == "User"))
                 continue;
             if (filter.Id.HasValue && u.Id != filter.Id.Value) continue;
-            if (!string.IsNullOrEmpty(filter.FullName) && (u.FullName == null || !u.FullName.Contains(filter.FullName))) continue;
+            if (!string.IsNullOrEmpty(filter.FullName) && (!u.FullName.Contains(filter.FullName))) continue;
             if (!string.IsNullOrEmpty(filter.PhoneNumber) && (u.PhoneNumber == null || !u.PhoneNumber.Contains(filter.PhoneNumber))) continue;
             if (filter.Age.HasValue && u.Age != filter.Age.Value) continue;
             if (filter.Gender.HasValue && u.Gender != filter.Gender.Value) continue;
@@ -240,7 +240,7 @@ public class EmployeeService : IEmployeeService
                 managers.Add(new ManagerSelectDto
                 {
                     Id = u.Id,
-                    FullName = u.FullName ?? string.Empty
+                    FullName = u.FullName 
                 });
             }
         }

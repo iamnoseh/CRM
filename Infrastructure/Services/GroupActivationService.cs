@@ -1,5 +1,4 @@
 using System.Net;
-using Domain.Entities;
 using Domain.Enums;
 using Domain.Responses;
 using Infrastructure.Data;
@@ -10,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Services;
 
-public class GroupActivationService(DataContext context, IHttpContextAccessor httpContextAccessor) : IGroupActivationService
+public class GroupActivationService(DataContext context, IHttpContextAccessor httpContextAccessor, IJournalService journalService) : IGroupActivationService
 {
     public async Task<Response<string>> ActivateGroupAsync(int groupId)
     {
@@ -22,8 +21,8 @@ public class GroupActivationService(DataContext context, IHttpContextAccessor ht
 
             var group = await context.Groups
                 .Include(g => g.Course)
-                .ThenInclude(c => c.Center)
-                .FirstOrDefaultAsync(g => g.Id == groupId && g.Course.CenterId == centerId);
+                .ThenInclude(c => c!.Center)
+                .FirstOrDefaultAsync(g => g.Id == groupId && g.Course != null && g.Course.CenterId == centerId);
                 
             if (group == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Group not found or doesn't belong to your center");
@@ -52,7 +51,10 @@ public class GroupActivationService(DataContext context, IHttpContextAccessor ht
             var result = await context.SaveChangesAsync();
 
             if (result > 0)
+            {
+                await journalService.GenerateWeeklyJournalAsync(group.Id, 1);
                 return new Response<string>(HttpStatusCode.OK, "Group activated successfully");
+            }
             
             return new Response<string>(HttpStatusCode.InternalServerError, "Failed to activate group");
         }
