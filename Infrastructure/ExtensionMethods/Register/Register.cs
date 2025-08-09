@@ -152,6 +152,7 @@ public static class Register
             ));
         
         services.AddScoped<IScheduleService, ScheduleService>();
+        services.AddScoped<IJournalService, JournalService>();
         
         services.AddScoped<IGroupService>(gs => 
             new GroupService(
@@ -160,7 +161,6 @@ public static class Register
                 gs.GetRequiredService<IHttpContextAccessor>()
             ));
         
-        services.AddScoped<ILessonService, LessonService>();
         
         
         services.AddLogging(logging =>
@@ -312,18 +312,27 @@ public static class Register
     
     public static void UseStaticFilesConfiguration(this IApplicationBuilder app, string webRootPath)
     {
+        var basePath = Path.Combine(Directory.GetCurrentDirectory(), webRootPath);
+        if (!Directory.Exists(basePath))
+        {
+            Directory.CreateDirectory(basePath);
+        }
+
+        var uploadsPath = Path.Combine(basePath, "uploads");
+        if (!Directory.Exists(uploadsPath))
+        {
+            Directory.CreateDirectory(uploadsPath);
+        }
+
         app.UseStaticFiles(new StaticFileOptions
         {
-            FileProvider = new PhysicalFileProvider(
-                Path.Combine(Directory.GetCurrentDirectory(), webRootPath)),
+            FileProvider = new PhysicalFileProvider(basePath),
             RequestPath = ""
         });
-        
-        
+
         app.UseStaticFiles(new StaticFileOptions()
         {
-            FileProvider = new PhysicalFileProvider(
-                Path.Combine(Directory.GetCurrentDirectory(), webRootPath, "uploads")),
+            FileProvider = new PhysicalFileProvider(uploadsPath),
             RequestPath = "/uploads"
         });
     }

@@ -25,7 +25,7 @@ public class Mentor : BaseEntity
     public string? Document { get; set; }
     public int UserId { get; set; }
     public int CenterId { get; set; }
-    public Center Center { get; set; }
-    public User User { get; set; }
+    public Center? Center { get; set; }
+    public User? User { get; set; }
     public List<Group> Groups { get; set; } = new();
 }

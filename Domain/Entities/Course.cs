@@ -20,5 +20,5 @@ public class Course : BaseEntity
     public ActiveStatus Status { get; set; }
     public List<Group> Groups { get; set; } = new(); 
     public int CenterId { get; set; }
-    public Center Center { get; set; }
+    public Center? Center { get; set; }
 }
