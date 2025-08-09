@@ -6,8 +6,7 @@ using Infrastructure.Seed;
 using Infrastructure.Services;
 using Infrastructure.Services.EmailService;
 using Infrastructure.Services.HashService;
-using Hangfire;
-using Hangfire.PostgreSql;
+// removed Hangfire integration
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -243,30 +242,7 @@ public static class Register
     
 
     
-    [Obsolete("Obsolete")]
-    public static void AddHangfireServices(this IServiceCollection services, IConfiguration configuration)
-    {
-        services.AddHangfire(config =>
-        {
-            config.UsePostgreSqlStorage(configuration.GetConnectionString("DefaultConnection"));
-        });
-        services.AddHangfireServer();
-    }
-    
-    public static void ConfigureHangfireJobs(this IApplicationBuilder app)
-    {
-        RecurringJob.AddOrUpdate("daily-lesson-creation", 
-            () => System.Console.WriteLine("Daily Lesson Creator Service is working automatically as a BackgroundService"),
-            "1 0 * * 1-5", TimeZoneInfo.Local); // 00:01 с пн по пт
-        
-        
-        RecurringJob.AddOrUpdate("group-expiration-check", 
-            () => System.Console.WriteLine("Group Expiration Service is working automatically as a BackgroundService"),
-            "7 0 * * *", TimeZoneInfo.Local); // 00:07 ежедневно
-        RecurringJob.AddOrUpdate("student-status-update", 
-            () => System.Console.WriteLine("Student Status Updater Service is working automatically as a BackgroundService"),
-            "10 0 * * *", TimeZoneInfo.Local); // 00:10 ежедневно
-    }
+    // Hangfire services and jobs removed as unnecessary
     
     public static async Task ApplyMigrationsAndSeedData(this IApplicationBuilder app)
     {

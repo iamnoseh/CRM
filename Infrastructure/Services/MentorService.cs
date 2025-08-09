@@ -319,9 +319,14 @@ public class MentorService(
 
     public async Task<PaginationResponse<List<GetMentorDto>>> GetMentorsPagination(MentorFilter filter)
     {
+        // Sanitize pagination inputs to avoid zero/negative values
+        var pageNumber = filter.PageNumber < 1 ? 1 : filter.PageNumber;
+        var pageSize = filter.PageSize < 1 ? 10 : filter.PageSize;
+
         var mentorsQuery = context.Mentors.Where(m => !m.IsDeleted);
         mentorsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
             mentorsQuery, httpContextAccessor, m => m.CenterId);
+
         if (!string.IsNullOrEmpty(filter.FullName))
             mentorsQuery = mentorsQuery.Where(m => m.FullName.ToLower().Contains(filter.FullName.ToLower()));
         if (!string.IsNullOrEmpty(filter.PhoneNumber))
@@ -334,13 +339,16 @@ public class MentorService(
             mentorsQuery = mentorsQuery.Where(m => m.Gender == filter.Gender.Value);
         if (filter.Salary.HasValue)
             mentorsQuery = mentorsQuery.Where(m => m.Salary == filter.Salary.Value);
+
         var totalRecords = await mentorsQuery.CountAsync();
-        var skip = (filter.PageNumber - 1) * filter.PageSize;
+        var skip = (pageNumber - 1) * pageSize;
+
         var mentors = await mentorsQuery
             .OrderBy(m => m.Id)
             .Skip(skip)
-            .Take(filter.PageSize)
+            .Take(pageSize)
             .ToListAsync();
+
         var dtos = mentors.Select(m => new GetMentorDto
         {
             Id = m.Id,
@@ -359,12 +367,8 @@ public class MentorService(
             CenterId = m.CenterId,
             UserId = m.UserId
         }).ToList();
-        return new PaginationResponse<List<GetMentorDto>>(
-            dtos,
-            filter.PageNumber,
-            filter.PageSize,
-            totalRecords
-        );
+
+        return new PaginationResponse<List<GetMentorDto>>(dtos, totalRecords, pageNumber, pageSize);
     }
 
     public async Task<Response<List<GetMentorDto>>> GetMentorsByGroupAsync(int groupId)

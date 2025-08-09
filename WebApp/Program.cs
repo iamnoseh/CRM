@@ -1,7 +1,7 @@
 using Infrastructure.ExtensionMethods.Register;
 using SwaggerThemes;
 using Domain.DTOs.EmailDTOs;
-using Hangfire;
+using Infrastructure.BackgroundTasks;
 
 var builder = WebApplication.CreateBuilder(args);
 var uploadPath = builder.Configuration.GetValue<string>("UploadPath") ?? "wwwroot";
@@ -16,7 +16,7 @@ builder.Services.AddSingleton(emailConfig);
 
 builder.Services.AddApplicationServices(builder.Configuration, uploadPath);
 builder.Services.AddSwaggerServices();
-builder.Services.AddHangfireServices(builder.Configuration);
+builder.Services.AddBackgroundServices();
 builder.Services.AddControllers();
 var app = builder.Build();
 await app.ApplyMigrationsAndSeedData();
@@ -38,9 +38,6 @@ app.UseAuthentication();
 app.UseAuthorization();  
 app.MapControllers(); 
 
-app.UseHangfireDashboard();
-app.UseHangfireServer();
-
-app.ConfigureHangfireJobs(); 
+// Removed Hangfire dashboard/server and recurring jobs
 
 app.Run();
