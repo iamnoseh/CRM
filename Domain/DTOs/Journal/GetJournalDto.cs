@@ -19,11 +19,11 @@ public class GetJournalEntryDto
     public int DayOfWeek { get; set; } // 1..7
     public int LessonNumber { get; set; } // 1..6
     public LessonType LessonType { get; set; } = LessonType.Regular;
-    public decimal? Grade { get; set; }
-    public decimal? BonusPoints { get; set; }
+    public decimal Grade { get; set; } = 0;
+    public decimal BonusPoints { get; set; } = 0;
     public AttendanceStatus AttendanceStatus { get; set; } = AttendanceStatus.Absent;
     public string? Comment { get; set; }
-    public CommentCategory? CommentCategory { get; set; }
+    public CommentCategory CommentCategory { get; set; } = CommentCategory.General;
     public DateTime EntryDate { get; set; }
     public TimeOnly? StartTime { get; set; }
     public TimeOnly? EndTime { get; set; }

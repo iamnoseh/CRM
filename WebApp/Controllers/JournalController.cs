@@ -27,7 +27,7 @@ public class JournalController(IJournalService journalService) : ControllerBase
     public async Task<Response<GetJournalDto>> GetByDate(int groupId, [FromQuery] DateTime date ) =>
         await journalService.GetJournalByDateAsync(groupId, date);
 
-    [HttpPut("entry/{entryId}")]
+    [HttpPatch("entry/{entryId}")]
     [Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor")] 
     public async Task<Response<string>> UpdateEntry(int entryId, [FromBody] UpdateJournalEntryDto dto) =>
         await journalService.UpdateEntryAsync(entryId, dto);
