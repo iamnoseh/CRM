@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Services;
 
-public class StudentGroupService(DataContext context) : IStudentGroupService
+public class StudentGroupService(DataContext context, IJournalService journalService) : IStudentGroupService
 {
     #region CreateStudentGroupAsync
     public async Task<Response<string>> CreateStudentGroupAsync(CreateStudentGroup request)
@@ -39,9 +39,13 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
                 context.StudentGroups.Update(existingStudentGroup);
                 
                 var updateResult = await context.SaveChangesAsync();
-                return updateResult > 0
-                    ? new Response<string>(HttpStatusCode.OK, "Членство студента в группе переактивировано")
-                    : new Response<string>(HttpStatusCode.InternalServerError, "Не удалось переактивировать членство студента в группе");
+                if (updateResult > 0)
+                {
+                    // Backfill current week's journal entries for this student
+                    _ = await journalService.BackfillCurrentWeekForStudentAsync(request.GroupId, request.StudentId);
+                    return new Response<string>(HttpStatusCode.OK, "Членство студента в группе переактивировано");
+                }
+                return new Response<string>(HttpStatusCode.InternalServerError, "Не удалось переактивировать членство студента в группе");
             }
 
             var studentGroup = new StudentGroup
@@ -57,9 +61,12 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
             await context.StudentGroups.AddAsync(studentGroup);
             var result = await context.SaveChangesAsync();
 
-            return result > 0
-                ? new Response<string>(HttpStatusCode.Created, "Студент успешно добавлен в группу")
-                : new Response<string>(HttpStatusCode.InternalServerError, "Не удалось добавить студента в группу");
+            if (result > 0)
+            {
+                _ = await journalService.BackfillCurrentWeekForStudentAsync(request.GroupId, request.StudentId);
+                return new Response<string>(HttpStatusCode.Created, "Студент успешно добавлен в группу");
+            }
+            return new Response<string>(HttpStatusCode.InternalServerError, "Не удалось добавить студента в группу");
         }
         catch (Exception ex)
         {
@@ -483,9 +490,16 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
             await context.StudentGroups.AddRangeAsync(newStudentGroups);
             var result = await context.SaveChangesAsync();
 
-            return result > 0
-                ? new Response<string>(HttpStatusCode.Created, "Студенты успешно добавлены в группу")
-                : new Response<string>(HttpStatusCode.InternalServerError, "Не удалось добавить студентов в группу");
+            if (result > 0)
+            {
+                var affectedIds = existingStudentGroups.Select(x => x.StudentId).Concat(studentIds).Distinct().ToList();
+                if (affectedIds.Count > 0)
+                {
+                    _ = await journalService.BackfillCurrentWeekForStudentsAsync(groupId, affectedIds);
+                }
+                return new Response<string>(HttpStatusCode.Created, "Студенты успешно добавлены в группу");
+            }
+            return new Response<string>(HttpStatusCode.InternalServerError, "Не удалось добавить студентов в группу");
         }
         catch (Exception ex)
         {
@@ -566,9 +580,13 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
             context.StudentGroups.Update(studentGroup);
             var result = await context.SaveChangesAsync();
 
-            return result > 0
-                ? new Response<string>(HttpStatusCode.OK, "Студент успешно удален из группы")
-                : new Response<string>(HttpStatusCode.InternalServerError, "Не удалось удалить студента из группы");
+            if (result > 0)
+            {
+                // Cleanup any future journal entries for this student in this group
+                _ = await journalService.RemoveFutureEntriesForStudentAsync(groupId, studentId);
+                return new Response<string>(HttpStatusCode.OK, "Студент успешно удален из группы");
+            }
+            return new Response<string>(HttpStatusCode.InternalServerError, "Не удалось удалить студента из группы");
         }
         catch (Exception ex)
         {
@@ -732,9 +750,12 @@ public class StudentGroupService(DataContext context) : IStudentGroupService
             context.StudentGroups.Update(studentGroup);
             var result = await context.SaveChangesAsync();
 
-            return result > 0
-                ? new Response<string>(HttpStatusCode.OK, "Студент успешно деактивирован в группе")
-                : new Response<string>(HttpStatusCode.InternalServerError, "Не удалось деактивировать студента в группе");
+            if (result > 0)
+            {
+                _ = await journalService.RemoveFutureEntriesForStudentAsync(groupId, studentId);
+                return new Response<string>(HttpStatusCode.OK, "Студент успешно деактивирован в группе");
+            }
+            return new Response<string>(HttpStatusCode.InternalServerError, "Не удалось деактивировать студента в группе");
         }
         catch (Exception ex)
         {

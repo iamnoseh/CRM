@@ -360,6 +360,215 @@ public class JournalService(DataContext context) : IJournalService
         }
     }
 
+    public async Task<Response<string>> BackfillCurrentWeekForStudentAsync(int groupId, int studentId)
+    {
+        try
+        {
+            // Ensure the student is currently active in the group
+            var isActiveMember = await context.StudentGroups
+                .AnyAsync(sg => sg.GroupId == groupId && sg.StudentId == studentId && sg.IsActive && !sg.IsDeleted);
+            if (!isActiveMember)
+            {
+                return new Response<string>(HttpStatusCode.OK, "Студент неактивен в группе — backfill пропущен");
+            }
+
+            var nowUtc = DateTimeOffset.UtcNow;
+            var journal = await context.Journals
+                .Where(j => j.GroupId == groupId && !j.IsDeleted)
+                .FirstOrDefaultAsync(j => j.WeekStartDate <= nowUtc && nowUtc <= j.WeekEndDate);
+
+            if (journal == null)
+            {
+                return new Response<string>(HttpStatusCode.NotFound, "Журнали ҳафтаи ҷорӣ барои ин гурӯҳ ёфт нашуд");
+            }
+
+            // Collect distinct slots from existing entries of the journal
+            var slots = await context.JournalEntries
+                .Where(e => e.JournalId == journal.Id && !e.IsDeleted)
+                .Select(e => new
+                {
+                    e.DayOfWeek,
+                    e.LessonNumber,
+                    e.LessonType,
+                    e.StartTime,
+                    e.EndTime,
+                    e.EntryDate
+                })
+                .Distinct()
+                .ToListAsync();
+
+            if (slots.Count == 0)
+            {
+                return new Response<string>(HttpStatusCode.BadRequest, "Барои ин ҳафта ягон слот вуҷуд надорад");
+            }
+
+            int created = 0;
+            foreach (var s in slots)
+            {
+                var exists = await context.JournalEntries.AnyAsync(e =>
+                    e.JournalId == journal.Id &&
+                    e.StudentId == studentId &&
+                    e.DayOfWeek == s.DayOfWeek &&
+                    e.LessonNumber == s.LessonNumber &&
+                    !e.IsDeleted);
+
+                if (exists) continue;
+
+                var entry = new JournalEntry
+                {
+                    JournalId = journal.Id,
+                    StudentId = studentId,
+                    DayOfWeek = s.DayOfWeek,
+                    LessonNumber = s.LessonNumber,
+                    LessonType = s.LessonType,
+                    StartTime = s.StartTime,
+                    EndTime = s.EndTime,
+                    AttendanceStatus = AttendanceStatus.Absent,
+                    EntryDate = DateTime.SpecifyKind(s.EntryDate, DateTimeKind.Utc)
+                };
+                await context.JournalEntries.AddAsync(entry);
+                created++;
+            }
+
+            if (created == 0)
+                return new Response<string>(HttpStatusCode.OK, "Барои донишҷӯ ягон entry-и нав лозим нашуд");
+
+            await context.SaveChangesAsync();
+            return new Response<string>(HttpStatusCode.Created, $"Создадено {created} запис(ов) для студента");
+        }
+        catch (Exception ex)
+        {
+            return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
+        }
+    }
+
+    public async Task<Response<string>> BackfillCurrentWeekForStudentsAsync(int groupId, IEnumerable<int> studentIds)
+    {
+        try
+        {
+            var ids = studentIds?.Distinct().ToList() ?? new List<int>();
+            if (ids.Count == 0)
+                return new Response<string>(HttpStatusCode.BadRequest, "Студенты не указаны");
+
+            // Filter only students who are currently active in the group
+            var activeIds = await context.StudentGroups
+                .Where(sg => sg.GroupId == groupId && ids.Contains(sg.StudentId) && sg.IsActive && !sg.IsDeleted)
+                .Select(sg => sg.StudentId)
+                .Distinct()
+                .ToListAsync();
+            if (activeIds.Count == 0)
+            {
+                return new Response<string>(HttpStatusCode.OK, "Нет активных студентов для backfill");
+            }
+
+            var nowUtc = DateTimeOffset.UtcNow;
+            var journal = await context.Journals
+                .Where(j => j.GroupId == groupId && !j.IsDeleted)
+                .FirstOrDefaultAsync(j => j.WeekStartDate <= nowUtc && nowUtc <= j.WeekEndDate);
+
+            if (journal == null)
+            {
+                return new Response<string>(HttpStatusCode.NotFound, "Журнали ҳафтаи ҷорӣ барои ин гурӯҳ ёфт нашуд");
+            }
+
+            var slots = await context.JournalEntries
+                .Where(e => e.JournalId == journal.Id && !e.IsDeleted)
+                .Select(e => new
+                {
+                    e.DayOfWeek,
+                    e.LessonNumber,
+                    e.LessonType,
+                    e.StartTime,
+                    e.EndTime,
+                    e.EntryDate
+                })
+                .Distinct()
+                .ToListAsync();
+
+            if (slots.Count == 0)
+            {
+                return new Response<string>(HttpStatusCode.BadRequest, "Барои ин ҳафта ягон слот вуҷуд надорад");
+            }
+
+            int createdTotal = 0;
+            foreach (var studentId in activeIds)
+            {
+                foreach (var s in slots)
+                {
+                    var exists = await context.JournalEntries.AnyAsync(e =>
+                        e.JournalId == journal.Id &&
+                        e.StudentId == studentId &&
+                        e.DayOfWeek == s.DayOfWeek &&
+                        e.LessonNumber == s.LessonNumber &&
+                        !e.IsDeleted);
+
+                    if (exists) continue;
+
+                    var entry = new JournalEntry
+                    {
+                        JournalId = journal.Id,
+                        StudentId = studentId,
+                        DayOfWeek = s.DayOfWeek,
+                        LessonNumber = s.LessonNumber,
+                        LessonType = s.LessonType,
+                        StartTime = s.StartTime,
+                        EndTime = s.EndTime,
+                        AttendanceStatus = AttendanceStatus.Absent,
+                        EntryDate = DateTime.SpecifyKind(s.EntryDate, DateTimeKind.Utc)
+                    };
+                    await context.JournalEntries.AddAsync(entry);
+                    createdTotal++;
+                }
+            }
+
+            if (createdTotal == 0)
+                return new Response<string>(HttpStatusCode.OK, "Ягон сабти нав лозим нашуд");
+
+            await context.SaveChangesAsync();
+            return new Response<string>(HttpStatusCode.Created, $"Создадено {createdTotal} запис(ов) для студентов");
+        }
+        catch (Exception ex)
+        {
+            return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
+        }
+    }
+
+    public async Task<Response<string>> RemoveFutureEntriesForStudentAsync(int groupId, int studentId)
+    {
+        try
+        {
+            var nowUtc = DateTimeOffset.UtcNow;
+            // Find all journals for this group strictly after the current time window
+            var futureJournalIds = await context.Journals
+                .Where(j => j.GroupId == groupId && !j.IsDeleted && j.WeekStartDate > nowUtc)
+                .Select(j => j.Id)
+                .ToListAsync();
+
+            if (futureJournalIds.Count == 0)
+                return new Response<string>(HttpStatusCode.OK, "Будущих недель нет — удалять нечего");
+
+            var futureEntries = await context.JournalEntries
+                .Where(e => futureJournalIds.Contains(e.JournalId) && e.StudentId == studentId && !e.IsDeleted)
+                .ToListAsync();
+
+            if (futureEntries.Count == 0)
+                return new Response<string>(HttpStatusCode.OK, "Для студента будущих записей нет");
+
+            foreach (var e in futureEntries)
+            {
+                e.IsDeleted = true;
+                e.UpdatedAt = DateTimeOffset.UtcNow;
+            }
+
+            await context.SaveChangesAsync();
+            return new Response<string>(HttpStatusCode.OK, $"Удалено будущих записей: {futureEntries.Count}");
+        }
+        catch (Exception ex)
+        {
+            return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
+        }
+    }
+
     private static DateTimeOffset GetWeekStart(DateTime groupStart, int weekNumber)
     {
         var startUtc = DateTime.SpecifyKind(groupStart.Date, DateTimeKind.Utc);
