@@ -9,27 +9,18 @@ using Microsoft.EntityFrameworkCore.Query;
 
 namespace Infrastructure.Services.ExportToExel
 {
-    public class StudentAnalyticsExportService : IStudentAnalyticsExportService
+    public class StudentAnalyticsExportService(DataContext context, IHttpContextAccessor httpContextAccessor)
+        : IStudentAnalyticsExportService
     {
-        private readonly DataContext _context;
-        private readonly IHttpContextAccessor _httpContextAccessor;
-
-        public StudentAnalyticsExportService(DataContext context, IHttpContextAccessor httpContextAccessor)
-        {
-            _context = context;
-            _httpContextAccessor = httpContextAccessor;
-        }
-
         public async Task<byte[]> ExportStudentAnalyticsToExcelAsync(int? month = null, int? year = null)
         {
-            // ===== подготовка данных =====
-            var studentsQuery = _context.Students
+            var studentsQuery = context.Students
                 .Include(s => s.StudentGroups).ThenInclude(sg => sg.Group)
                 .Include(s => s.Center)
                 .Where(s => !s.IsDeleted)
                 .AsQueryable();
 
-            studentsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(studentsQuery, _httpContextAccessor, s => s.CenterId);
+            studentsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(studentsQuery, httpContextAccessor, s => s.CenterId);
 
             var students = await studentsQuery.ToListAsync();
 
@@ -50,10 +41,10 @@ namespace Infrastructure.Services.ExportToExel
             using var wb = new XLWorkbook();
 
             string centerTitle = "Все центры";
-            var centerId = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
+            var centerId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
             if (centerId.HasValue)
             {
-                var center = await _context.Centers.FirstOrDefaultAsync(c => c.Id == centerId.Value && !c.IsDeleted);
+                var center = await context.Centers.FirstOrDefaultAsync(c => c.Id == centerId.Value && !c.IsDeleted);
                 centerTitle = center?.Name ?? $"Center #{centerId.Value}";
             }
 
@@ -129,12 +120,12 @@ namespace Infrastructure.Services.ExportToExel
             foreach (var s in students)
             {
                 var groupIds = s.StudentGroups.Select(sg => sg.GroupId).Distinct().ToList();
-                var groups = await _context.Groups.Where(g => groupIds.Contains(g.Id) && !g.IsDeleted).ToListAsync();
+                var groups = await context.Groups.Where(g => groupIds.Contains(g.Id) && !g.IsDeleted).ToListAsync();
 
                 var groupAvgParts = new List<string>();
                 foreach (var g in groups)
                 {
-                    var entriesQuery = _context.JournalEntries
+                    var entriesQuery = context.JournalEntries
                         .Where(e => e.StudentId == s.Id && e.Journal!.GroupId == g.Id && !e.IsDeleted)
                         .Include(e => e.Journal);
 
@@ -147,7 +138,7 @@ namespace Infrastructure.Services.ExportToExel
                     groupAvgParts.Add($"{g.Name}:{Math.Round(avg, 2)}");
                 }
 
-                var attQuery = _context.JournalEntries
+                var attQuery = context.JournalEntries
                     .Where(e => e.StudentId == s.Id && !e.IsDeleted)
                     .Include(e => e.Journal);
                 if (from.HasValue && to.HasValue)
@@ -242,7 +233,7 @@ namespace Infrastructure.Services.ExportToExel
             int sgRow = 3;
             int sgIndex = 1;
             var allGroupIds = students.SelectMany(st => st.StudentGroups.Select(sg => sg.GroupId)).Distinct().ToList();
-            var groupMeta = await _context.Groups
+            var groupMeta = await context.Groups
                 .Where(g => allGroupIds.Contains(g.Id) && !g.IsDeleted)
                 .Select(g => new
                 {
@@ -260,7 +251,7 @@ namespace Infrastructure.Services.ExportToExel
                     int gId = sg.GroupId;
                     var meta = groupMeta.FirstOrDefault(m => m.Id == gId);
 
-                    var entriesQuery = _context.JournalEntries
+                    var entriesQuery = context.JournalEntries
                         .Where(e => e.StudentId == s.Id && e.Journal!.GroupId == gId && !e.IsDeleted)
                         .Include(e => e.Journal);
                     if (from.HasValue && to.HasValue)

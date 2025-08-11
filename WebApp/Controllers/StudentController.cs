@@ -146,6 +146,7 @@ public class StudentController (IStudentService service) : ControllerBase
         => await service.UpdateStudentPaymentStatusAsync(dto);
     
     [HttpGet("export/analytics")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<IActionResult> ExportStudentAnalytics([FromServices] IStudentAnalyticsExportService exportService, [FromQuery] int? month, [FromQuery] int? year)
     {
         if ((month.HasValue && !year.HasValue) || (!month.HasValue && year.HasValue))
