@@ -144,14 +144,16 @@ public class StudentController (IStudentService service) : ControllerBase
     [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<Response<string>> UpdateStudentPaymentStatus([FromBody] UpdateStudentPaymentStatusDto dto)
         => await service.UpdateStudentPaymentStatusAsync(dto);
-
-    [HttpGet("export/excel")]
-    [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin}")]
-    public async Task<IActionResult> ExportStudentsToExcel([FromServices] IStudentExportService exportService)
+    
+    [HttpGet("export/analytics")]
+    public async Task<IActionResult> ExportStudentAnalytics([FromServices] IStudentAnalyticsExportService exportService, [FromQuery] int? month, [FromQuery] int? year)
     {
-        var fileBytes = await exportService.ExportAllStudentsToExcelAsync();
-        var fileName = $"students_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
-        return File(fileBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
-    }
+        if ((month.HasValue && !year.HasValue) || (!month.HasValue && year.HasValue))
+            return BadRequest("Both month and year must be provided together, or neither.");
 
+        var bytes = await exportService.ExportStudentAnalyticsToExcelAsync(month, year);
+        var scope = month.HasValue ? $"{year:D4}-{month:D2}" : "all";
+        var fileName = $"student_analytics_{scope}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.xlsx";
+        return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+    }
 }

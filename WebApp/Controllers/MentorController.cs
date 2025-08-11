@@ -145,13 +145,5 @@ public class MentorController(IMentorService mentorService) : ControllerBase
         var response = await mentorService.UpdateMentorPaymentStatusAsync(dto.MentorId, dto.Status);
         return StatusCode(response.StatusCode, response);
     }
-
-    [HttpGet("export/excel")]
-    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
-    public async Task<IActionResult> ExportMentorsToExcel([FromServices] IMentorExportService exportService)
-    {
-        var fileBytes = await exportService.ExportAllMentorsToExcelAsync();
-        var fileName = $"mentors_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
-        return File(fileBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
-    }
+    
 }

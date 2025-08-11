@@ -6,7 +6,6 @@ using Infrastructure.Seed;
 using Infrastructure.Services;
 using Infrastructure.Services.EmailService;
 using Infrastructure.Services.HashService;
-// removed Hangfire integration
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -18,6 +17,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Npgsql;
 using System.Text;
+using Infrastructure.Services.ExportToExel;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 
@@ -153,6 +153,7 @@ public static class Register
         
         services.AddScoped<IScheduleService, ScheduleService>();
         services.AddScoped<IJournalService, JournalService>();
+         services.AddScoped<IStudentAnalyticsExportService, StudentAnalyticsExportService>();
         
         services.AddScoped<IGroupService>(gs => 
             new GroupService(
