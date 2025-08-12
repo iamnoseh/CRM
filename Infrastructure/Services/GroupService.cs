@@ -122,7 +122,6 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 Status = ActiveStatus.Inactive, 
                 StartDate = startDate, 
                 EndDate = endDate,
-                // Automatic Lesson Scheduling
                 LessonDays = request.LessonDays,
                 LessonStartTime = request.LessonStartTime,
                 LessonEndTime = request.LessonEndTime,

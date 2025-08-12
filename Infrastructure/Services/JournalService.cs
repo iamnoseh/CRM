@@ -151,15 +151,29 @@ public class JournalService(DataContext context) : IJournalService
             var studentIds = journal.Entries.Select(e => e.StudentId).Distinct().ToList();
             var students = await context.Students
                 .Where(s => studentIds.Contains(s.Id) && !s.IsDeleted)
-                .Select(s => new { s.Id, s.FullName })
+                .Select(s => new { s.Id, s.FullName, IsActive = s.ActiveStatus == ActiveStatus.Active })
                 .ToListAsync();
 
-            var progresses = students.Select(s => new StudentProgress
+            var totalsByStudent = journal.Entries
+                .Where(e => !e.IsDeleted)
+                .GroupBy(e => e.StudentId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.Where(x => x.Grade.HasValue).Sum(x => x.Grade!.Value)
+                          + g.Where(x => x.BonusPoints.HasValue).Sum(x => x.BonusPoints!.Value)
+                );
+
+            var progresses = students
+                .Select(s => new { s, total = totalsByStudent.TryGetValue(s.Id, out var t) ? t : 0m })
+                .OrderByDescending(x => x.total)
+                .ThenByDescending(x => x.s.IsActive)
+                .ThenBy(x => x.s.FullName)
+                .Select(x => new StudentProgress
             {
-                StudentId = s.Id,
-                StudentName = $"{s.FullName}".Trim(),
+                StudentId = x.s.Id,
+                StudentName = $"{x.s.FullName}".Trim(),
                 StudentEntries = journal.Entries
-                    .Where(e => e.StudentId == s.Id)
+                    .Where(e => e.StudentId == x.s.Id)
                     .OrderBy(e => e.LessonNumber)
                     .ThenBy(e => e.DayOfWeek)
                     .Select(e => new GetJournalEntryDto
@@ -215,15 +229,29 @@ public class JournalService(DataContext context) : IJournalService
             var studentIds = journal.Entries.Select(e => e.StudentId).Distinct().ToList();
             var students = await context.Students
                 .Where(s => studentIds.Contains(s.Id) && !s.IsDeleted)
-                .Select(s => new { s.Id, s.FullName })
+                .Select(s => new { s.Id, s.FullName, IsActive = s.ActiveStatus == ActiveStatus.Active })
                 .ToListAsync();
 
-            var progresses = students.Select(s => new StudentProgress
+            var totalsByStudent = journal.Entries
+                .Where(e => !e.IsDeleted)
+                .GroupBy(e => e.StudentId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.Where(x => x.Grade.HasValue).Sum(x => x.Grade!.Value)
+                          + g.Where(x => x.BonusPoints.HasValue).Sum(x => x.BonusPoints!.Value)
+                );
+
+            var progresses = students
+                .Select(s => new { s, total = totalsByStudent.TryGetValue(s.Id, out var t) ? t : 0m })
+                .OrderByDescending(x => x.total)
+                .ThenByDescending(x => x.s.IsActive)
+                .ThenBy(x => x.s.FullName)
+                .Select(x => new StudentProgress
             {
-                StudentId = s.Id,
-                StudentName = $"{s.FullName}".Trim(),
+                StudentId = x.s.Id,
+                StudentName = $"{x.s.FullName}".Trim(),
                 StudentEntries = journal.Entries
-                    .Where(e => e.StudentId == s.Id)
+                    .Where(e => e.StudentId == x.s.Id)
                     .OrderBy(e => e.LessonNumber)
                     .ThenBy(e => e.DayOfWeek)
                     .Select(e => new GetJournalEntryDto
@@ -288,15 +316,29 @@ public class JournalService(DataContext context) : IJournalService
             var studentIds = journal.Entries.Select(e => e.StudentId).Distinct().ToList();
             var students = await context.Students
                 .Where(s => studentIds.Contains(s.Id) && !s.IsDeleted)
-                .Select(s => new { s.Id, s.FullName })
+                .Select(s => new { s.Id, s.FullName, IsActive = s.ActiveStatus == ActiveStatus.Active })
                 .ToListAsync();
 
-            var progresses = students.Select(s => new StudentProgress
+            var totalsByStudent = journal.Entries
+                .Where(e => !e.IsDeleted)
+                .GroupBy(e => e.StudentId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.Where(x => x.Grade.HasValue).Sum(x => x.Grade!.Value)
+                          + g.Where(x => x.BonusPoints.HasValue).Sum(x => x.BonusPoints!.Value)
+                );
+
+            var progresses = students
+                .Select(s => new { s, total = totalsByStudent.TryGetValue(s.Id, out var t) ? t : 0m })
+                .OrderByDescending(x => x.total)
+                .ThenByDescending(x => x.s.IsActive)
+                .ThenBy(x => x.s.FullName)
+                .Select(x => new StudentProgress
             {
-                StudentId = s.Id,
-                StudentName = $"{s.FullName}".Trim(),
+                StudentId = x.s.Id,
+                StudentName = $"{x.s.FullName}".Trim(),
                 StudentEntries = journal.Entries
-                    .Where(e => e.StudentId == s.Id)
+                    .Where(e => e.StudentId == x.s.Id)
                     .OrderBy(e => e.LessonNumber)
                     .ThenBy(e => e.DayOfWeek)
                     .Select(e => new GetJournalEntryDto
@@ -364,7 +406,6 @@ public class JournalService(DataContext context) : IJournalService
     {
         try
         {
-            // Ensure the student is currently active in the group
             var isActiveMember = await context.StudentGroups
                 .AnyAsync(sg => sg.GroupId == groupId && sg.StudentId == studentId && sg.IsActive && !sg.IsDeleted);
             if (!isActiveMember)
@@ -382,7 +423,6 @@ public class JournalService(DataContext context) : IJournalService
                 return new Response<string>(HttpStatusCode.NotFound, "Журнали ҳафтаи ҷорӣ барои ин гурӯҳ ёфт нашуд");
             }
 
-            // Collect distinct slots from existing entries of the journal
             var slots = await context.JournalEntries
                 .Where(e => e.JournalId == journal.Id && !e.IsDeleted)
                 .Select(e => new
@@ -450,7 +490,6 @@ public class JournalService(DataContext context) : IJournalService
             if (ids.Count == 0)
                 return new Response<string>(HttpStatusCode.BadRequest, "Студенты не указаны");
 
-            // Filter only students who are currently active in the group
             var activeIds = await context.StudentGroups
                 .Where(sg => sg.GroupId == groupId && ids.Contains(sg.StudentId) && sg.IsActive && !sg.IsDeleted)
                 .Select(sg => sg.StudentId)
@@ -538,7 +577,6 @@ public class JournalService(DataContext context) : IJournalService
         try
         {
             var nowUtc = DateTimeOffset.UtcNow;
-            // Find all journals for this group strictly after the current time window
             var futureJournalIds = await context.Journals
                 .Where(j => j.GroupId == groupId && !j.IsDeleted && j.WeekStartDate > nowUtc)
                 .Select(j => j.Id)
@@ -584,5 +622,130 @@ public class JournalService(DataContext context) : IJournalService
             .Select(int.Parse)
             .Distinct()
             .ToList();
+    }
+
+    public async Task<Response<List<StudentWeekTotalsDto>>> GetStudentWeekTotalsAsync(int groupId, int weekNumber)
+    {
+        try
+        {
+            var journal = await context.Journals
+                .Include(j => j.Entries)
+                .Include(j => j.Group)
+                .FirstOrDefaultAsync(j => j.GroupId == groupId && j.WeekNumber == weekNumber && !j.IsDeleted);
+
+            if (journal == null)
+                return new Response<List<StudentWeekTotalsDto>>(HttpStatusCode.NotFound, "Журнал ёфт нашуд");
+
+            var entries = journal.Entries.Where(e => !e.IsDeleted).ToList();
+
+            var studentIds = entries.Select(e => e.StudentId).Distinct().ToList();
+            var students = await context.Students
+                .Where(s => studentIds.Contains(s.Id) && !s.IsDeleted)
+                .Select(s => new { s.Id, s.FullName })
+                .ToListAsync();
+
+            var totals = students.Select(s => new StudentWeekTotalsDto
+            {
+                StudentId = s.Id,
+                StudentName = s.FullName,
+                TotalPoints =
+                    entries.Where(e => e.StudentId == s.Id && e.Grade.HasValue).Select(e => e.Grade!.Value).Sum() +
+                    entries.Where(e => e.StudentId == s.Id && e.BonusPoints.HasValue).Select(e => e.BonusPoints!.Value).Sum()
+            }).OrderBy(t => t.StudentName).ToList();
+
+            return new Response<List<StudentWeekTotalsDto>>(totals);
+        }
+        catch (Exception ex)
+        {
+            return new Response<List<StudentWeekTotalsDto>>(HttpStatusCode.InternalServerError, ex.Message);
+        }
+    }
+    
+    public async Task<Response<GroupWeeklyTotalsDto>> GetGroupWeeklyTotalsAsync(int groupId)
+    {
+        try
+        {
+            var journals = await context.Journals
+                .Include(j => j.Entries)
+                .Include(j => j.Group)
+                .Where(j => j.GroupId == groupId && !j.IsDeleted)
+                .OrderBy(j => j.WeekNumber)
+                .ToListAsync();
+
+            if (journals.Count == 0)
+                return new Response<GroupWeeklyTotalsDto>(HttpStatusCode.NotFound, "Журналҳо ёфт нашуданд");
+
+            var allEntries = journals.SelectMany(j => j.Entries).Where(e => !e.IsDeleted).ToList();
+            var studentIds = allEntries.Select(e => e.StudentId).Distinct().ToList();
+            var students = await context.Students
+                .Where(s => studentIds.Contains(s.Id) && !s.IsDeleted)
+                .Select(s => new { s.Id, s.FullName, IsActive = s.ActiveStatus == ActiveStatus.Active })
+                .ToListAsync();
+            var studentIsActive = students.ToDictionary(s => s.Id, s => s.IsActive);
+
+            var result = new GroupWeeklyTotalsDto
+            {
+                GroupId = groupId,
+                GroupName = journals.First().Group?.Name ?? string.Empty
+            };
+
+            foreach (var journal in journals)
+            {
+                var weekEntries = journal.Entries.Where(e => !e.IsDeleted).ToList();
+                var week = new WeekTotalsDto
+                {
+                    WeekNumber = journal.WeekNumber,
+                    WeekStartDate = journal.WeekStartDate,
+                    WeekEndDate = journal.WeekEndDate
+                };
+
+                week.Students = students
+                    .Select(s => new StudentWeekPointsDto
+                    {
+                        StudentId = s.Id,
+                        StudentName = s.FullName,
+                        IsActive = s.IsActive,
+                        TotalPoints =
+                            weekEntries.Where(e => e.StudentId == s.Id && e.Grade.HasValue).Sum(e => e.Grade!.Value) +
+                            weekEntries.Where(e => e.StudentId == s.Id && e.BonusPoints.HasValue).Sum(e => e.BonusPoints!.Value)
+                    })
+                    .OrderByDescending(x => x.TotalPoints)
+                    .ThenByDescending(x => x.IsActive)
+                    .ThenBy(x => x.StudentName)
+                    .ToList();
+
+                result.Weeks.Add(week);
+            }
+
+            result.StudentAggregates = students
+                .Select(s =>
+                {
+                    var totals = result.Weeks
+                        .SelectMany(w => w.Students)
+                        .Where(x => x.StudentId == s.Id)
+                        .Select(x => x.TotalPoints)
+                        .ToList();
+                    var sum = totals.Sum();
+                    var avg = totals.Count > 0 ? Math.Round((double)totals.Average(), 2) : 0d;
+                    return new StudentAggregateDto
+                    {
+                        StudentId = s.Id,
+                        StudentName = s.FullName,
+                        TotalPointsAllWeeks = sum,
+                        AveragePointsPerWeek = avg,
+                        IsActive = s.IsActive
+                    };
+                })
+                .OrderByDescending(a => a.TotalPointsAllWeeks)
+                .ThenByDescending(a => a.IsActive)
+                .ThenBy(a => a.StudentName)
+                .ToList();
+
+            return new Response<GroupWeeklyTotalsDto>(result);
+        }
+        catch (Exception ex)
+        {
+            return new Response<GroupWeeklyTotalsDto>(HttpStatusCode.InternalServerError, ex.Message);
+        }
     }
 }
