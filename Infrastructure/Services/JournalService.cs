@@ -748,4 +748,47 @@ public class JournalService(DataContext context) : IJournalService
             return new Response<GroupWeeklyTotalsDto>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
+
+    public async Task<Response<GroupPassStatsDto>> GetGroupPassStatsAsync(int groupId, decimal threshold)
+    {
+        try
+        {
+            var group = await context.Groups.FirstOrDefaultAsync(g => g.Id == groupId && !g.IsDeleted);
+            if (group == null)
+                return new Response<GroupPassStatsDto>(HttpStatusCode.NotFound, "Гурӯҳ ёфт нашуд");
+
+            // Use existing weekly aggregation to ensure parity with UI totals
+            var totalsResponse = await GetGroupWeeklyTotalsAsync(groupId);
+            if (totalsResponse.StatusCode == (int)HttpStatusCode.NotFound || totalsResponse.Data == null)
+            {
+                return new Response<GroupPassStatsDto>(new GroupPassStatsDto
+                {
+                    GroupId = groupId,
+                    GroupName = group.Name,
+                    TotalStudents = 0,
+                    PassedCount = 0,
+                    Threshold = threshold
+                });
+            }
+
+            var aggregates = totalsResponse.Data.StudentAggregates;
+            var totalStudents = aggregates.Count;
+            var passedCount = aggregates.Count(a => (decimal)a.AveragePointsPerWeek >= threshold);
+
+            var dto = new GroupPassStatsDto
+            {
+                GroupId = groupId,
+                GroupName = totalsResponse.Data.GroupName,
+                TotalStudents = totalStudents,
+                PassedCount = passedCount,
+                Threshold = threshold
+            };
+
+            return new Response<GroupPassStatsDto>(dto);
+        }
+        catch (Exception ex)
+        {
+            return new Response<GroupPassStatsDto>(HttpStatusCode.InternalServerError, ex.Message);
+        }
+    }
 }

@@ -16,6 +16,7 @@ public interface IJournalService
     Task<Response<List<StudentWeekTotalsDto>>> GetStudentWeekTotalsAsync(int groupId, int weekNumber);
     //Task<Response<GetStudentAverageDto>>  GetStudentsAverageAsync(int groupId);
     Task<Response<GroupWeeklyTotalsDto>> GetGroupWeeklyTotalsAsync(int groupId);
+    Task<Response<GroupPassStatsDto>> GetGroupPassStatsAsync(int groupId, decimal threshold);
 }
 
 
