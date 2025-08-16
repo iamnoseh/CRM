@@ -37,9 +37,7 @@ public class SeedData(UserManager<User> userManager, RoleManager<IdentityRole<in
                 await userManager.AddToRoleAsync(existing, Roles.SuperAdmin);
             return false;
         }
-        
-        var centerId = await context.Centers.Select(c => c.Id).FirstOrDefaultAsync();
-        
+
         var user = new User()
         {
             UserName = "superadmin",
