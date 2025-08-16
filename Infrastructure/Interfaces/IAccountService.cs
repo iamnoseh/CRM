@@ -1,5 +1,4 @@
 using Domain.DTOs.Account;
-using Domain.Filters;
 using Domain.Responses;
 
 namespace Infrastructure.Interfaces;

@@ -16,8 +16,11 @@ public class StudentController (IStudentService service) : ControllerBase
 {
     [HttpGet]
     [Authorize(Roles = "Admin,SuperAdmin,Manager,Teacher,Student")]
-    public async Task<Response<List<GetStudentDto>>> GetAllStudents() =>
-        await service.GetStudents();
+    public async Task<IActionResult> GetAllStudents()
+    {
+        var res = await service.GetStudents();
+        return Ok(res);
+    }
 
     [HttpGet("select-students")]
     [Authorize(Roles = "Admin,SuperAdmin,Manager")]

@@ -1,5 +1,3 @@
-
-
 using Domain.DTOs.Group;
 using Domain.Filters;
 using Domain.Responses;

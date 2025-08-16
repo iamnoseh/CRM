@@ -1,5 +1,4 @@
 using Domain.DTOs.Schedule;
-using Domain.Enums;
 using Domain.Responses;
 
 namespace Infrastructure.Interfaces;
