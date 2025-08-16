@@ -160,7 +160,7 @@ public class JournalService(DataContext context) : IJournalService
                 .ToDictionary(
                     g => g.Key,
                     g => g.Where(x => x.Grade.HasValue).Sum(x => x.Grade!.Value)
-                          + g.Where(x => x.BonusPoints.HasValue).Sum(x => x.BonusPoints!.Value)
+                         + g.Where(x => x.BonusPoints.HasValue).Sum(x => x.BonusPoints!.Value)
                 );
 
             var progresses = students
@@ -169,29 +169,29 @@ public class JournalService(DataContext context) : IJournalService
                 .ThenByDescending(x => x.s.IsActive)
                 .ThenBy(x => x.s.FullName)
                 .Select(x => new StudentProgress
-            {
-                StudentId = x.s.Id,
-                StudentName = $"{x.s.FullName}".Trim(),
-                StudentEntries = journal.Entries
-                    .Where(e => e.StudentId == x.s.Id)
-                    .OrderBy(e => e.LessonNumber)
-                    .ThenBy(e => e.DayOfWeek)
-                    .Select(e => new GetJournalEntryDto
-                    {
-                        Id = e.Id,
-                        DayOfWeek = e.DayOfWeek,
-                        LessonNumber = e.LessonNumber,
-                        LessonType = e.LessonType,
-                        Grade = e.Grade ?? 0,
-                        BonusPoints = e.BonusPoints ?? 0,
-                        AttendanceStatus = e.AttendanceStatus,
-                        Comment = e.Comment,
-                        CommentCategory = e.CommentCategory ?? CommentCategory.General,
-                        EntryDate = e.EntryDate,
-                        StartTime = e.StartTime,
-                        EndTime = e.EndTime
-                    }).ToList()
-            }).ToList();
+                {
+                    StudentId = x.s.Id,
+                    StudentName = $"{x.s.FullName}".Trim(),
+                    StudentEntries = journal.Entries
+                        .Where(e => e.StudentId == x.s.Id)
+                        .OrderBy(e => e.LessonNumber)
+                        .ThenBy(e => e.DayOfWeek)
+                        .Select(e => new GetJournalEntryDto
+                        {
+                            Id = e.Id,
+                            DayOfWeek = e.DayOfWeek,
+                            LessonNumber = e.LessonNumber,
+                            LessonType = e.LessonType,
+                            Grade = e.Grade ?? 0,
+                            BonusPoints = e.BonusPoints ?? 0,
+                            AttendanceStatus = e.AttendanceStatus,
+                            Comment = e.Comment,
+                            CommentCategory = e.CommentCategory ?? CommentCategory.General,
+                            EntryDate = e.EntryDate,
+                            StartTime = e.StartTime,
+                            EndTime = e.EndTime
+                        }).ToList()
+                }).ToList();
 
             var dto = new GetJournalDto
             {
@@ -238,7 +238,7 @@ public class JournalService(DataContext context) : IJournalService
                 .ToDictionary(
                     g => g.Key,
                     g => g.Where(x => x.Grade.HasValue).Sum(x => x.Grade!.Value)
-                          + g.Where(x => x.BonusPoints.HasValue).Sum(x => x.BonusPoints!.Value)
+                         + g.Where(x => x.BonusPoints.HasValue).Sum(x => x.BonusPoints!.Value)
                 );
 
             var progresses = students
@@ -247,29 +247,29 @@ public class JournalService(DataContext context) : IJournalService
                 .ThenByDescending(x => x.s.IsActive)
                 .ThenBy(x => x.s.FullName)
                 .Select(x => new StudentProgress
-            {
-                StudentId = x.s.Id,
-                StudentName = $"{x.s.FullName}".Trim(),
-                StudentEntries = journal.Entries
-                    .Where(e => e.StudentId == x.s.Id)
-                    .OrderBy(e => e.LessonNumber)
-                    .ThenBy(e => e.DayOfWeek)
-                    .Select(e => new GetJournalEntryDto
-                    {
-                        Id = e.Id,
-                        DayOfWeek = e.DayOfWeek,
-                        LessonNumber = e.LessonNumber,
-                        LessonType = e.LessonType,
-                        Grade = e.Grade ?? 0,
-                        BonusPoints = e.BonusPoints ?? 0,
-                        AttendanceStatus = e.AttendanceStatus,
-                        Comment = e.Comment,
-                        CommentCategory = e.CommentCategory ?? CommentCategory.General,
-                        EntryDate = e.EntryDate,
-                        StartTime = e.StartTime,
-                        EndTime = e.EndTime
-                    }).ToList()
-            }).ToList();
+                {
+                    StudentId = x.s.Id,
+                    StudentName = $"{x.s.FullName}".Trim(),
+                    StudentEntries = journal.Entries
+                        .Where(e => e.StudentId == x.s.Id)
+                        .OrderBy(e => e.LessonNumber)
+                        .ThenBy(e => e.DayOfWeek)
+                        .Select(e => new GetJournalEntryDto
+                        {
+                            Id = e.Id,
+                            DayOfWeek = e.DayOfWeek,
+                            LessonNumber = e.LessonNumber,
+                            LessonType = e.LessonType,
+                            Grade = e.Grade ?? 0,
+                            BonusPoints = e.BonusPoints ?? 0,
+                            AttendanceStatus = e.AttendanceStatus,
+                            Comment = e.Comment,
+                            CommentCategory = e.CommentCategory ?? CommentCategory.General,
+                            EntryDate = e.EntryDate,
+                            StartTime = e.StartTime,
+                            EndTime = e.EndTime
+                        }).ToList()
+                }).ToList();
 
             var dto = new GetJournalDto
             {
@@ -297,13 +297,9 @@ public class JournalService(DataContext context) : IJournalService
             var group = await context.Groups.FirstOrDefaultAsync(g => g.Id == groupId && !g.IsDeleted);
             if (group == null)
                 return new Response<GetJournalDto>(HttpStatusCode.NotFound, "Гурӯҳ ёфт нашуд");
-
-            // Преобразуем локальную дату в UTC-сутки для сопоставления с EntryDate (UTC)
             var localDate = DateTime.SpecifyKind(dateLocal.Date, DateTimeKind.Unspecified);
             var localStart = new DateTimeOffset(localDate, TimeSpan.Zero);
             var localEnd = localStart.AddDays(1);
-
-            // Находим журнал, у которого интервал [WeekStartDate, WeekEndDate] покрывает указанную дату
             var journal = await context.Journals
                 .Include(j => j.Group)
                 .Include(j => j.Entries)
@@ -325,7 +321,7 @@ public class JournalService(DataContext context) : IJournalService
                 .ToDictionary(
                     g => g.Key,
                     g => g.Where(x => x.Grade.HasValue).Sum(x => x.Grade!.Value)
-                          + g.Where(x => x.BonusPoints.HasValue).Sum(x => x.BonusPoints!.Value)
+                         + g.Where(x => x.BonusPoints.HasValue).Sum(x => x.BonusPoints!.Value)
                 );
 
             var progresses = students
@@ -334,29 +330,29 @@ public class JournalService(DataContext context) : IJournalService
                 .ThenByDescending(x => x.s.IsActive)
                 .ThenBy(x => x.s.FullName)
                 .Select(x => new StudentProgress
-            {
-                StudentId = x.s.Id,
-                StudentName = $"{x.s.FullName}".Trim(),
-                StudentEntries = journal.Entries
-                    .Where(e => e.StudentId == x.s.Id)
-                    .OrderBy(e => e.LessonNumber)
-                    .ThenBy(e => e.DayOfWeek)
-                    .Select(e => new GetJournalEntryDto
-                    {
-                        Id = e.Id,
-                        DayOfWeek = e.DayOfWeek,
-                        LessonNumber = e.LessonNumber,
-                        LessonType = e.LessonType,
-                        Grade = e.Grade ?? 0,
-                        BonusPoints = e.BonusPoints ?? 0,
-                        AttendanceStatus = e.AttendanceStatus,
-                        Comment = e.Comment,
-                        CommentCategory = e.CommentCategory ?? CommentCategory.General,
-                        EntryDate = e.EntryDate,
-                        StartTime = e.StartTime,
-                        EndTime = e.EndTime
-                    }).ToList()
-            }).ToList();
+                {
+                    StudentId = x.s.Id,
+                    StudentName = $"{x.s.FullName}".Trim(),
+                    StudentEntries = journal.Entries
+                        .Where(e => e.StudentId == x.s.Id)
+                        .OrderBy(e => e.LessonNumber)
+                        .ThenBy(e => e.DayOfWeek)
+                        .Select(e => new GetJournalEntryDto
+                        {
+                            Id = e.Id,
+                            DayOfWeek = e.DayOfWeek,
+                            LessonNumber = e.LessonNumber,
+                            LessonType = e.LessonType,
+                            Grade = e.Grade ?? 0,
+                            BonusPoints = e.BonusPoints ?? 0,
+                            AttendanceStatus = e.AttendanceStatus,
+                            Comment = e.Comment,
+                            CommentCategory = e.CommentCategory ?? CommentCategory.General,
+                            EntryDate = e.EntryDate,
+                            StartTime = e.StartTime,
+                            EndTime = e.EndTime
+                        }).ToList()
+                }).ToList();
 
             var dto = new GetJournalDto
             {
@@ -486,7 +482,7 @@ public class JournalService(DataContext context) : IJournalService
     {
         try
         {
-            var ids = studentIds?.Distinct().ToList() ?? new List<int>();
+            var ids = studentIds.Distinct().ToList();
             if (ids.Count == 0)
                 return new Response<string>(HttpStatusCode.BadRequest, "Студенты не указаны");
 
@@ -607,12 +603,6 @@ public class JournalService(DataContext context) : IJournalService
         }
     }
 
-    private static DateTimeOffset GetWeekStart(DateTime groupStart, int weekNumber)
-    {
-        var startUtc = DateTime.SpecifyKind(groupStart.Date, DateTimeKind.Utc);
-        return new DateTimeOffset(startUtc.AddDays((weekNumber - 1) * 7), TimeSpan.Zero);
-    }
-
     private static List<int> ParseLessonDays(string? lessonDays)
     {
         if (string.IsNullOrWhiteSpace(lessonDays)) return new List<int>();
@@ -650,7 +640,8 @@ public class JournalService(DataContext context) : IJournalService
                 StudentName = s.FullName,
                 TotalPoints =
                     entries.Where(e => e.StudentId == s.Id && e.Grade.HasValue).Select(e => e.Grade!.Value).Sum() +
-                    entries.Where(e => e.StudentId == s.Id && e.BonusPoints.HasValue).Select(e => e.BonusPoints!.Value).Sum()
+                    entries.Where(e => e.StudentId == s.Id && e.BonusPoints.HasValue).Select(e => e.BonusPoints!.Value)
+                        .Sum()
             }).OrderBy(t => t.StudentName).ToList();
 
             return new Response<List<StudentWeekTotalsDto>>(totals);
@@ -660,7 +651,7 @@ public class JournalService(DataContext context) : IJournalService
             return new Response<List<StudentWeekTotalsDto>>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
-    
+
     public async Task<Response<GroupWeeklyTotalsDto>> GetGroupWeeklyTotalsAsync(int groupId)
     {
         try
@@ -681,8 +672,7 @@ public class JournalService(DataContext context) : IJournalService
                 .Where(s => studentIds.Contains(s.Id) && !s.IsDeleted)
                 .Select(s => new { s.Id, s.FullName, IsActive = s.ActiveStatus == ActiveStatus.Active })
                 .ToListAsync();
-            var studentIsActive = students.ToDictionary(s => s.Id, s => s.IsActive);
-
+            
             var result = new GroupWeeklyTotalsDto
             {
                 GroupId = groupId,
@@ -707,7 +697,8 @@ public class JournalService(DataContext context) : IJournalService
                         IsActive = s.IsActive,
                         TotalPoints =
                             weekEntries.Where(e => e.StudentId == s.Id && e.Grade.HasValue).Sum(e => e.Grade!.Value) +
-                            weekEntries.Where(e => e.StudentId == s.Id && e.BonusPoints.HasValue).Sum(e => e.BonusPoints!.Value)
+                            weekEntries.Where(e => e.StudentId == s.Id && e.BonusPoints.HasValue)
+                                .Sum(e => e.BonusPoints!.Value)
                     })
                     .OrderByDescending(x => x.TotalPoints)
                     .ThenByDescending(x => x.IsActive)
@@ -756,10 +747,8 @@ public class JournalService(DataContext context) : IJournalService
             var group = await context.Groups.FirstOrDefaultAsync(g => g.Id == groupId && !g.IsDeleted);
             if (group == null)
                 return new Response<GroupPassStatsDto>(HttpStatusCode.NotFound, "Гурӯҳ ёфт нашуд");
-
-            // Use existing weekly aggregation to ensure parity with UI totals
             var totalsResponse = await GetGroupWeeklyTotalsAsync(groupId);
-            if (totalsResponse.StatusCode == (int)HttpStatusCode.NotFound || totalsResponse.Data == null)
+            if (totalsResponse.StatusCode == (int)HttpStatusCode.NotFound)
             {
                 return new Response<GroupPassStatsDto>(new GroupPassStatsDto
                 {
