@@ -9,11 +9,10 @@ public class UpdateGroupDto
     [Required(ErrorMessage = "Номи гурӯҳ зарур аст")]
     public required string Name { get; set; } 
     public string? Description { get; set; }
+    public ActiveStatus Status { get; set; }
     
-    [Required(ErrorMessage = "Курс интихоб кунед")]
     public int CourseId { get; set; }
     
-    [Required(ErrorMessage = "Устод интихоб кунед")]  
     public int MentorId { get; set; }
     public int? ClassroomId { get; set; }
     public IFormFile? Image { get; set; }
@@ -43,10 +42,8 @@ public class UpdateGroupDto
         }
     }
     
-    [Required(ErrorMessage = "Вақти оғози дарс зарур аст")]
     public TimeOnly? LessonStartTime { get; set; }
     
-    [Required(ErrorMessage = "Вақти анҷоми дарс зарур аст")]
     public TimeOnly? LessonEndTime { get; set; }
     
     public int? DurationMonth => StartDate.HasValue && EndDate.HasValue 

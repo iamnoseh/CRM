@@ -238,6 +238,7 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
             group.LessonDays = request.LessonDays;
             group.LessonStartTime = request.LessonStartTime;
             group.LessonEndTime = request.LessonEndTime;
+            group.Status = request.Status;
             
             if (request.DurationMonth.HasValue)
                 group.DurationMonth = request.DurationMonth.Value;
