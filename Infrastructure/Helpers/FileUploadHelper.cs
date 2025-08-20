@@ -44,7 +44,7 @@ public static class FileUploadHelper
                 }
                 catch
                 {
-                    // Игнорируем ошибки удаления
+                    // 
                 }
             }
         }

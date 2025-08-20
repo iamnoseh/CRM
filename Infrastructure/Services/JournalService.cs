@@ -652,14 +652,22 @@ public class JournalService(DataContext context) : IJournalService
         }
     }
 
-    public async Task<Response<GroupWeeklyTotalsDto>> GetGroupWeeklyTotalsAsync(int groupId)
+    public async Task<Response<GroupWeeklyTotalsDto>> GetGroupWeeklyTotalsAsync(int groupId, int? weekId = null)
     {
         try
         {
-            var journals = await context.Journals
+            var journalsQuery = context.Journals
                 .Include(j => j.Entries)
                 .Include(j => j.Group)
-                .Where(j => j.GroupId == groupId && !j.IsDeleted)
+                .Where(j => j.GroupId == groupId && !j.IsDeleted);
+
+            // If weekId is provided, filter by specific week
+            if (weekId.HasValue)
+            {
+                journalsQuery = journalsQuery.Where(j => j.WeekNumber == weekId.Value);
+            }
+
+            var journals = await journalsQuery
                 .OrderBy(j => j.WeekNumber)
                 .ToListAsync();
 
@@ -708,29 +716,33 @@ public class JournalService(DataContext context) : IJournalService
                 result.Weeks.Add(week);
             }
 
-            result.StudentAggregates = students
-                .Select(s =>
-                {
-                    var totals = result.Weeks
-                        .SelectMany(w => w.Students)
-                        .Where(x => x.StudentId == s.Id)
-                        .Select(x => x.TotalPoints)
-                        .ToList();
-                    var sum = totals.Sum();
-                    var avg = totals.Count > 0 ? Math.Round((double)totals.Average(), 2) : 0d;
-                    return new StudentAggregateDto
+            // Only calculate aggregates if we're showing all weeks
+            if (!weekId.HasValue)
+            {
+                result.StudentAggregates = students
+                    .Select(s =>
                     {
-                        StudentId = s.Id,
-                        StudentName = s.FullName,
-                        TotalPointsAllWeeks = sum,
-                        AveragePointsPerWeek = avg,
-                        IsActive = s.IsActive
-                    };
-                })
-                .OrderByDescending(a => a.TotalPointsAllWeeks)
-                .ThenByDescending(a => a.IsActive)
-                .ThenBy(a => a.StudentName)
-                .ToList();
+                        var totals = result.Weeks
+                            .SelectMany(w => w.Students)
+                            .Where(x => x.StudentId == s.Id)
+                            .Select(x => x.TotalPoints)
+                            .ToList();
+                        var sum = totals.Sum();
+                        var avg = totals.Count > 0 ? Math.Round((double)totals.Average(), 2) : 0d;
+                        return new StudentAggregateDto
+                        {
+                            StudentId = s.Id,
+                            StudentName = s.FullName,
+                            TotalPointsAllWeeks = sum,
+                            AveragePointsPerWeek = avg,
+                            IsActive = s.IsActive
+                        };
+                    })
+                    .OrderByDescending(a => a.TotalPointsAllWeeks)
+                    .ThenByDescending(a => a.IsActive)
+                    .ThenBy(a => a.StudentName)
+                    .ToList();
+            }
 
             return new Response<GroupWeeklyTotalsDto>(result);
         }
@@ -747,7 +759,7 @@ public class JournalService(DataContext context) : IJournalService
             var group = await context.Groups.FirstOrDefaultAsync(g => g.Id == groupId && !g.IsDeleted);
             if (group == null)
                 return new Response<GroupPassStatsDto>(HttpStatusCode.NotFound, "Гурӯҳ ёфт нашуд");
-            var totalsResponse = await GetGroupWeeklyTotalsAsync(groupId);
+            var totalsResponse = await GetGroupWeeklyTotalsAsync(groupId, null);
             if (totalsResponse.StatusCode == (int)HttpStatusCode.NotFound)
             {
                 return new Response<GroupPassStatsDto>(new GroupPassStatsDto

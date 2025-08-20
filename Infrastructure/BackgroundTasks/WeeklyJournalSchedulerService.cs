@@ -39,7 +39,6 @@ public class WeeklyJournalSchedulerService(
     private static DateTimeOffset CalculateNextRunTime(DateTimeOffset currentTime)
     {
         var local = currentTime.ToDushanbeTime();
-        // Ежедневный запуск в 00:05 по Душанбе
         var target = new TimeSpan(0, 5, 0);
         var candidate = new DateTimeOffset(local.Date.Add(target), local.Offset);
         if (local >= candidate)
@@ -52,8 +51,7 @@ public class WeeklyJournalSchedulerService(
         using var scope = serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<DataContext>();
         var journalService = scope.ServiceProvider.GetRequiredService<IJournalService>();
-
-        // Загрузка всех активных групп
+        
         var groups = await context.Groups
             .Where(g => !g.IsDeleted && g.Status == ActiveStatus.Active)
             .ToListAsync(ct);
@@ -68,7 +66,6 @@ public class WeeklyJournalSchedulerService(
         {
             try
             {
-                // Получаем последнюю созданную журнальную неделю
                 var latestJournal = await context.Journals
                     .Where(j => j.GroupId == group.Id && !j.IsDeleted)
                     .OrderByDescending(j => j.WeekNumber)
@@ -76,13 +73,11 @@ public class WeeklyJournalSchedulerService(
 
                 if (latestJournal == null)
                 {
-                    // Нет ни одного журнала — создаём первую неделю
                     var res = await journalService.GenerateWeeklyJournalAsync(group.Id, 1);
                     logger.LogInformation("Создана первая журнальная неделя для группы {groupId}: статус {status}", group.Id, res.StatusCode);
                     continue;
                 }
 
-                // Создаём только следующую неделю и только после завершения текущей
                 if (latestJournal.WeekNumber < group.TotalWeeks && DateTimeOffset.UtcNow > latestJournal.WeekEndDate)
                 {
                     var nextWeek = latestJournal.WeekNumber + 1;
