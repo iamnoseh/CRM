@@ -41,8 +41,8 @@ public class JournalController(IJournalService journalService) : ControllerBase
     
     [HttpGet("{groupId}/weekly-totals")]
     [Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor,Teacher,Student")]
-    public async Task<Response<GroupWeeklyTotalsDto>> GetGroupWeeklyTotals(int groupId) =>
-        await journalService.GetGroupWeeklyTotalsAsync(groupId);
+    public async Task<Response<GroupWeeklyTotalsDto>> GetGroupWeeklyTotals(int groupId, [FromQuery] int? weekId = null) =>
+        await journalService.GetGroupWeeklyTotalsAsync(groupId, weekId);
 
     [HttpGet("{groupId}/pass-stats")]
     [Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor,Teacher")]

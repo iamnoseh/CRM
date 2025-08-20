@@ -64,7 +64,7 @@ public class StudentController (IStudentService service) : ControllerBase
         await service.UpdateUserProfileImageAsync(id, photo);
         
     [HttpPut("document/{id}")]
-    [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin}")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<Response<string>> UpdateStudentDocument(int id, IFormFile document) =>
         await service.UpdateStudentDocumentAsync(id, document);
 
