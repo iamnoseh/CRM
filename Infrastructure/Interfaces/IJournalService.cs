@@ -14,9 +14,9 @@ public interface IJournalService
     Task<Response<string>> BackfillCurrentWeekForStudentsAsync(int groupId, IEnumerable<int> studentIds);
     Task<Response<string>> RemoveFutureEntriesForStudentAsync(int groupId, int studentId);
     Task<Response<List<StudentWeekTotalsDto>>> GetStudentWeekTotalsAsync(int groupId, int weekNumber);
-    //Task<Response<GetStudentAverageDto>>  GetStudentsAverageAsync(int groupId);
     Task<Response<GroupWeeklyTotalsDto>> GetGroupWeeklyTotalsAsync(int groupId, int? weekId = null);
     Task<Response<GroupPassStatsDto>> GetGroupPassStatsAsync(int groupId, decimal threshold);
+    Task<Response<List<int>>> GetGroupWeekNumbersAsync(int groupId);
 }
 
 

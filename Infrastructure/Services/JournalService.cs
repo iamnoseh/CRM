@@ -792,4 +792,29 @@ public class JournalService(DataContext context) : IJournalService
             return new Response<GroupPassStatsDto>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
+
+    public async Task<Response<List<int>>> GetGroupWeekNumbersAsync(int groupId)
+    {
+        try
+        {
+            var group = await context.Groups.FirstOrDefaultAsync(g => g.Id == groupId && !g.IsDeleted);
+            if (group == null)
+                return new Response<List<int>>(HttpStatusCode.NotFound, "Гурӯҳ ёфт нашуд");
+
+            var currentDate = DateTimeOffset.UtcNow;
+            var groupStartDate = group.StartDate.UtcDateTime;
+            
+            var weeksSinceStart = (int)Math.Floor((currentDate.DateTime - groupStartDate).TotalDays / 7) + 1;
+            
+            var currentWeek = Math.Min(weeksSinceStart, group.TotalWeeks);
+            
+            var weekNumbers = Enumerable.Range(1, currentWeek).ToList();
+            
+            return new Response<List<int>>(weekNumbers);
+        }
+        catch (Exception ex)
+        {
+            return new Response<List<int>>(HttpStatusCode.InternalServerError, ex.Message);
+        }
+    }
 }

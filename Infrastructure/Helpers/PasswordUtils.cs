@@ -4,10 +4,10 @@ public static class PasswordUtils
 {
     public static string GenerateRandomPassword(int length = 8)
     {
-        const string upperChars = "ABCDE";
-        const string lowerChars = "abcde";
+        const string upperChars = "ABC";
+        const string lowerChars = "a";
         const string numericChars = "0123456789";
-        const string specialChars = "-.";
+        const string specialChars = "-";
 
         var random = new Random();
         var chars = new List<char>();

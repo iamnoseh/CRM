@@ -48,6 +48,11 @@ public class JournalController(IJournalService journalService) : ControllerBase
     [Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor,Teacher")]
     public async Task<Response<GroupPassStatsDto>> GetGroupPassStats(int groupId, [FromQuery] decimal threshold = 80)
         => await journalService.GetGroupPassStatsAsync(groupId, threshold);
+
+    [HttpGet("{groupId}/week-numbers")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor,Teacher,Student")]
+    public async Task<Response<List<int>>> GetGroupWeekNumbers(int groupId) =>
+        await journalService.GetGroupWeekNumbersAsync(groupId);
 }
 
 

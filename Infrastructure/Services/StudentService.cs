@@ -64,8 +64,7 @@ public class StudentService(
                 return new Response<string>((HttpStatusCode)userResult.StatusCode, userResult.Message);
 
             var (user, password, username) = userResult.Data;
-
-            // Отправка email
+            
             if (!string.IsNullOrEmpty(createStudentDto.Email))
             {
                 await EmailHelper.SendLoginDetailsEmailAsync(
