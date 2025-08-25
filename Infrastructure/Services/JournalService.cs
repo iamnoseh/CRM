@@ -801,14 +801,24 @@ public class JournalService(DataContext context) : IJournalService
             if (group == null)
                 return new Response<List<int>>(HttpStatusCode.NotFound, "Гурӯҳ ёфт нашуд");
 
-            var currentDate = DateTimeOffset.UtcNow;
-            var groupStartDate = group.StartDate.UtcDateTime;
+            // Get all existing journal weeks for this group
+            var existingWeeks = await context.Journals
+                .Where(j => j.GroupId == groupId && !j.IsDeleted)
+                .Select(j => j.WeekNumber)
+                .OrderBy(w => w)
+                .ToListAsync();
+
+            if (existingWeeks.Count == 0)
+            {
+                // If no journals exist yet, return empty list
+                return new Response<List<int>>(new List<int>());
+            }
+
+            // Get the maximum week number that exists
+            var maxWeek = existingWeeks.Max();
             
-            var weeksSinceStart = (int)Math.Floor((currentDate.DateTime - groupStartDate).TotalDays / 7) + 1;
-            
-            var currentWeek = Math.Min(weeksSinceStart, group.TotalWeeks);
-            
-            var weekNumbers = Enumerable.Range(1, currentWeek).ToList();
+            // Return weeks from 1 to the maximum existing week
+            var weekNumbers = Enumerable.Range(1, maxWeek).ToList();
             
             return new Response<List<int>>(weekNumbers);
         }
