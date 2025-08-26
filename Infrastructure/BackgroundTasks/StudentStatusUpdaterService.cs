@@ -11,6 +11,9 @@ namespace Infrastructure.BackgroundTasks;
 public class StudentStatusUpdaterService(ILogger<StudentStatusUpdaterService> logger,
     IServiceProvider serviceProvider) : BackgroundService
 {
+    private const int MaxRetryAttempts = 3;
+    private const int RetryDelayMinutes = 5;
+
     public async Task Run()
     {
         try
@@ -22,6 +25,7 @@ public class StudentStatusUpdaterService(ILogger<StudentStatusUpdaterService> lo
         catch (Exception ex)
         {
             logger.LogError(ex, "Error occurred while updating student statuses: {message}", ex.Message);
+            throw; // Re-throw to allow proper error handling
         }
     }
 

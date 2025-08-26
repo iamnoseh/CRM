@@ -15,5 +15,6 @@ public class StudentProgress
 {
     public int StudentId { get; set; }
     public string StudentName { get; set; } = string.Empty;
+    public double WeeklyTotalScores { get; set; }
     public List<GetJournalEntryDto> StudentEntries { get; set; } = new();
 }

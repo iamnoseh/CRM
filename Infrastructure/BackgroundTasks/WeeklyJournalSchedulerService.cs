@@ -46,7 +46,7 @@ public class WeeklyJournalSchedulerService(
         return candidate;
     }
 
-    private async Task ProcessActiveGroupsAsync(CancellationToken ct)
+    public async Task ProcessActiveGroupsAsync(CancellationToken ct)
     {
         using var scope = serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<DataContext>();

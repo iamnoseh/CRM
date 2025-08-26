@@ -46,7 +46,7 @@ public class JournalService(DataContext context) : IJournalService
             var lessonDays = ParseLessonDays(group.LessonDays);
             if (lessonDays.Count == 0)
             {
-                lessonDays = new List<int> { 1, 2, 3, 4, 5 };
+                lessonDays = new List<int> { 2, 3, 4, 5, 6 };
             }
 
             var targetLessons = 6;
@@ -69,11 +69,12 @@ public class JournalService(DataContext context) : IJournalService
             var plannedSlots = new List<(DateTime date, int dayOfWeekOneBased, int lessonNumber)>();
             while (plannedSlots.Count < targetLessons)
             {
-                var dowZero = (int)cursor.DayOfWeek;
-                if (lessonDays.Contains(dowZero))
+                var dotNetDayOfWeek = (int)cursor.DayOfWeek;
+                var crmDayOfWeek = ConvertDotNetToCrmDayOfWeek(dotNetDayOfWeek);
+                
+                if (lessonDays.Contains(crmDayOfWeek))
                 {
-                    var dayOfWeekOneBased = dowZero % 7 + 1;
-                    plannedSlots.Add((cursor, dayOfWeekOneBased, plannedSlots.Count + 1));
+                    plannedSlots.Add((cursor, crmDayOfWeek, plannedSlots.Count + 1));
                 }
 
                 cursor = cursor.AddDays(1);
@@ -107,8 +108,9 @@ public class JournalService(DataContext context) : IJournalService
 
             foreach (var slot in plannedSlots)
             {
-                var isLast = slot.lessonNumber == targetLessons;
-                var lessonType = group.HasWeeklyExam && isLast ? LessonType.Exam : LessonType.Regular;
+                
+                var lessonType = DetermineLessonType(group.HasWeeklyExam, weekNumber, slot.lessonNumber, targetLessons);
+                
                 foreach (var student in students)
                 {
                     var entry = new JournalEntry
@@ -172,6 +174,7 @@ public class JournalService(DataContext context) : IJournalService
                 {
                     StudentId = x.s.Id,
                     StudentName = $"{x.s.FullName}".Trim(),
+                    WeeklyTotalScores = (double)x.total,
                     StudentEntries = journal.Entries
                         .Where(e => e.StudentId == x.s.Id)
                         .OrderBy(e => e.LessonNumber)
@@ -250,6 +253,7 @@ public class JournalService(DataContext context) : IJournalService
                 {
                     StudentId = x.s.Id,
                     StudentName = $"{x.s.FullName}".Trim(),
+                    WeeklyTotalScores = (double)x.total,
                     StudentEntries = journal.Entries
                         .Where(e => e.StudentId == x.s.Id)
                         .OrderBy(e => e.LessonNumber)
@@ -333,6 +337,7 @@ public class JournalService(DataContext context) : IJournalService
                 {
                     StudentId = x.s.Id,
                     StudentName = $"{x.s.FullName}".Trim(),
+                    WeeklyTotalScores = (double)x.total,
                     StudentEntries = journal.Entries
                         .Where(e => e.StudentId == x.s.Id)
                         .OrderBy(e => e.LessonNumber)
@@ -608,10 +613,56 @@ public class JournalService(DataContext context) : IJournalService
         if (string.IsNullOrWhiteSpace(lessonDays)) return new List<int>();
         return lessonDays.Split(',', StringSplitOptions.RemoveEmptyEntries)
             .Select(d => d.Trim())
-            .Where(d => int.TryParse(d, out var v) && v >= 0 && v <= 6)
+            .Where(d => int.TryParse(d, out var v) && v >= 1 && v <= 7) // Changed from 0-6 to 1-7
             .Select(int.Parse)
             .Distinct()
             .ToList();
+    }
+    
+    private static int ConvertCrmToDotNetDayOfWeek(int crmDayOfWeek)
+    { 
+        return crmDayOfWeek switch
+        {
+            1 => 0, // Yakshanbe -> Sunday
+            2 => 1, // Dushanbe -> Monday
+            3 => 2, // Seshanbe -> Tuesday
+            4 => 3, // Chorshanbe -> Wednesday
+            5 => 4, // Panjshanbe -> Thursday
+            6 => 5, // Juma -> Friday
+            7 => 6, // Shanbe -> Saturday
+            _ => throw new ArgumentOutOfRangeException(nameof(crmDayOfWeek), "Рӯзи ҳафта бояд аз 1 то 7 бошад")
+        };
+    }
+
+    private static int ConvertDotNetToCrmDayOfWeek(int dotNetDayOfWeek)
+    {
+       
+        return dotNetDayOfWeek switch
+        {
+            0 => 1, // Sunday -> Yakshanbe
+            1 => 2, // Monday -> Dushanbe
+            2 => 3, // Tuesday -> Seshanbe
+            3 => 4, // Wednesday -> Chorshanbe
+            4 => 5, // Thursday -> Panjshanbe
+            5 => 6, // Friday -> Juma
+            6 => 7, // Saturday -> Shanbe
+            _ => throw new ArgumentOutOfRangeException(nameof(dotNetDayOfWeek), "Рӯзи ҳафта бояд аз 0 то 6 бошад")
+        };
+    }
+    
+    private static LessonType DetermineLessonType(bool hasWeeklyExam, int weekNumber, int lessonNumber, int totalLessons)
+    {
+        if (hasWeeklyExam)
+        {
+            
+            return lessonNumber == totalLessons ? LessonType.Exam : LessonType.Regular;
+        }
+        else
+        {
+            var isFourthWeekEnd = weekNumber % 4 == 0; //4, 8, 12, 16, ...
+            var isLastLessonOfWeek = lessonNumber == totalLessons;
+            return (isFourthWeekEnd && isLastLessonOfWeek) ? LessonType.Exam : LessonType.Regular;
+        }
     }
 
     public async Task<Response<List<StudentWeekTotalsDto>>> GetStudentWeekTotalsAsync(int groupId, int weekNumber)
@@ -660,8 +711,7 @@ public class JournalService(DataContext context) : IJournalService
                 .Include(j => j.Entries)
                 .Include(j => j.Group)
                 .Where(j => j.GroupId == groupId && !j.IsDeleted);
-
-            // If weekId is provided, filter by specific week
+            
             if (weekId.HasValue)
             {
                 journalsQuery = journalsQuery.Where(j => j.WeekNumber == weekId.Value);
@@ -716,7 +766,6 @@ public class JournalService(DataContext context) : IJournalService
                 result.Weeks.Add(week);
             }
 
-            // Only calculate aggregates if we're showing all weeks
             if (!weekId.HasValue)
             {
                 result.StudentAggregates = students
@@ -801,7 +850,6 @@ public class JournalService(DataContext context) : IJournalService
             if (group == null)
                 return new Response<List<int>>(HttpStatusCode.NotFound, "Гурӯҳ ёфт нашуд");
 
-            // Get all existing journal weeks for this group
             var existingWeeks = await context.Journals
                 .Where(j => j.GroupId == groupId && !j.IsDeleted)
                 .Select(j => j.WeekNumber)
@@ -810,14 +858,11 @@ public class JournalService(DataContext context) : IJournalService
 
             if (existingWeeks.Count == 0)
             {
-                // If no journals exist yet, return empty list
                 return new Response<List<int>>(new List<int>());
             }
 
-            // Get the maximum week number that exists
             var maxWeek = existingWeeks.Max();
             
-            // Return weeks from 1 to the maximum existing week
             var weekNumbers = Enumerable.Range(1, maxWeek).ToList();
             
             return new Response<List<int>>(weekNumbers);

@@ -35,8 +35,14 @@ public static class Register
                     npgsqlOptions.UseNodaTime();
                 }));
         services.AddScoped<IHashService, HashService>();
+        services.AddScoped<Infrastructure.Services.HangfireBackgroundTaskService>();
+        
+        // Register background services for dependency injection
+        services.AddScoped<Infrastructure.BackgroundTasks.GroupExpirationService>();
+        services.AddScoped<Infrastructure.BackgroundTasks.StudentStatusUpdaterService>();
+        services.AddScoped<Infrastructure.BackgroundTasks.WeeklyJournalSchedulerService>();
     
-        services.AddScoped<IEmailService>(sp => 
+        services.AddScoped<IEmailService>(sp =>
             new EmailService(
                 sp.GetRequiredService<EmailConfiguration>(),
                 sp.GetRequiredService<IConfiguration>()
