@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Domain.Responses;
+using System.Net;
 
 namespace Infrastructure.BackgroundTasks;
 
@@ -19,7 +21,8 @@ public class GroupExpirationService(
         {
             var localNow = DateTimeOffset.UtcNow.ToDushanbeTime();
             logger.LogInformation("Проверка статуса истечения групп в {time}", localNow);
-            await CheckExpiredGroups();
+            var resp = await CheckExpiredGroups();
+            logger.LogInformation("CheckExpiredGroups result: {msg}", resp.Message);
         }
         catch (Exception ex)
         {
@@ -41,7 +44,8 @@ public class GroupExpirationService(
 
                 logger.LogInformation($"Следующая проверка истечения групп запланирована на {nextRunTime.ToDushanbeTime()} (через {delay.TotalHours:F1} часов)");
                 await Task.Delay(delay, stoppingToken);
-                await CheckExpiredGroups();
+                var resp = await CheckExpiredGroups();
+                logger.LogInformation("CheckExpiredGroups result: {msg}", resp.Message);
             }
             catch (Exception ex)
             {
@@ -66,9 +70,11 @@ public class GroupExpirationService(
         return targetDateTimeOffset;
     }
 
-    private async Task CheckExpiredGroups()
+    private async Task<Response<BackgroundTaskResult>> CheckExpiredGroups()
     {
         logger.LogInformation("Начало проверки истечения групп...");
+
+        var result = new BackgroundTaskResult();
 
         using var scope = serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<DataContext>();
@@ -83,18 +89,33 @@ public class GroupExpirationService(
         if (!expiredGroups.Any())
         {
             logger.LogInformation("Просроченных групп не найдено");
-            return;
+            result.Messages.Add("Гурӯҳҳои мӯҳлаташон гузашта ёфт нашуд (Просроченных групп не найдено)");
+            return new Response<BackgroundTaskResult>(result) { Message = "Гурӯҳҳои мӯҳлаташон гузашта ёфт нашуд (Просроченных групп не найдено)" };
         }
 
         logger.LogInformation($"Найдено {expiredGroups.Count} просроченных групп");
         foreach (var group in expiredGroups)
         {
-            group.Status = ActiveStatus.Completed;
-            group.UpdatedAt = DateTimeOffset.UtcNow;
-            logger.LogInformation($"Группа {group.Id} помечена как завершённая (истекла {group.EndDate:yyyy-MM-dd})");
+            try
+            {
+                group.Status = ActiveStatus.Completed;
+                group.UpdatedAt = DateTimeOffset.UtcNow;
+                result.SuccessCount++;
+                result.Messages.Add($"Group {group.Id} marked completed");
+                logger.LogInformation($"Группа {group.Id} помечена как завершённая (истекла {group.EndDate:yyyy-MM-dd})");
+            }
+            catch (Exception ex)
+            {
+                result.FailedCount++;
+                result.FailedItems.Add(group.Id.ToString());
+                result.Messages.Add($"Failed to update group {group.Id}: {ex.Message}");
+                logger.LogError(ex, "Failed to update group {groupId}", group.Id);
+            }
         }
 
-        await context.SaveChangesAsync();
-        logger.LogInformation($"Успешно обновлено {expiredGroups.Count} просроченных групп");
+    await context.SaveChangesAsync();
+    logger.LogInformation($"Проверка истечения групп завершена: {result}");
+    var message = $"Тағйирот: {result.SuccessCount} гурӯҳҳо муваффақ, {result.FailedCount} ноком (Изменения: {result.SuccessCount} успешно, {result.FailedCount} неуспешно).";
+    return new Response<BackgroundTaskResult>(result) { Message = message };
     }
 }

@@ -160,6 +160,8 @@ public static class Register
         services.AddScoped<IScheduleService, ScheduleService>();
         services.AddScoped<IJournalService, JournalService>();
          services.AddScoped<IStudentAnalyticsExportService, StudentAnalyticsExportService>();
+         services.AddScoped<IExpenseService, ExpenseService>();
+         services.AddScoped<IFinanceService, FinanceService>();
         
         services.AddScoped<IGroupService>(gs => 
             new GroupService(

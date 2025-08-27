@@ -5,8 +5,17 @@ using Infrastructure.BackgroundTasks;
 using Hangfire;
 using Hangfire.PostgreSql;
 using Infrastructure.Interfaces;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Serilog configuration
+builder.Host.UseSerilog((context, services, configuration) =>
+{
+    configuration
+        .ReadFrom.Configuration(context.Configuration)
+        .Enrich.FromLogContext();
+});
 var uploadPath = builder.Configuration.GetValue<string>("UploadPath") ?? "wwwroot";
 builder.Services.AddRegisterService(builder.Configuration);
 builder.Services.AddHttpContextAccessor();
@@ -27,6 +36,7 @@ builder.Services.AddSwaggerServices();
 builder.Services.AddBackgroundServices();
 builder.Services.AddControllers();
 var app = builder.Build();
+app.UseSerilogRequestLogging();
 await app.ApplyMigrationsAndSeedData();
 
 app.UseHangfireDashboard("/hangfire", new DashboardOptions
@@ -59,6 +69,7 @@ app.UseCors("AllowFrontend");
 app.UseRouting();
 app.UseAuthentication(); 
 app.UseAuthorization();  
+app.UseMiddleware<WebApp.Middleware.LogEnrichmentMiddleware>();
 app.MapControllers(); 
 
 app.Run();

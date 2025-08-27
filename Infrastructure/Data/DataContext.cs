@@ -1,5 +1,4 @@
 using Domain.Entities;
-using Domain.Enums;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -21,6 +20,8 @@ public class DataContext(DbContextOptions<DataContext> options)
     public DbSet<Schedule> Schedules { get; set; }
     public DbSet<Journal> Journals { get; set; }
     public DbSet<JournalEntry> JournalEntries { get; set; }
+    public DbSet<Expense> Expenses { get; set; }
+    public DbSet<MonthlyFinancialSummary> MonthlyFinancialSummaries { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -181,6 +182,27 @@ public class DataContext(DbContextOptions<DataContext> options)
             .HasForeignKey(p => p.CenterId)
             .OnDelete(DeleteBehavior.SetNull);
         
+        // Expense vs Center
+        modelBuilder.Entity<Expense>()
+            .HasOne(e => e.Center)
+            .WithMany(c => c.Expenses)
+            .HasForeignKey(e => e.CenterId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Expense vs Mentor
+        modelBuilder.Entity<Expense>()
+            .HasOne(e => e.Mentor)
+            .WithMany()
+            .HasForeignKey(e => e.MentorId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // MonthlyFinancialSummary vs Center
+        modelBuilder.Entity<MonthlyFinancialSummary>()
+            .HasOne(m => m.Center)
+            .WithMany(c => c.MonthlySummaries)
+            .HasForeignKey(m => m.CenterId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         
         // Classroom vs Center
         modelBuilder.Entity<Classroom>()
@@ -268,6 +290,24 @@ public class DataContext(DbContextOptions<DataContext> options)
             .Property(c => c.Price)
             .HasPrecision(18, 2);
 
+        // Expense Amount precision
+        modelBuilder.Entity<Expense>()
+            .Property(e => e.Amount)
+            .HasPrecision(18, 2);
+
+        // MonthlyFinancialSummary precision
+        modelBuilder.Entity<MonthlyFinancialSummary>()
+            .Property(m => m.TotalIncome)
+            .HasPrecision(18, 2);
+
+        modelBuilder.Entity<MonthlyFinancialSummary>()
+            .Property(m => m.TotalExpense)
+            .HasPrecision(18, 2);
+
+        modelBuilder.Entity<MonthlyFinancialSummary>()
+            .Property(m => m.NetProfit)
+            .HasPrecision(18, 2);
+
         // Center income precision
         modelBuilder.Entity<Center>()
             .Property(c => c.MonthlyIncome)
@@ -353,6 +393,28 @@ public class DataContext(DbContextOptions<DataContext> options)
 
         modelBuilder.Entity<Payment>()
             .HasIndex(p => p.PaymentDate);
+
+        // Expense indexes
+        modelBuilder.Entity<Expense>()
+            .HasIndex(e => e.CenterId);
+
+        modelBuilder.Entity<Expense>()
+            .HasIndex(e => e.MentorId);
+
+        modelBuilder.Entity<Expense>()
+            .HasIndex(e => new { e.Month, e.Year });
+
+        modelBuilder.Entity<Expense>()
+            .HasIndex(e => e.ExpenseDate);
+
+        modelBuilder.Entity<Expense>()
+            .HasIndex(e => e.Category);
+
+        // MonthlyFinancialSummary indexes
+        modelBuilder.Entity<MonthlyFinancialSummary>()
+            .HasIndex(m => new { m.CenterId, m.Year, m.Month })
+            .IsUnique()
+            .HasDatabaseName("IX_MonthlyFinancialSummary_Center_Year_Month");
 
         // Classroom indexes
         modelBuilder.Entity<Classroom>()
@@ -463,6 +525,14 @@ public class DataContext(DbContextOptions<DataContext> options)
 
         modelBuilder.Entity<Payment>()
             .Property(p => p.Status)
+            .HasConversion<string>();
+
+        modelBuilder.Entity<Expense>()
+            .Property(e => e.PaymentMethod)
+            .HasConversion<string>();
+
+        modelBuilder.Entity<Expense>()
+            .Property(e => e.Category)
             .HasConversion<string>();
 
         modelBuilder.Entity<JournalEntry>()

@@ -32,6 +32,8 @@ public class HangfireBackgroundTaskService(
                 () => weeklyJournalSchedulerService.ProcessActiveGroupsAsync(CancellationToken.None),
                 Cron.Daily(7, 0));
 
+            // Monthly payroll generation on the 1st day at 06:10 UTC for previous month per center can be triggered via FinanceController endpoint or separate job if center list known.
+
             logger.LogInformation("Все background tasks успешно запущены как Hangfire recurring jobs");
         }
         catch (Exception ex)

@@ -46,7 +46,7 @@ public class WeeklyJournalSchedulerService(
         return candidate;
     }
 
-    public async Task ProcessActiveGroupsAsync(CancellationToken ct)
+    public async Task<BackgroundTaskResult> ProcessActiveGroupsAsync(CancellationToken ct)
     {
         using var scope = serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<DataContext>();
@@ -56,10 +56,13 @@ public class WeeklyJournalSchedulerService(
             .Where(g => !g.IsDeleted && g.Status == ActiveStatus.Active)
             .ToListAsync(ct);
 
+        var result = new BackgroundTaskResult();
+
         if (groups.Count == 0)
         {
             logger.LogInformation("Активные группы для планирования не найдены");
-            return;
+            result.Messages.Add("No active groups");
+            return result;
         }
 
         foreach (var group in groups)
@@ -74,7 +77,19 @@ public class WeeklyJournalSchedulerService(
                 if (latestJournal == null)
                 {
                     var res = await journalService.GenerateWeeklyJournalAsync(group.Id, 1);
-                    logger.LogInformation("Создана первая журнальная неделя для группы {groupId}: статус {status}", group.Id, res.StatusCode);
+                    var ok = res.StatusCode >= 200 && res.StatusCode < 300;
+                    if (ok)
+                    {
+                        result.SuccessCount++;
+                        result.Messages.Add($"Created first journal for group {group.Id}");
+                    }
+                    else
+                    {
+                        result.FailedCount++;
+                        result.FailedItems.Add(group.Id.ToString());
+                        result.Messages.Add($"Failed to create first journal for group {group.Name}: {res.Message}");
+                    }
+                    logger.LogInformation("Создана первая журнальная неделя для группы {Name}: статус {status}", group.Name, res.StatusCode);
                     continue;
                 }
 
@@ -86,16 +101,34 @@ public class WeeklyJournalSchedulerService(
                     if (!existsNext)
                     {
                         var res = await journalService.GenerateWeeklyJournalAsync(group.Id, nextWeek);
+                        var ok = res.StatusCode >= 200 && res.StatusCode < 300;
+                        if (ok)
+                        {
+                            result.SuccessCount++;
+                            result.Messages.Add($"Created week {nextWeek} for group {group.Id}");
+                        }
+                        else
+                        {
+                            result.FailedCount++;
+                            result.FailedItems.Add(group.Id.ToString());
+                            result.Messages.Add($"Failed to create week {nextWeek} for group {group.Name}: {res.Message}");
+                        }
                         logger.LogInformation(
-                            "Автосоздана следующая неделя {week} для группы {groupId}: статус {status}", nextWeek,
-                            group.Id, res.StatusCode);
+                            "Автосоздана следующая неделя {week} для группы {GroupName}: статус {status}", nextWeek,
+                            group.Name, res.StatusCode);
                     }
                 }
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Ошибка обработки группы {groupId} в WeeklyJournalSchedulerService", group.Id);
+                result.FailedCount++;
+                result.FailedItems.Add(group.Id.ToString());
+                result.Messages.Add($"Exception processing group {group.Name}: {ex.Message}");
+                logger.LogError(ex, "Ошибка обработки группы {GroupName} в WeeklyJournalSchedulerService", group.Name);
             }
         }
+
+        logger.LogInformation("WeeklyJournalSchedulerService finished run: {result}", result);
+        return result;
     }
 }
