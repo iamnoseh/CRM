@@ -67,6 +67,12 @@ public class MentorService(
                 return new Response<string>((HttpStatusCode)userResult.StatusCode, userResult.Message);
 
             var (user, password, username) = userResult.Data;
+            // Align initial user payment status with mentor profile
+            if (user.PaymentStatus != PaymentStatus.Completed)
+            {
+                user.PaymentStatus = PaymentStatus.Completed;
+                await userManager.UpdateAsync(user);
+            }
             if (!string.IsNullOrEmpty(createMentorDto.Email))
             {
                 await EmailHelper.SendLoginDetailsEmailAsync(
@@ -550,14 +556,16 @@ public class MentorService(
 
         if (mentor.UserId != null)
         {
-            var user = await userManager.FindByIdAsync(mentor.UserId.ToString());
-            if (user != null)
+            var linkedUser = await context.Users.FirstOrDefaultAsync(u => u.Id == mentor.UserId && !u.IsDeleted);
+            if (linkedUser != null)
             {
-                user.PaymentStatus = status;
-                await userManager.UpdateAsync(user);
+                linkedUser.PaymentStatus = status;
+                linkedUser.UpdatedAt = DateTime.UtcNow;
+                context.Users.Update(linkedUser);
             }
         }
 
+        context.Mentors.Update(mentor);
         var res = await context.SaveChangesAsync();
         return res > 0
             ? new Response<string>(HttpStatusCode.OK, "Ҳолати пардохт бо муваффақият навсозӣ шуд")

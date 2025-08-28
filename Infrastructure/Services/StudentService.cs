@@ -64,6 +64,12 @@ public class StudentService(
                 return new Response<string>((HttpStatusCode)userResult.StatusCode, userResult.Message);
 
             var (user, password, username) = userResult.Data;
+            // Ensure user's PaymentStatus is aligned at creation time
+            if (user.PaymentStatus != PaymentStatus.Completed)
+            {
+                user.PaymentStatus = PaymentStatus.Completed;
+                await userManager.UpdateAsync(user);
+            }
             
             if (!string.IsNullOrEmpty(createStudentDto.Email))
             {

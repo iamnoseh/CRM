@@ -50,7 +50,10 @@ public static class UserManagementHelper
             Address = getAddress(createDto),
             CenterId = getCenterId(createDto),
             ProfileImagePath = getProfileImagePath(createDto),
-            ActiveStatus = ActiveStatus.Active
+            ActiveStatus = ActiveStatus.Active,
+            PaymentStatus = PaymentStatus.Completed,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
         };
 
         var password = PasswordUtils.GenerateRandomPassword();
