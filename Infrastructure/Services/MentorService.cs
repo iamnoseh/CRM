@@ -555,7 +555,7 @@ public class MentorService(
             if (user != null)
             {
                 user.PaymentStatus = status;
-                await userManager.UpdateAsync(user);
+                await context.SaveChangesAsync();
             }
         }
 
