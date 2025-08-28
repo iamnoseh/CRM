@@ -547,7 +547,7 @@ public class MentorService(
 
         mentor.PaymentStatus = status;
         mentor.UpdatedAt = DateTimeOffset.UtcNow;
-        context.Mentors.Update(mentor);
+        context.SaveChangesAsync();
 
         if (mentor.UserId != null)
         {
