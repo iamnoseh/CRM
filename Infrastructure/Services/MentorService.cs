@@ -540,6 +540,11 @@ public class MentorService(
         if (mentor == null)
             return new Response<string>(HttpStatusCode.NotFound, "Устод ёфт нашуд");
 
+        if (mentor.PaymentStatus == status)
+        {
+            return new Response<string>(HttpStatusCode.OK, "Ҳолати пардохт аллакай чунин аст");
+        }
+
         mentor.PaymentStatus = status;
         mentor.UpdatedAt = DateTimeOffset.UtcNow;
         context.Mentors.Update(mentor);

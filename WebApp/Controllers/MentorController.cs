@@ -141,6 +141,10 @@ public class MentorController(IMentorService mentorService) : ControllerBase
     [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<ActionResult<Response<string>>> UpdateMentorPaymentStatus([FromBody] UpdateMentorPaymentStatusDto dto)
     {
+        if (dto == null)
+            return BadRequest(new Response<string>(System.Net.HttpStatusCode.BadRequest, "Маълумот нодуруст"));
+        if (dto.MentorId <= 0)
+            return BadRequest(new Response<string>(System.Net.HttpStatusCode.BadRequest, "MentorId нодуруст аст"));
         var response = await mentorService.UpdateMentorPaymentStatusAsync(dto.MentorId, dto.Status);
         return StatusCode(response.StatusCode, response);
     }
