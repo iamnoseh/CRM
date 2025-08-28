@@ -1,10 +1,12 @@
 using Domain.DTOs.Mentor;
+using Domain.Enums;
 using Domain.DTOs.Student;
 using Domain.Filters;
 using Domain.Responses;
 using Infrastructure.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
 
 namespace WebApp.Controllers;
 
@@ -139,14 +141,37 @@ public class MentorController(IMentorService mentorService) : ControllerBase
 
     [HttpPut("payment-status")]
     [Authorize(Roles = "Admin,SuperAdmin,Manager")]
-    public async Task<ActionResult<Response<string>>> UpdateMentorPaymentStatus([FromBody] UpdateMentorPaymentStatusDto dto)
+    public async Task<ActionResult<Response<string>>> UpdateMentorPaymentStatus([FromBody] JsonElement body)
     {
-        if (dto == null)
-            return BadRequest(new Response<string>(System.Net.HttpStatusCode.BadRequest, "Маълумот нодуруст"));
-        if (dto.MentorId <= 0)
-            return BadRequest(new Response<string>(System.Net.HttpStatusCode.BadRequest, "MentorId нодуруст аст"));
-        var response = await mentorService.UpdateMentorPaymentStatusAsync(dto.MentorId, dto.Status);
-        return StatusCode(response.StatusCode, response);
+        try
+        {
+            if (!body.TryGetProperty("mentorId", out var mentorIdEl) || !mentorIdEl.TryGetInt32(out var mentorId) || mentorId <= 0)
+                return BadRequest(new Response<string>(System.Net.HttpStatusCode.BadRequest, "MentorId нодуруст аст"));
+
+            PaymentStatus status;
+            if (!body.TryGetProperty("status", out var statusEl))
+                return BadRequest(new Response<string>(System.Net.HttpStatusCode.BadRequest, "status лозим аст"));
+
+            if (statusEl.ValueKind == JsonValueKind.Number && Enum.IsDefined(typeof(PaymentStatus), statusEl.GetInt32()))
+            {
+                status = (PaymentStatus)statusEl.GetInt32();
+            }
+            else if (statusEl.ValueKind == JsonValueKind.String && Enum.TryParse<PaymentStatus>(statusEl.GetString(), true, out var parsed))
+            {
+                status = parsed;
+            }
+            else
+            {
+                return BadRequest(new Response<string>(System.Net.HttpStatusCode.BadRequest, "Қимати status нодуруст аст"));
+            }
+
+            var response = await mentorService.UpdateMentorPaymentStatusAsync(mentorId, status);
+            return StatusCode(response.StatusCode, response);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new Response<string>(System.Net.HttpStatusCode.InternalServerError, ex.Message));
+        }
     }
     
 }
