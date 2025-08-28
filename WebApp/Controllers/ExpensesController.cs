@@ -13,7 +13,7 @@ namespace WebApp.Controllers;
 public class ExpensesController(IExpenseService expenseService) : ControllerBase
 {
     [HttpPost]
-    [Authorize(Roles = "Admin,Manager")]
+    [Authorize(Roles = "Admin,Manager,SuperAdmin")]
     public async Task<ActionResult<Response<GetExpenseDto>>> Create([FromBody] CreateExpenseDto dto)
     {
         var response = await expenseService.CreateAsync(dto);
@@ -21,7 +21,7 @@ public class ExpensesController(IExpenseService expenseService) : ControllerBase
     }
 
     [HttpPut("{id}")]
-    [Authorize(Roles = "Admin,Manager")]
+    [Authorize(Roles = "Admin,Manager,SuperAdmin")]
     public async Task<ActionResult<Response<GetExpenseDto>>> Update(int id, [FromBody] UpdateExpenseDto dto)
     {
         var response = await expenseService.UpdateAsync(id, dto);
@@ -29,7 +29,7 @@ public class ExpensesController(IExpenseService expenseService) : ControllerBase
     }
 
     [HttpDelete("{id}")]
-    [Authorize(Roles = "Admin,Manager")]
+    [Authorize(Roles = "Admin,Manager,SuperAdmin")]
     public async Task<ActionResult<Response<bool>>> Delete(int id)
     {
         var response = await expenseService.DeleteAsync(id);
@@ -37,7 +37,7 @@ public class ExpensesController(IExpenseService expenseService) : ControllerBase
     }
 
     [HttpGet("{id}")]
-    [Authorize(Roles = "Admin,Manager")]
+    [Authorize(Roles = "Admin,Manager,SuperAdmin")]
     public async Task<ActionResult<Response<GetExpenseDto>>> GetById(int id)
     {
         var response = await expenseService.GetByIdAsync(id);
@@ -45,7 +45,7 @@ public class ExpensesController(IExpenseService expenseService) : ControllerBase
     }
 
     [HttpGet]
-    [Authorize(Roles = "Admin,Manager")]
+    [Authorize(Roles = "Admin,Manager,SuperAdmin")]
     public async Task<ActionResult<Response<List<GetExpenseDto>>>> Get([FromQuery] ExpenseFilter filter)
     {
         var response = await expenseService.GetAsync(filter);

@@ -12,4 +12,5 @@ public interface IEmployeeService
     Task<Response<string>> UpdateEmployeeAsync(UpdateEmployeeDto request);
     Task<Response<string>> DeleteEmployeeAsync(int employeeId);
     Task<Response<List<ManagerSelectDto>>> GetManagersForSelectAsync();
+    Task<Response<string>> UpdateEmployeePaymentStatusAsync(int employeeId, Domain.Enums.PaymentStatus status);
 }

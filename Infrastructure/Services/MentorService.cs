@@ -534,7 +534,9 @@ public class MentorService(
 
     public async Task<Response<string>> UpdateMentorPaymentStatusAsync(int mentorId, PaymentStatus status)
     {
-        var mentor = await context.Mentors.FirstOrDefaultAsync(m => m.Id == mentorId && !m.IsDeleted);
+        var mentorsQuery = context.Mentors.Where(m => m.Id == mentorId && !m.IsDeleted);
+        mentorsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(mentorsQuery, httpContextAccessor, m => m.CenterId);
+        var mentor = await mentorsQuery.FirstOrDefaultAsync();
         if (mentor == null)
             return new Response<string>(HttpStatusCode.NotFound, "Устод ёфт нашуд");
 

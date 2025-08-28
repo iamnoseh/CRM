@@ -162,6 +162,7 @@ public static class Register
          services.AddScoped<IStudentAnalyticsExportService, StudentAnalyticsExportService>();
          services.AddScoped<IExpenseService, ExpenseService>();
          services.AddScoped<IFinanceService, FinanceService>();
+         services.AddScoped<IPaymentStatisticsService, PaymentStatisticsService>();
         
         services.AddScoped<IGroupService>(gs => 
             new GroupService(

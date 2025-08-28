@@ -25,11 +25,17 @@ builder.Services.AddCorsServices();
 var emailConfig = builder.Configuration.GetSection("EmailConfiguration").Get<EmailConfiguration>();
 builder.Services.AddSingleton(emailConfig);
 
-// Add Hangfire services
-builder.Services.AddHangfire(configuration => configuration
-    .UsePostgreSqlStorage(builder.Configuration.GetConnectionString("DefaultConnection")));
+// Feature flags
+var hangfireEnabled = builder.Configuration.GetValue<bool>("Features:HangfireEnabled", true);
+var migrationsEnabled = builder.Configuration.GetValue<bool>("Features:ApplyMigrationsOnStartup", true);
 
-builder.Services.AddHangfireServer();
+// Add Hangfire services (optional)
+if (hangfireEnabled)
+{
+    builder.Services.AddHangfire(configuration => configuration
+        .UsePostgreSqlStorage(builder.Configuration.GetConnectionString("DefaultConnection")));
+    builder.Services.AddHangfireServer();
+}
 
 builder.Services.AddApplicationServices(builder.Configuration, uploadPath);
 builder.Services.AddSwaggerServices();
@@ -37,20 +43,29 @@ builder.Services.AddBackgroundServices();
 builder.Services.AddControllers();
 var app = builder.Build();
 app.UseSerilogRequestLogging();
-await app.ApplyMigrationsAndSeedData();
-
-app.UseHangfireDashboard("/hangfire", new DashboardOptions
+if (migrationsEnabled)
 {
-    DashboardTitle = "Kavsar Academy - Background Jobs",
-    StatsPollingInterval = 5000,
-    AppPath = "/swagger"
-});
+    await app.ApplyMigrationsAndSeedData();
+}
+
+if (hangfireEnabled)
+{
+    app.UseHangfireDashboard("/hangfire", new DashboardOptions
+    {
+        DashboardTitle = "Kavsar Academy - Background Jobs",
+        StatsPollingInterval = 5000,
+        AppPath = "/swagger"
+    });
+}
 
 // Start Hangfire background tasks
-using (var scope = app.Services.CreateScope())
+if (hangfireEnabled)
 {
-    var hangfireTaskService = scope.ServiceProvider.GetRequiredService<Infrastructure.Services.HangfireBackgroundTaskService>();
-    hangfireTaskService.StartAllBackgroundTasks();
+    using (var scope = app.Services.CreateScope())
+    {
+        var hangfireTaskService = scope.ServiceProvider.GetRequiredService<Infrastructure.Services.HangfireBackgroundTaskService>();
+        hangfireTaskService.StartAllBackgroundTasks();
+    }
 }
 
 if (app.Environment.IsDevelopment())

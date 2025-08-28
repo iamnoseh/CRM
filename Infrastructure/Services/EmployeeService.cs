@@ -246,4 +246,20 @@ public class EmployeeService : IEmployeeService
         }
         return new Response<List<ManagerSelectDto>>(managers);
     }
+
+    public async Task<Response<string>> UpdateEmployeePaymentStatusAsync(int employeeId, PaymentStatus status)
+    {
+        var usersQuery = _context.Users.Where(u => u.Id == employeeId && !u.IsDeleted);
+        usersQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(usersQuery, _httpContextAccessor, u => u.CenterId);
+        var user = await usersQuery.FirstOrDefaultAsync();
+        if (user == null)
+            return new Response<string>(HttpStatusCode.NotFound, "Корманд ёфт нашуд");
+
+        user.PaymentStatus = status;
+        user.UpdatedAt = DateTime.UtcNow;
+        var res = await _userManager.UpdateAsync(user);
+        return res.Succeeded
+            ? new Response<string>(HttpStatusCode.OK, "Ҳолати пардохти корманд навсозӣ шуд")
+            : new Response<string>(HttpStatusCode.BadRequest, IdentityHelper.FormatIdentityErrors(res));
+    }
 }

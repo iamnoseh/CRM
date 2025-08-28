@@ -58,4 +58,12 @@ public class EmployeesController(IEmployeeService service) : ControllerBase
         var result = await service.DeleteEmployeeAsync(id);
         return StatusCode(result.StatusCode, result);
     }
+
+    [HttpPut("payment-status")] 
+    [Authorize(Roles = "SuperAdmin,Manager")]
+    public async Task<ActionResult<Response<string>>> UpdatePaymentStatus([FromBody] UpdateEmployeePaymentStatusDto dto)
+    {
+        var result = await service.UpdateEmployeePaymentStatusAsync(dto.EmployeeId, dto.Status);
+        return StatusCode(result.StatusCode, result);
+    }
 } 
