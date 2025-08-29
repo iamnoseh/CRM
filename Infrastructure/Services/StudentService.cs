@@ -115,9 +115,11 @@ public class StudentService(
 
     public async Task<Response<string>> UpdateStudentAsync(int id, UpdateStudentDto updateStudentDto)
     {
-        var student = await context.Students.FirstOrDefaultAsync(s => s.Id == id && !s.IsDeleted);
+        var studentsQuery = context.Students.Where(s => s.Id == id && !s.IsDeleted);
+        studentsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(studentsQuery, httpContextAccessor, s => s.CenterId);
+        var student = await studentsQuery.FirstOrDefaultAsync();
         if (student == null)
-            return new Response<string>(HttpStatusCode.NotFound, "Student not found");
+            return new Response<string>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст ё донишҷӯ ёфт нашуд");
         string newProfileImagePath = student.ProfileImage;
         if (updateStudentDto.ProfilePhoto != null)
         {
