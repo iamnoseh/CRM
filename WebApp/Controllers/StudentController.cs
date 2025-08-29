@@ -54,12 +54,11 @@ public class StudentController (IStudentService service) : ControllerBase
 
     [HttpPut("{id}")]
     [Authorize(Roles = "Admin,SuperAdmin,Manager")]
-    [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin},{Roles.Student}")]
     public async Task<Response<string>> UpdateStudent(int id, [FromForm] UpdateStudentDto dto) =>
         await service.UpdateStudentAsync(id, dto);
         
     [HttpPut("profile/{id}")]
-    [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin},{Roles.Student}")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Student")]
     public async Task<Response<string>> UpdateStudentProfile(int id, IFormFile photo) =>
         await service.UpdateUserProfileImageAsync(id, photo);
         
@@ -116,7 +115,7 @@ public class StudentController (IStudentService service) : ControllerBase
     
 
     [HttpGet("debug/document/{studentId}")]
-    [Authorize(Roles = "Admin,SuperAdmin,Manager,Teacher,Student")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<IActionResult> DebugStudentDocument(int studentId)
     {
         try
