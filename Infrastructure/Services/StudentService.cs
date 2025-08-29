@@ -64,7 +64,6 @@ public class StudentService(
                 return new Response<string>((HttpStatusCode)userResult.StatusCode, userResult.Message);
 
             var (user, password, username) = userResult.Data;
-            // Ensure user's PaymentStatus is aligned at creation time
             if (user.PaymentStatus != PaymentStatus.Completed)
             {
                 user.PaymentStatus = PaymentStatus.Completed;
@@ -559,7 +558,7 @@ public class StudentService(
 
             if (filter.CourseId.HasValue)
             {
-                query = query.Where(s => s.StudentGroups.Any(sg => sg.Group.CourseId == filter.CourseId.Value && !sg.IsDeleted));
+                query = query.Where(s => s.StudentGroups.Any(sg => sg.Group!.CourseId == filter.CourseId.Value && !sg.IsDeleted));
             }
 
             var totalRecords = await query.CountAsync();
@@ -582,7 +581,7 @@ public class StudentService(
                 filter.PageNumber,
                 filter.PageSize);
         }
-        catch (Exception ex)
+        catch 
         {
             return new PaginationResponse<List<GetSimpleDto>>(HttpStatusCode.InternalServerError,"Something went wrong");
         }

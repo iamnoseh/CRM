@@ -67,7 +67,6 @@ public class MentorService(
                 return new Response<string>((HttpStatusCode)userResult.StatusCode, userResult.Message);
 
             var (user, password, username) = userResult.Data;
-            // Align initial user payment status with mentor profile
             if (user.PaymentStatus != PaymentStatus.Completed)
             {
                 user.PaymentStatus = PaymentStatus.Completed;

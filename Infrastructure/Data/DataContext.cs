@@ -333,10 +333,7 @@ public class DataContext(DbContextOptions<DataContext> options)
         modelBuilder.Entity<Student>()
             .HasIndex(s => s.UserId)
             .IsUnique();
-
-        modelBuilder.Entity<Student>()
-            .HasIndex(s => s.Email)
-            .IsUnique();
+        
 
         // Mentor indexes
         modelBuilder.Entity<Mentor>()
@@ -345,10 +342,7 @@ public class DataContext(DbContextOptions<DataContext> options)
         modelBuilder.Entity<Mentor>()
             .HasIndex(m => m.UserId)
             .IsUnique();
-
-        modelBuilder.Entity<Mentor>()
-            .HasIndex(m => m.Email)
-            .IsUnique();
+        
 
         // Course indexes
         modelBuilder.Entity<Course>()
