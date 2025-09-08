@@ -135,8 +135,10 @@ public class UserService(DataContext context, UserManager<User> userManager,
     {
         try
         {
-            var userId = httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userId) || !int.TryParse(userId, out int id))
+            // Prefer original User.Id from custom claim; fallback to NameIdentifier
+            var userIdRaw = httpContextAccessor.HttpContext?.User.FindFirst("UserId")?.Value
+                            ?? httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userIdRaw) || !int.TryParse(userIdRaw, out int id))
             {
                 return new Response<GetUserDto>(HttpStatusCode.Unauthorized, "User not authenticated");
             }
