@@ -417,6 +417,30 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 .Include(g => g.StudentGroups.Where(sg => !sg.IsDeleted))
                 .Where(g => !g.IsDeleted)
                 .AsQueryable();
+
+            var user = _httpContextAccessor.HttpContext?.User;
+            var principalType = user?.FindFirst("PrincipalType")?.Value;
+            var nameIdStr = user?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            int.TryParse(nameIdStr, out var principalId);
+
+            var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role)
+                .Select(c => c.Value)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase) ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            bool isAdminLike = roles.Contains("Admin") || roles.Contains("SuperAdmin") || roles.Contains("Manager");
+            bool isTeacherLike = roles.Contains("Mentor") || roles.Contains("Teacher");
+
+            if (!isAdminLike && principalId > 0)
+            {
+                if (string.Equals(principalType, "Student", StringComparison.OrdinalIgnoreCase))
+                {
+                    query = query.Where(g => g.StudentGroups.Any(sg => sg.StudentId == principalId && !sg.IsDeleted));
+                }
+                else if (string.Equals(principalType, "Mentor", StringComparison.OrdinalIgnoreCase) || isTeacherLike)
+                {
+                    query = query.Where(g => g.MentorId == principalId);
+                }
+            }
             
             if (!string.IsNullOrEmpty(filter.Name))
             {
