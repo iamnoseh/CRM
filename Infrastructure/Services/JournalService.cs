@@ -748,15 +748,20 @@ public class JournalService(DataContext context) : IJournalService
                 };
 
                 week.Students = students
-                    .Select(s => new StudentWeekPointsDto
+                    .Select(s =>
                     {
-                        StudentId = s.Id,
-                        StudentName = s.FullName,
-                        IsActive = s.IsActive,
-                        TotalPoints =
-                            weekEntries.Where(e => e.StudentId == s.Id && e.Grade.HasValue).Sum(e => e.Grade!.Value) +
-                            weekEntries.Where(e => e.StudentId == s.Id && e.BonusPoints.HasValue)
-                                .Sum(e => e.BonusPoints!.Value)
+                        var hasEntries = weekEntries.Any(e => e.StudentId == s.Id);
+                        var total = hasEntries
+                            ? weekEntries.Where(e => e.StudentId == s.Id && e.Grade.HasValue).Sum(e => e.Grade!.Value)
+                              + weekEntries.Where(e => e.StudentId == s.Id && e.BonusPoints.HasValue).Sum(e => e.BonusPoints!.Value)
+                            : 0m;
+                        return new StudentWeekPointsDto
+                        {
+                            StudentId = s.Id,
+                            StudentName = s.FullName,
+                            IsActive = hasEntries, // present in this week
+                            TotalPoints = total
+                        };
                     })
                     .OrderByDescending(x => x.TotalPoints)
                     .ThenByDescending(x => x.IsActive)
@@ -773,7 +778,7 @@ public class JournalService(DataContext context) : IJournalService
                     {
                         var totals = result.Weeks
                             .SelectMany(w => w.Students)
-                            .Where(x => x.StudentId == s.Id)
+                            .Where(x => x.StudentId == s.Id && x.IsActive) // average over active weeks only
                             .Select(x => x.TotalPoints)
                             .ToList();
                         var sum = totals.Sum();
