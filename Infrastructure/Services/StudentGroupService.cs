@@ -24,17 +24,20 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
             if (group == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Группа не найдена");
 
+            // Find any existing link (even if previously soft-deleted) to support reactivation
             var existingStudentGroup = await context.StudentGroups
                 .FirstOrDefaultAsync(sg => sg.StudentId == request.StudentId && 
-                                          sg.GroupId == request.GroupId && 
-                                          !sg.IsDeleted);
+                                          sg.GroupId == request.GroupId);
             
             if (existingStudentGroup != null)
             {
-                if (existingStudentGroup.IsActive)
+                if (existingStudentGroup.IsActive && !existingStudentGroup.IsDeleted)
                     return new Response<string>(HttpStatusCode.BadRequest, "Студент уже назначен в эту группу");
-                
+
+                // Reactivate and un-delete if needed
                 existingStudentGroup.IsActive = true;
+                existingStudentGroup.IsDeleted = false;
+                existingStudentGroup.LeaveDate = null;
                 existingStudentGroup.UpdatedAt = DateTimeOffset.UtcNow;
                 context.StudentGroups.Update(existingStudentGroup);
                 
@@ -566,12 +569,13 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
 
             var studentGroup = await context.StudentGroups
                 .FirstOrDefaultAsync(sg => sg.StudentId == studentId && 
-                                           sg.GroupId == groupId && 
-                                           !sg.IsDeleted);
+                                           sg.GroupId == groupId);
             
             if (studentGroup == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Студент не назначен в эту группу");
 
+            // Soft-remove: deactivate and mark as deleted to hide from active lists,
+            // but keep the record for potential reactivation later
             studentGroup.IsDeleted = true;
             studentGroup.IsActive = false;
             studentGroup.LeaveDate = DateTime.UtcNow;
