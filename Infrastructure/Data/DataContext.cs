@@ -323,8 +323,7 @@ public class DataContext(DbContextOptions<DataContext> options)
             .HasIndex(u => u.CenterId);
 
         modelBuilder.Entity<User>()
-            .HasIndex(u => u.Email)
-            .IsUnique();
+            .HasIndex(u => u.Email);
 
         // Student indexes
         modelBuilder.Entity<Student>()

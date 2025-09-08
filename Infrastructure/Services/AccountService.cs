@@ -186,9 +186,7 @@ public class AccountService(
 
         var claims = new List<Claim>
         {
-            // NameId is what frameworks typically read as ClaimTypes.NameIdentifier
             new Claim(JwtRegisteredClaimNames.NameId, principalId.ToString()),
-            // Preserve original user id separately
             new Claim("UserId", user.Id.ToString()),
             new Claim("PrincipalType", principalType)
         };
@@ -248,7 +246,7 @@ public class AccountService(
             if (resetPasswordDto == null)
                 return new Response<string>(HttpStatusCode.BadRequest, "Маълумоти дархост нодуруст аст");
 
-            var existingUser = await userManager.Users.FirstOrDefaultAsync(x => x.Email == resetPasswordDto.Email);
+            var existingUser = await userManager.FindByNameAsync(resetPasswordDto.Username);
             if (existingUser == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Корбар ёфт нашуд");
 
@@ -283,7 +281,7 @@ public class AccountService(
             if (forgotPasswordDto == null)
                 return new Response<string>(HttpStatusCode.BadRequest, "Маълумоти дархост нодуруст аст");
 
-            var existingUser = await context.Users.FirstOrDefaultAsync(x => x.Email == forgotPasswordDto.Email);
+            var existingUser = await userManager.FindByNameAsync(forgotPasswordDto.Username);
             if (existingUser == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Корбар ёфт нашуд");
 
@@ -295,9 +293,12 @@ public class AccountService(
             if (res <= 0)
                 return new Response<string>(HttpStatusCode.BadRequest, "Хатогӣ ҳангоми сохтани рамзи тасдиқ");
 
-            await EmailHelper.SendResetPasswordCodeEmailAsync(emailService, forgotPasswordDto.Email, code);
+            if (!string.IsNullOrWhiteSpace(existingUser.Email))
+            {
+                await EmailHelper.SendResetPasswordCodeEmailAsync(emailService, existingUser.Email, code);
+            }
 
-            return new Response<string>(HttpStatusCode.OK, "Рамзи тасдиқ бо муваффақият фиристода шуд");
+            return new Response<string>(HttpStatusCode.OK, "Рамзи тасдиқ бо муваффақият сохта шуд  фиристода шуд");
         }
         catch (Exception ex)
         {
