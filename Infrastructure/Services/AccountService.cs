@@ -160,9 +160,37 @@ public class AccountService(
         var securityKey = new SymmetricSecurityKey(key);
         var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
+        // Determine principal identifier to embed into JWT (Student.Id / Mentor.Id / User.Id)
+        var roles = await userManager.GetRolesAsync(user);
+        int principalId = user.Id;
+        string principalType = "User";
+
+        if (roles != null && roles.Contains("Student"))
+        {
+            var student = await context.Students.AsNoTracking().FirstOrDefaultAsync(s => s.UserId == user.Id);
+            if (student != null)
+            {
+                principalId = student.Id;
+                principalType = "Student";
+            }
+        }
+        else if (roles != null && roles.Contains("Mentor"))
+        {
+            var mentor = await context.Mentors.AsNoTracking().FirstOrDefaultAsync(m => m.UserId == user.Id);
+            if (mentor != null)
+            {
+                principalId = mentor.Id;
+                principalType = "Mentor";
+            }
+        }
+
         var claims = new List<Claim>
         {
-            new Claim(JwtRegisteredClaimNames.NameId, user.Id.ToString())
+            // NameId is what frameworks typically read as ClaimTypes.NameIdentifier
+            new Claim(JwtRegisteredClaimNames.NameId, principalId.ToString()),
+            // Preserve original user id separately
+            new Claim("UserId", user.Id.ToString()),
+            new Claim("PrincipalType", principalType)
         };
 
         if (!string.IsNullOrEmpty(user.UserName))
@@ -189,7 +217,6 @@ public class AccountService(
             claims.Add(new Claim(JwtRegisteredClaimNames.Picture, "null"));
         }
 
-        var roles = await userManager.GetRolesAsync(user);
         if (roles != null)
         {
             claims.AddRange(roles.Where(role => !string.IsNullOrEmpty(role)).Select(role => new Claim("role", role)));

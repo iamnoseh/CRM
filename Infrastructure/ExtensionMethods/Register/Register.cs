@@ -113,6 +113,14 @@ public static class Register
                 uploadPath,
                 st.GetRequiredService<IEmailService>()
             ));
+        
+        // Register UserService for IUserService to fix DI resolution in UserController
+        services.AddScoped<IUserService>(sp =>
+            new UserService(
+                sp.GetRequiredService<DataContext>(),
+                sp.GetRequiredService<UserManager<User>>(),
+                sp.GetRequiredService<IHttpContextAccessor>()
+            ));
             
         services.AddScoped<IMentorService>(st => 
             new MentorService(
