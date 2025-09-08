@@ -492,6 +492,68 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
         }
     }
     
+    public async Task<Response<List<GetGroupDto>>> GetGroupsByStudentIdAsync(int studentId)
+    {
+        try
+        {
+            var groups = await context.Groups
+                .Include(g => g.Course)
+                .Include(g => g.Mentor)
+                .Include(g => g.Classroom)
+                .ThenInclude(c => c.Center)
+                .Include(g => g.StudentGroups.Where(sg => !sg.IsDeleted && sg.StudentId == studentId))
+                .Where(g => !g.IsDeleted && g.StudentGroups.Any(sg => sg.StudentId == studentId && !sg.IsDeleted))
+                .OrderBy(g => g.Name)
+                .ToListAsync();
+
+            var groupDtos = groups.Select(MapToGetGroupDto).ToList();
+            return new Response<List<GetGroupDto>>
+            {
+                StatusCode = (int)HttpStatusCode.OK,
+                Data = groupDtos
+            };
+        }
+        catch (Exception ex)
+        {
+            return new Response<List<GetGroupDto>>
+            {
+                StatusCode = (int)HttpStatusCode.InternalServerError,
+                Message = $"Хатогӣ ҳангоми гирифтани гурӯҳҳо бо studentId: {ex.Message}"
+            };
+        }
+    }
+
+    public async Task<Response<List<GetGroupDto>>> GetGroupsByMentorIdAsync(int mentorId)
+    {
+        try
+        {
+            var groups = await context.Groups
+                .Include(g => g.Course)
+                .Include(g => g.Mentor)
+                .Include(g => g.Classroom)
+                .ThenInclude(c => c.Center)
+                .Include(g => g.StudentGroups.Where(sg => !sg.IsDeleted))
+                .Where(g => !g.IsDeleted && g.MentorId == mentorId)
+                .OrderBy(g => g.Name)
+                .ToListAsync();
+
+            var groupDtos = groups.Select(MapToGetGroupDto).ToList();
+            return new Response<List<GetGroupDto>>
+            {
+                StatusCode = (int)HttpStatusCode.OK,
+                Data = groupDtos
+            };
+        }
+        catch (Exception ex)
+        {
+            return new Response<List<GetGroupDto>>
+            {
+                StatusCode = (int)HttpStatusCode.InternalServerError,
+                Message = $"Хатогӣ ҳангоми гирифтани гурӯҳҳо бо mentorId: {ex.Message}"
+            };
+        }
+    }
+    
     private GetGroupDto MapToGetGroupDto(Group group)
     {
         return new GetGroupDto

@@ -57,6 +57,20 @@ public class GroupController(IGroupService groupService, DataContext context) : 
         };
     }
 
+    [HttpGet("by-student/{studentId}")]
+    public async Task<IActionResult> GetGroupsByStudent(int studentId)
+    {
+        var response = await groupService.GetGroupsByStudentIdAsync(studentId);
+        return StatusCode(response.StatusCode, response);
+    }
+
+    [HttpGet("by-mentor/{mentorId}")]
+    public async Task<IActionResult> GetGroupsByMentor(int mentorId)
+    {
+        var response = await groupService.GetGroupsByMentorIdAsync(mentorId);
+        return StatusCode(response.StatusCode, response);
+    }
+
     [HttpGet("paginated")]
     public async Task<IActionResult> GetGroupsPaginated([FromQuery] GroupFilter filter)
     {
