@@ -100,6 +100,29 @@ public class GroupController(IGroupService groupService, DataContext context) : 
         return StatusCode(response.StatusCode, response);
     }
 
+    [HttpGet("my")]
+    [Authorize]
+    public async Task<IActionResult> GetMyGroups()
+    {
+        var principalType = User?.FindFirst("PrincipalType")?.Value;
+        var idStr = User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(idStr) || !int.TryParse(idStr, out var principalId))
+            return Unauthorized("Invalid token: missing identifier");
+
+        if (string.Equals(principalType, "Student", StringComparison.OrdinalIgnoreCase))
+        {
+            var resp = await groupService.GetGroupsByStudentIdAsync(principalId);
+            return StatusCode(resp.StatusCode, resp);
+        }
+        if (string.Equals(principalType, "Mentor", StringComparison.OrdinalIgnoreCase))
+        {
+            var resp = await groupService.GetGroupsByMentorIdAsync(principalId);
+            return StatusCode(resp.StatusCode, resp);
+        }
+
+        return BadRequest("Unsupported principal type");
+    }
+
     [HttpGet("paginated")]
     public async Task<IActionResult> GetGroupsPaginated([FromQuery] GroupFilter filter)
     {
