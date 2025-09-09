@@ -376,20 +376,15 @@ public class UserService(DataContext context, UserManager<User> userManager,
             var user = await context.Users.FirstOrDefaultAsync(u => u.Id == currentUserId && !u.IsDeleted);
             if (user == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Корбар ёфт нашуд");
-
-            // Delete old profile picture if exists
-            if (!string.IsNullOrEmpty(user.ProfileImagePath))
-            {
-                FileDeleteHelper.DeleteFile(user.ProfileImagePath, Path.Combine(webHostEnvironment.WebRootPath, "uploads"));
-            }
-
-            // Upload new profile picture
+            
             var imageResult = await FileUploadHelper.UploadFileAsync(
                 updateProfilePictureDto.ProfilePicture,
-                Path.Combine(webHostEnvironment.WebRootPath, "uploads"),
+                webHostEnvironment.WebRootPath,
                 "profiles",
                 "profile",
-                true);
+                true,
+                user.ProfileImagePath
+            );
 
             if (imageResult.StatusCode != (int)HttpStatusCode.OK)
                 return new Response<string>((HttpStatusCode)imageResult.StatusCode, imageResult.Message);

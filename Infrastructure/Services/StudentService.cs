@@ -11,6 +11,7 @@ using Infrastructure.Services.EmailService;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace Infrastructure.Services;
 
@@ -20,7 +21,8 @@ public class StudentService(
     UserManager<User> userManager,
     string uploadPath,
     IEmailService emailService,
-    IOsonSmsService osonSmsService) : IStudentService
+    IOsonSmsService osonSmsService,
+    IConfiguration configuration) : IStudentService
 {
     public async Task<Response<string>> CreateStudentAsync(CreateStudentDto createStudentDto)
     {
@@ -85,7 +87,8 @@ public class StudentService(
 
             if (!string.IsNullOrEmpty(user.PhoneNumber))
             {
-                var smsMessage = $"Салом, {user.FullName}! Номи корбар: {username}, Парол: {password}. Барои ворид шудан ба система истифода баред.";
+                var loginUrl = configuration["AppSettings:LoginUrl"];
+                var smsMessage = $"Салом, {user.FullName}!\nНоми корбар: {username},\nПарол: {password}.\nЛутфан, барои ворид шудан ба система ба ин суроға ташриф оред: {loginUrl}\nKavsar Academy";
                 await osonSmsService.SendSmsAsync(user.PhoneNumber, smsMessage);
             }
 

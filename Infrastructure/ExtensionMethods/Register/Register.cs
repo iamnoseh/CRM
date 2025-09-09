@@ -38,7 +38,6 @@ public static class Register
         services.AddScoped<IHashService, HashService>();
         services.AddScoped<Infrastructure.Services.HangfireBackgroundTaskService>();
         
-        // Register background services for dependency injection
         services.AddScoped<Infrastructure.BackgroundTasks.GroupExpirationService>();
         services.AddScoped<Infrastructure.BackgroundTasks.StudentStatusUpdaterService>();
         services.AddScoped<Infrastructure.BackgroundTasks.WeeklyJournalSchedulerService>();
@@ -107,7 +106,8 @@ public static class Register
                 uploadPath,
                 sp.GetRequiredService<IEmailService>(),
                 sp.GetRequiredService<IHttpContextAccessor>(),
-                sp.GetRequiredService<IOsonSmsService>()));
+                sp.GetRequiredService<IOsonSmsService>(),
+                sp.GetRequiredService<IConfiguration>()));
         services.AddScoped<IStudentService>(st =>
             new StudentService(
                 st.GetRequiredService<DataContext>(),
@@ -115,7 +115,8 @@ public static class Register
                 st.GetRequiredService<UserManager<User>>(),
                 uploadPath,
                 st.GetRequiredService<IEmailService>(),
-                st.GetRequiredService<IOsonSmsService>()
+                st.GetRequiredService<IOsonSmsService>(),
+                st.GetRequiredService<IConfiguration>()
             ));
                 services.AddScoped<IUserService>(sp =>
             new UserService(
@@ -132,7 +133,8 @@ public static class Register
                 uploadPath,
                 st.GetRequiredService<IEmailService>(),
                 st.GetRequiredService<IHttpContextAccessor>(),
-                st.GetRequiredService<IOsonSmsService>()
+                st.GetRequiredService<IOsonSmsService>(),
+                st.GetRequiredService<IConfiguration>()
             ));
         
         services.AddScoped<ICourseService>(us => 

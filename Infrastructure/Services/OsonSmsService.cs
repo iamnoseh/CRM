@@ -24,17 +24,23 @@ public class OsonSmsService : IOsonSmsService
 
     public OsonSmsService(IConfiguration configuration)
     {
-        _login = configuration["OsonSmsSettings:Login"] ?? throw new InvalidOperationException("OsonSmsSettings:Login not configured");
-        _passHash = configuration["OsonSmsSettings:PassHash"] ?? throw new InvalidOperationException("OsonSmsSettings:PassHash not configured");
-        _sender = configuration["OsonSmsSettings:Sender"] ?? throw new InvalidOperationException("OsonSmsSettings:Sender not configured");
-        _dlm = configuration["OsonSmsSettings:Dlm"] ?? throw new InvalidOperationException("OsonSmsSettings:Dlm not configured");
-        _t = configuration["OsonSmsSettings:T"] ?? throw new InvalidOperationException("OsonSmsSettings:T not configured");
-        _sendSmsUrl = configuration["OsonSmsSettings:SendSmsUrl"] ?? throw new InvalidOperationException("OsonSmsSettings:SendSmsUrl not configured");
-        _checkSmsStatusUrl = configuration["OsonSmsSettings:CheckSmsStatusUrl"] ?? throw new InvalidOperationException("OsonSmsSettings:CheckSmsStatusUrl not configured");
-        _checkBalanceUrl = configuration["OsonSmsSettings:CheckBalanceUrl"] ?? throw new InvalidOperationException("OsonSmsSettings:CheckBalanceUrl not configured");
-        
-        // Initialize RestClient with a base URL, though individual methods might override it.
-        _restClient = new RestClient(); 
+        _login = configuration["OsonSmsSettings:Login"] ??
+                 throw new InvalidOperationException("OsonSmsSettings:Login not configured");
+        _passHash = configuration["OsonSmsSettings:PassHash"] ??
+                    throw new InvalidOperationException("OsonSmsSettings:PassHash not configured");
+        _sender = configuration["OsonSmsSettings:Sender"] ??
+                  throw new InvalidOperationException("OsonSmsSettings:Sender not configured");
+        _dlm = configuration["OsonSmsSettings:Dlm"] ??
+               throw new InvalidOperationException("OsonSmsSettings:Dlm not configured");
+        _t = configuration["OsonSmsSettings:T"] ??
+             throw new InvalidOperationException("OsonSmsSettings:T not configured");
+        _sendSmsUrl = configuration["OsonSmsSettings:SendSmsUrl"] ??
+                      throw new InvalidOperationException("OsonSmsSettings:SendSmsUrl not configured");
+        _checkSmsStatusUrl = configuration["OsonSmsSettings:CheckSmsStatusUrl"] ??
+                             throw new InvalidOperationException("OsonSmsSettings:CheckSmsStatusUrl not configured");
+        _checkBalanceUrl = configuration["OsonSmsSettings:CheckBalanceUrl"] ??
+                           throw new InvalidOperationException("OsonSmsSettings:CheckBalanceUrl not configured");
+        _restClient = new RestClient();
     }
 
     public async Task<Response<OsonSmsSendResponseDto>> SendSmsAsync(string phoneNumber, string message)
@@ -43,7 +49,7 @@ public class OsonSmsService : IOsonSmsService
         {
             var txnId = GenerateTxnId();
             var strHash = Sha256Hash(txnId + _dlm + _login + _dlm + _sender + _dlm + phoneNumber + _dlm + _passHash);
-         
+
             var request = new RestRequest(_sendSmsUrl, Method.Get);
             request.AddParameter("from", _sender);
             request.AddParameter("login", _login);
@@ -54,18 +60,21 @@ public class OsonSmsService : IOsonSmsService
             request.AddParameter("txn_id", txnId);
 
             var response = await _restClient.ExecuteAsync<OsonSmsSendResponseDto>(request);
-            
+
             if (response.IsSuccessful && response.Data != null)
             {
                 if (response.Data.Error != null)
                 {
                     return new Response<OsonSmsSendResponseDto>(HttpStatusCode.BadRequest, response.Data.Error.Message);
                 }
-                return new Response<OsonSmsSendResponseDto>(response.Data) { Message = "SMS бо муваффақият фиристода шуд" };
+
+                return new Response<OsonSmsSendResponseDto>(response.Data)
+                    { Message = "SMS бо муваффақият фиристода шуд" };
             }
             else
             {
-                return new Response<OsonSmsSendResponseDto>(response.StatusCode, response.ErrorMessage ?? "Хатогӣ ҳангоми фиристодани SMS");
+                return new Response<OsonSmsSendResponseDto>(response.StatusCode,
+                    response.ErrorMessage ?? "Хатогӣ ҳангоми фиристодани SMS");
             }
         }
         catch (Exception ex)
@@ -94,13 +103,17 @@ public class OsonSmsService : IOsonSmsService
             {
                 if (response.Data.Error != null)
                 {
-                    return new Response<OsonSmsStatusResponseDto>(HttpStatusCode.BadRequest, response.Data.Error.Message);
+                    return new Response<OsonSmsStatusResponseDto>(HttpStatusCode.BadRequest,
+                        response.Data.Error.Message);
                 }
-                return new Response<OsonSmsStatusResponseDto>(response.Data) { Message = "Статуси SMS бо муваффақият гирифта шуд" };
+
+                return new Response<OsonSmsStatusResponseDto>(response.Data)
+                    { Message = "Статуси SMS бо муваффақият гирифта шуд" };
             }
             else
             {
-                return new Response<OsonSmsStatusResponseDto>(response.StatusCode, response.ErrorMessage ?? "Хатогӣ ҳангоми санҷиши статуси SMS");
+                return new Response<OsonSmsStatusResponseDto>(response.StatusCode,
+                    response.ErrorMessage ?? "Хатогӣ ҳангоми санҷиши статуси SMS");
             }
         }
         catch (Exception ex)
@@ -128,13 +141,17 @@ public class OsonSmsService : IOsonSmsService
             {
                 if (response.Data.Error != null)
                 {
-                    return new Response<OsonSmsBalanceResponseDto>(HttpStatusCode.BadRequest, response.Data.Error.Message);
+                    return new Response<OsonSmsBalanceResponseDto>(HttpStatusCode.BadRequest,
+                        response.Data.Error.Message);
                 }
-                return new Response<OsonSmsBalanceResponseDto>(response.Data) { Message = "Тавозун бо муваффақият гирифта шуд" };
+
+                return new Response<OsonSmsBalanceResponseDto>(response.Data)
+                    { Message = "Тавозун бо муваффақият гирифта шуд" };
             }
             else
             {
-                return new Response<OsonSmsBalanceResponseDto>(response.StatusCode, response.ErrorMessage ?? "Хатогӣ ҳангоми санҷиши тавозун");
+                return new Response<OsonSmsBalanceResponseDto>(response.StatusCode,
+                    response.ErrorMessage ?? "Хатогӣ ҳангоми санҷиши тавозун");
             }
         }
         catch (Exception ex)

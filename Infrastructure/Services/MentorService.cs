@@ -12,6 +12,7 @@ using Infrastructure.Services.EmailService;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace Infrastructure.Services;
 
@@ -21,7 +22,8 @@ public class MentorService(
     string uploadPath,
     IEmailService emailService,
     IHttpContextAccessor httpContextAccessor,
-    IOsonSmsService osonSmsService) : IMentorService
+    IOsonSmsService osonSmsService,
+    IConfiguration configuration) : IMentorService
 {
     public async Task<Response<string>> CreateMentorAsync(CreateMentorDto createMentorDto)
     {
@@ -87,7 +89,8 @@ public class MentorService(
 
             if (!string.IsNullOrEmpty(user.PhoneNumber))
             {
-                var smsMessage = $"Салом, {user.FullName}! Номи корбар: {username}, Парол: {password}. Барои ворид шудан ба система истифода баред.";
+                var loginUrl = configuration["AppSettings:LoginUrl"];
+                var smsMessage = $"Салом, {user.FullName}!\nНоми корбар: {username},\nПарол: {password}.\nЛутфан, барои ворид шудан ба система ба ин суроға ташриф оред: {loginUrl}\nKavsar Academy";
                 await osonSmsService.SendSmsAsync(user.PhoneNumber, smsMessage);
             }
 

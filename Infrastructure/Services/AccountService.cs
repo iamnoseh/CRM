@@ -84,7 +84,8 @@ public class AccountService(
             
             if (!string.IsNullOrEmpty(user.PhoneNumber))
             {
-                var smsMessage = $"Салом, {user.FullName}! Номи корбар: {username}, Парол: {password}. Барои ворид шудан ба система истифода баред.";
+                var loginUrl = configuration["AppSettings:LoginUrl"];
+                var smsMessage = $"Салом, {user.FullName}!\nНоми корбар: {username},\nПарол: {password}.\nЛутфан, барои ворид шудан ба система ба ин суроға ташриф оред: {loginUrl}\nKavsar Academy";
                 await osonSmsService.SendSmsAsync(user.PhoneNumber, smsMessage);
             }
 

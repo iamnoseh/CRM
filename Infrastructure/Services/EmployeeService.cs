@@ -11,6 +11,7 @@ using System.Net;
 using Domain.Enums;
 using Infrastructure.Services.EmailService;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
 
 namespace Infrastructure.Services;
 
@@ -22,8 +23,9 @@ public class EmployeeService : IEmployeeService
     private readonly IEmailService _emailService;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IOsonSmsService _osonSmsService;
+    private readonly IConfiguration _configuration;
 
-    public EmployeeService(DataContext context, UserManager<User> userManager, string uploadPath, IEmailService emailService, IHttpContextAccessor httpContextAccessor, IOsonSmsService osonSmsService)
+    public EmployeeService(DataContext context, UserManager<User> userManager, string uploadPath, IEmailService emailService, IHttpContextAccessor httpContextAccessor, IOsonSmsService osonSmsService, IConfiguration configuration)
     {
         _context = context;
         _userManager = userManager;
@@ -31,6 +33,7 @@ public class EmployeeService : IEmployeeService
         _emailService = emailService;
         _httpContextAccessor = httpContextAccessor;
         _osonSmsService = osonSmsService;
+        _configuration = configuration;
     }
 
     public async Task<PaginationResponse<List<GetEmployeeDto>>> GetEmployeesAsync(EmployeeFilter filter)
@@ -170,7 +173,8 @@ public class EmployeeService : IEmployeeService
 
             if (!string.IsNullOrEmpty(user.PhoneNumber))
             {
-                var smsMessage = $"Салом, {user.FullName}! Номи корбар: {username}, Парол: {password}. Барои ворид шудан ба система истифода баред.";
+                var loginUrl = _configuration["AppSettings:LoginUrl"];
+                var smsMessage = $"Салом, {user.FullName}!\nНоми корбар: {username},\nПарол: {password}.\nЛутфан, барои ворид шудан ба система ба ин суроға ташриф оред: {loginUrl}\nKavsar Academy";
                 await _osonSmsService.SendSmsAsync(user.PhoneNumber, smsMessage);
             }
 
