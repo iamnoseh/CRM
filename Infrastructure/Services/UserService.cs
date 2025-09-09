@@ -10,11 +10,12 @@ using Microsoft.EntityFrameworkCore;
 using System.Net;
 using System.Security.Claims;
 using Infrastructure.Helpers;
+using Microsoft.AspNetCore.Hosting;
 
 namespace Infrastructure.Services;
 
 public class UserService(DataContext context, UserManager<User> userManager,
-    IHttpContextAccessor httpContextAccessor) : IUserService
+    IHttpContextAccessor httpContextAccessor, IWebHostEnvironment webHostEnvironment) : IUserService
 {
     #region GetUsersPagination
     
@@ -131,23 +132,61 @@ public class UserService(DataContext context, UserManager<User> userManager,
 
     #region GetCurrentUser
     
-    public async Task<Response<GetUserDto>> GetCurrentUserAsync()
+    public async Task<Response<GetUserDetailsDto>> GetCurrentUserAsync()
     {
         try
         {
-            // Prefer original User.Id from custom claim; fallback to NameIdentifier
             var userIdRaw = httpContextAccessor.HttpContext?.User.FindFirst("UserId")?.Value
                             ?? httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userIdRaw) || !int.TryParse(userIdRaw, out int id))
             {
-                return new Response<GetUserDto>(HttpStatusCode.Unauthorized, "User not authenticated");
+                return new Response<GetUserDetailsDto>(HttpStatusCode.Unauthorized, "Корбар аутентификатӣ нашудааст");
             }
             
-            return await GetUserByIdAsync(id);
+            var query = context.Users
+                .Include(u => u.Center)
+                .Where(x => x.Id == id && !x.IsDeleted);
+            
+            var user = await query.FirstOrDefaultAsync();
+            
+            if (user == null)
+                return new Response<GetUserDetailsDto>(HttpStatusCode.NotFound, "Корбар ёфт нашуд");
+
+            var roles = await userManager.GetRolesAsync(user);
+            var role = roles.FirstOrDefault();
+
+            var dto = new GetUserDetailsDto
+            {
+                UserId = user.Id,
+                Username = user.UserName,
+                FullName = user.FullName,
+                Email = user.Email,
+                PhoneNumber = user.PhoneNumber,
+                Address = user.Address,
+                Gender = user.Gender,
+                ActiveStatus = user.ActiveStatus,
+                PaymentStatus = user.PaymentStatus,
+                Age = user.Age,
+                DateOfBirth = user.Birthday,
+                Image = user.ProfileImagePath,
+                DocumentPath = user.DocumentPath,
+                CenterId = user.CenterId,
+                CenterName = user.Center?.Name,
+                Salary = user.Salary,
+                Experience = user.Experience,
+                CreatedAt = user.CreatedAt,
+                UpdatedAt = user.UpdatedAt,
+                EmailNotificationsEnabled = user.EmailNotificationsEnabled,
+                TelegramNotificationsEnabled = user.TelegramNotificationsEnabled,
+                TelegramChatId = user.TelegramChatId,
+                Role = role
+            };
+
+            return new Response<GetUserDetailsDto>(dto);
         }
         catch (Exception ex)
         {
-            return new Response<GetUserDto>(HttpStatusCode.InternalServerError, ex.Message);
+            return new Response<GetUserDetailsDto>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
     
@@ -321,6 +360,56 @@ public class UserService(DataContext context, UserManager<User> userManager,
             });
         }
         return new PaginationResponse<List<GetUserDto>>(result, page, pageSize, total);
+    }
+    #endregion
+
+    #region UpdateProfilePicture
+    public async Task<Response<string>> UpdateProfilePictureAsync(UpdateProfilePictureDto updateProfilePictureDto)
+    {
+        try
+        {
+            var user = await context.Users.FirstOrDefaultAsync(u => u.Id == updateProfilePictureDto.UserId && !u.IsDeleted);
+            if (user == null)
+                return new Response<string>(HttpStatusCode.NotFound, "Корбар ёфт нашуд");
+
+            var currentUserIdRaw = httpContextAccessor.HttpContext?.User.FindFirst("UserId")?.Value
+                                 ?? httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(currentUserIdRaw) || !int.TryParse(currentUserIdRaw, out int currentUserId))
+                return new Response<string>(HttpStatusCode.Unauthorized, "Корбар аутентификатӣ нашудааст");
+
+            if (currentUserId != updateProfilePictureDto.UserId)
+                return new Response<string>(HttpStatusCode.Forbidden, "Шумо танҳо расми профили худро иваз карда метавонед");
+
+            // Delete old profile picture if exists
+            if (!string.IsNullOrEmpty(user.ProfileImagePath))
+            {
+                FileDeleteHelper.DeleteFile(user.ProfileImagePath, Path.Combine(webHostEnvironment.WebRootPath, "uploads"));
+            }
+
+            // Upload new profile picture
+            var imageResult = await FileUploadHelper.UploadFileAsync(
+                updateProfilePictureDto.ProfilePicture,
+                Path.Combine(webHostEnvironment.WebRootPath, "uploads"),
+                "profiles",
+                "profile",
+                true);
+
+            if (imageResult.StatusCode != (int)HttpStatusCode.OK)
+                return new Response<string>((HttpStatusCode)imageResult.StatusCode, imageResult.Message);
+
+            user.ProfileImagePath = imageResult.Data;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            var result = await userManager.UpdateAsync(user);
+            if (!result.Succeeded)
+                return new Response<string>(HttpStatusCode.BadRequest, IdentityHelper.FormatIdentityErrors(result));
+
+            return new Response<string>(HttpStatusCode.OK, "Расми профил бо муваффақият иваз карда шуд");
+        }
+        catch (Exception ex)
+        {
+            return new Response<string>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми ивазкунии расми профил: {ex.Message}");
+        }
     }
     #endregion
 }

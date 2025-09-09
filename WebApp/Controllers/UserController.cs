@@ -30,7 +30,7 @@ public class UserController(IUserService service) : ControllerBase
         
     [HttpGet("me")]
     [Authorize]
-    public async Task<ActionResult<Response<GetUserDto>>> GetCurrentUser()
+    public async Task<ActionResult<Response<GetUserDetailsDto>>> GetCurrentUser()
     {
         var result = await service.GetCurrentUserAsync();
         return StatusCode(result.StatusCode, result);
@@ -57,6 +57,14 @@ public class UserController(IUserService service) : ControllerBase
     public async Task<ActionResult<PaginationResponse<List<GetUserDto>>>> GetUpcomingBirthdays([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
         var result = await service.GetUpcomingBirthdaysAsync(page, pageSize);
+        return StatusCode(result.StatusCode, result);
+    }
+
+    [HttpPut("profile-picture")]
+    [Authorize]
+    public async Task<ActionResult<Response<string>>> UpdateProfilePicture([FromForm] UpdateProfilePictureDto updateProfilePictureDto)
+    {
+        var result = await service.UpdateProfilePictureAsync(updateProfilePictureDto);
         return StatusCode(result.StatusCode, result);
     }
 }

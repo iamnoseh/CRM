@@ -20,6 +20,7 @@ using System.Text;
 using Infrastructure.Services.ExportToExel;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Hosting;
 
 namespace Infrastructure.ExtensionMethods.Register;
 
@@ -113,13 +114,12 @@ public static class Register
                 uploadPath,
                 st.GetRequiredService<IEmailService>()
             ));
-        
-        // Register UserService for IUserService to fix DI resolution in UserController
-        services.AddScoped<IUserService>(sp =>
+                services.AddScoped<IUserService>(sp =>
             new UserService(
                 sp.GetRequiredService<DataContext>(),
                 sp.GetRequiredService<UserManager<User>>(),
-                sp.GetRequiredService<IHttpContextAccessor>()
+                sp.GetRequiredService<IHttpContextAccessor>(),
+                sp.GetRequiredService<IWebHostEnvironment>()
             ));
             
         services.AddScoped<IMentorService>(st => 
