@@ -25,11 +25,11 @@ builder.Services.AddCorsServices();
 var emailConfig = builder.Configuration.GetSection("EmailConfiguration").Get<EmailConfiguration>();
 builder.Services.AddSingleton(emailConfig);
 
-// Feature flags
+
 var hangfireEnabled = builder.Configuration.GetValue<bool>("Features:HangfireEnabled", true);
 var migrationsEnabled = builder.Configuration.GetValue<bool>("Features:ApplyMigrationsOnStartup", true);
 
-// Add Hangfire services (optional)
+
 if (hangfireEnabled)
 {
     builder.Services.AddHangfire(configuration => configuration

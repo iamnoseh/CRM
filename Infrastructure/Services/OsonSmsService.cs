@@ -10,38 +10,25 @@ using System.Net;
 
 namespace Infrastructure.Services;
 
-public class OsonSmsService : IOsonSmsService
+public class OsonSmsService(IConfiguration configuration) : IOsonSmsService
 {
-    private readonly RestClient _restClient;
-    private readonly string _login;
-    private readonly string _passHash;
-    private readonly string _sender;
-    private readonly string _dlm;
-    private readonly string _t;
-    private readonly string _sendSmsUrl;
-    private readonly string _checkSmsStatusUrl;
-    private readonly string _checkBalanceUrl;
-
-    public OsonSmsService(IConfiguration configuration)
-    {
-        _login = configuration["OsonSmsSettings:Login"] ??
-                 throw new InvalidOperationException("OsonSmsSettings:Login not configured");
-        _passHash = configuration["OsonSmsSettings:PassHash"] ??
-                    throw new InvalidOperationException("OsonSmsSettings:PassHash not configured");
-        _sender = configuration["OsonSmsSettings:Sender"] ??
-                  throw new InvalidOperationException("OsonSmsSettings:Sender not configured");
-        _dlm = configuration["OsonSmsSettings:Dlm"] ??
-               throw new InvalidOperationException("OsonSmsSettings:Dlm not configured");
-        _t = configuration["OsonSmsSettings:T"] ??
-             throw new InvalidOperationException("OsonSmsSettings:T not configured");
-        _sendSmsUrl = configuration["OsonSmsSettings:SendSmsUrl"] ??
-                      throw new InvalidOperationException("OsonSmsSettings:SendSmsUrl not configured");
-        _checkSmsStatusUrl = configuration["OsonSmsSettings:CheckSmsStatusUrl"] ??
-                             throw new InvalidOperationException("OsonSmsSettings:CheckSmsStatusUrl not configured");
-        _checkBalanceUrl = configuration["OsonSmsSettings:CheckBalanceUrl"] ??
-                           throw new InvalidOperationException("OsonSmsSettings:CheckBalanceUrl not configured");
-        _restClient = new RestClient();
-    }
+    private readonly RestClient _restClient = new();
+    private readonly string _login = configuration["OsonSmsSettings:Login"] ??
+                                     throw new InvalidOperationException("OsonSmsSettings:Login not configured");
+    private readonly string _passHash = configuration["OsonSmsSettings:PassHash"] ??
+                                        throw new InvalidOperationException("OsonSmsSettings:PassHash not configured");
+    private readonly string _sender = configuration["OsonSmsSettings:Sender"] ??
+                                      throw new InvalidOperationException("OsonSmsSettings:Sender not configured");
+    private readonly string _dlm = configuration["OsonSmsSettings:Dlm"] ??
+                                   throw new InvalidOperationException("OsonSmsSettings:Dlm not configured");
+    private readonly string _t = configuration["OsonSmsSettings:T"] ??
+                                 throw new InvalidOperationException("OsonSmsSettings:T not configured");
+    private readonly string _sendSmsUrl = configuration["OsonSmsSettings:SendSmsUrl"] ??
+                                          throw new InvalidOperationException("OsonSmsSettings:SendSmsUrl not configured");
+    private readonly string _checkSmsStatusUrl = configuration["OsonSmsSettings:CheckSmsStatusUrl"] ??
+                                                 throw new InvalidOperationException("OsonSmsSettings:CheckSmsStatusUrl not configured");
+    private readonly string _checkBalanceUrl = configuration["OsonSmsSettings:CheckBalanceUrl"] ??
+                                               throw new InvalidOperationException("OsonSmsSettings:CheckBalanceUrl not configured");
 
     public async Task<Response<OsonSmsSendResponseDto>> SendSmsAsync(string phoneNumber, string message)
     {
