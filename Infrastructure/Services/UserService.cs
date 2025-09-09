@@ -368,17 +368,14 @@ public class UserService(DataContext context, UserManager<User> userManager,
     {
         try
         {
-            var user = await context.Users.FirstOrDefaultAsync(u => u.Id == updateProfilePictureDto.UserId && !u.IsDeleted);
-            if (user == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Корбар ёфт нашуд");
-
             var currentUserIdRaw = httpContextAccessor.HttpContext?.User.FindFirst("UserId")?.Value
                                  ?? httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(currentUserIdRaw) || !int.TryParse(currentUserIdRaw, out int currentUserId))
                 return new Response<string>(HttpStatusCode.Unauthorized, "Корбар аутентификатӣ нашудааст");
 
-            if (currentUserId != updateProfilePictureDto.UserId)
-                return new Response<string>(HttpStatusCode.Forbidden, "Шумо танҳо расми профили худро иваз карда метавонед");
+            var user = await context.Users.FirstOrDefaultAsync(u => u.Id == currentUserId && !u.IsDeleted);
+            if (user == null)
+                return new Response<string>(HttpStatusCode.NotFound, "Корбар ёфт нашуд");
 
             // Delete old profile picture if exists
             if (!string.IsNullOrEmpty(user.ProfileImagePath))

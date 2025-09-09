@@ -96,6 +96,7 @@ public static class Register
                 sp.GetRequiredService<DataContext>(),
                 sp.GetRequiredService<IEmailService>(),
                 sp.GetRequiredService<IHashService>(),
+                sp.GetRequiredService<IOsonSmsService>(),
                 uploadPath
             ));
 
@@ -105,14 +106,16 @@ public static class Register
                 sp.GetRequiredService<UserManager<User>>(),
                 uploadPath,
                 sp.GetRequiredService<IEmailService>(),
-                sp.GetRequiredService<IHttpContextAccessor>()));
+                sp.GetRequiredService<IHttpContextAccessor>(),
+                sp.GetRequiredService<IOsonSmsService>()));
         services.AddScoped<IStudentService>(st =>
             new StudentService(
                 st.GetRequiredService<DataContext>(),
                 st.GetRequiredService<IHttpContextAccessor>(),
                 st.GetRequiredService<UserManager<User>>(),
                 uploadPath,
-                st.GetRequiredService<IEmailService>()
+                st.GetRequiredService<IEmailService>(),
+                st.GetRequiredService<IOsonSmsService>()
             ));
                 services.AddScoped<IUserService>(sp =>
             new UserService(
@@ -128,7 +131,8 @@ public static class Register
                 st.GetRequiredService<UserManager<User>>(),
                 uploadPath,
                 st.GetRequiredService<IEmailService>(),
-                st.GetRequiredService<IHttpContextAccessor>()
+                st.GetRequiredService<IHttpContextAccessor>(),
+                st.GetRequiredService<IOsonSmsService>()
             ));
         
         services.AddScoped<ICourseService>(us => 
@@ -171,6 +175,7 @@ public static class Register
          services.AddScoped<IExpenseService, ExpenseService>();
          services.AddScoped<IFinanceService, FinanceService>();
          services.AddScoped<IPaymentStatisticsService, PaymentStatisticsService>();
+         services.AddScoped<IOsonSmsService, OsonSmsService>();
         
         services.AddScoped<IGroupService>(gs => 
             new GroupService(

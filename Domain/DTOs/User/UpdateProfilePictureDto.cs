@@ -6,8 +6,5 @@ namespace Domain.DTOs.User;
 public class UpdateProfilePictureDto
 {
     [Required]
-    public int UserId { get; set; }
-    
-    [Required]
     public IFormFile ProfilePicture { get; set; }
 }

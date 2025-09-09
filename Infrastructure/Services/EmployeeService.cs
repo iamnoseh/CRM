@@ -21,14 +21,16 @@ public class EmployeeService : IEmployeeService
     private readonly string _uploadPath;
     private readonly IEmailService _emailService;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly IOsonSmsService _osonSmsService;
 
-    public EmployeeService(DataContext context, UserManager<User> userManager, string uploadPath, IEmailService emailService, IHttpContextAccessor httpContextAccessor)
+    public EmployeeService(DataContext context, UserManager<User> userManager, string uploadPath, IEmailService emailService, IHttpContextAccessor httpContextAccessor, IOsonSmsService osonSmsService)
     {
         _context = context;
         _userManager = userManager;
         _uploadPath = uploadPath;
         _emailService = emailService;
         _httpContextAccessor = httpContextAccessor;
+        _osonSmsService = osonSmsService;
     }
 
     public async Task<PaginationResponse<List<GetEmployeeDto>>> GetEmployeesAsync(EmployeeFilter filter)
@@ -165,7 +167,14 @@ public class EmployeeService : IEmployeeService
                     "#4776E6",
                     "#8E54E9");
             }
-            return new Response<string>(HttpStatusCode.Created, $"Корманд бомуваффақият илова шуд. Маълумоти воридшавӣ ба email фиристода шуд. Username: {username}");
+
+            if (!string.IsNullOrEmpty(user.PhoneNumber))
+            {
+                var smsMessage = $"Салом, {user.FullName}! Номи корбар: {username}, Парол: {password}. Барои ворид шудан ба система истифода баред.";
+                await _osonSmsService.SendSmsAsync(user.PhoneNumber, smsMessage);
+            }
+
+            return new Response<string>(HttpStatusCode.Created, $"Корманд бомуваффақият илова шуд. Маълумоти воридшавӣ ба email ва/ё SMS фиристода шуд. Username: {username}");
         }
         catch (Exception ex)
         {

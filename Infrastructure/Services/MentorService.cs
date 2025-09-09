@@ -20,7 +20,8 @@ public class MentorService(
     UserManager<User> userManager,
     string uploadPath,
     IEmailService emailService,
-    IHttpContextAccessor httpContextAccessor) : IMentorService
+    IHttpContextAccessor httpContextAccessor,
+    IOsonSmsService osonSmsService) : IMentorService
 {
     public async Task<Response<string>> CreateMentorAsync(CreateMentorDto createMentorDto)
     {
@@ -83,7 +84,13 @@ public class MentorService(
                     "#4776E6",
                     "#8E54E9");
             }
-            
+
+            if (!string.IsNullOrEmpty(user.PhoneNumber))
+            {
+                var smsMessage = $"Салом, {user.FullName}! Номи корбар: {username}, Парол: {password}. Барои ворид шудан ба система истифода баред.";
+                await osonSmsService.SendSmsAsync(user.PhoneNumber, smsMessage);
+            }
+
             var mentor = new Mentor
             {
                 FullName = createMentorDto.FullName,
@@ -109,7 +116,7 @@ public class MentorService(
             var res = await context.SaveChangesAsync();
 
             return res > 0
-                ? new Response<string>(HttpStatusCode.Created, "Устод бо муваффақият сохта шуд")
+                ? new Response<string>(HttpStatusCode.Created, "Устод бо муваффақият сохта шуд. Маълумоти воридшавӣ ба почтаи электронӣ ва/ё SMS фиристода шуд.")
                 : new Response<string>(HttpStatusCode.BadRequest, "Хатогӣ ҳангоми сохтани устод");
         }
         catch (Exception ex)

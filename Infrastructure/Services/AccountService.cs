@@ -24,6 +24,7 @@ public class AccountService(
     DataContext context,
     IEmailService emailService,
     IHashService hashService,
+    IOsonSmsService osonSmsService,
     string uploadPath) : IAccountService
 {
     public async Task<Response<string>> Register(RegisterDto model)
@@ -67,7 +68,7 @@ public class AccountService(
             if (userResult.StatusCode != (int)HttpStatusCode.OK)
                 return new Response<string>((HttpStatusCode)userResult.StatusCode, userResult.Message);
 
-            var (_, password, username) = userResult.Data;
+            var (user, password, username) = userResult.Data;
 
             if (!string.IsNullOrEmpty(model.Email))
             {
@@ -80,8 +81,14 @@ public class AccountService(
                     "#5E60CE",
                     "#4EA8DE");
             }
+            
+            if (!string.IsNullOrEmpty(user.PhoneNumber))
+            {
+                var smsMessage = $"Салом, {user.FullName}! Номи корбар: {username}, Парол: {password}. Барои ворид шудан ба система истифода баред.";
+                await osonSmsService.SendSmsAsync(user.PhoneNumber, smsMessage);
+            }
 
-            return new Response<string>(HttpStatusCode.Created, "Корбар бо муваффақият сохта шуд. Маълумоти воридшавӣ ба почтаи электронӣ фиристода шуд.");
+            return new Response<string>(HttpStatusCode.Created, "Корбар бо муваффақият сохта шуд. Маълумоти воридшавӣ ба почтаи электронӣ ва/ё SMS фиристода шуд.");
         }
         catch (Exception ex)
         {

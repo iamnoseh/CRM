@@ -19,7 +19,8 @@ public class StudentService(
     IHttpContextAccessor httpContextAccessor,
     UserManager<User> userManager,
     string uploadPath,
-    IEmailService emailService) : IStudentService
+    IEmailService emailService,
+    IOsonSmsService osonSmsService) : IStudentService
 {
     public async Task<Response<string>> CreateStudentAsync(CreateStudentDto createStudentDto)
     {
@@ -82,6 +83,12 @@ public class StudentService(
                     "#4EA8DE");
             }
 
+            if (!string.IsNullOrEmpty(user.PhoneNumber))
+            {
+                var smsMessage = $"Салом, {user.FullName}! Номи корбар: {username}, Парол: {password}. Барои ворид шудан ба система истифода баред.";
+                await osonSmsService.SendSmsAsync(user.PhoneNumber, smsMessage);
+            }
+
             var student = new Student
             {
                 FullName = createStudentDto.FullName,
@@ -103,7 +110,7 @@ public class StudentService(
             var res = await context.SaveChangesAsync();
 
             return res > 0
-                ? new Response<string>(HttpStatusCode.Created, "Student Created Successfully")
+                ? new Response<string>(HttpStatusCode.Created, "Student Created Successfully. Login details sent via Email and/or SMS.")
                 : new Response<string>(HttpStatusCode.BadRequest, "Student Creation Failed");
         }
         catch (Exception ex)
