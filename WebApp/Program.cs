@@ -5,6 +5,7 @@ using Infrastructure.BackgroundTasks;
 using Hangfire;
 using Hangfire.PostgreSql;
 using Infrastructure.Interfaces;
+using Microsoft.AspNetCore.HttpOverrides;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -82,6 +83,13 @@ app.UseStaticFilesConfiguration(uploadPath);
 app.UseHttpsRedirection();
 app.UseCors("AllowFrontend");
 app.UseRouting();
+var fh = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+};
+fh.KnownNetworks.Clear();
+fh.KnownProxies.Clear();
+app.UseForwardedHeaders(fh);
 app.UseAuthentication(); 
 app.UseAuthorization();  
 app.UseMiddleware<WebApp.Middleware.LogEnrichmentMiddleware>();
