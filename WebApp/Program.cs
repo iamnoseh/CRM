@@ -4,20 +4,25 @@ using Domain.DTOs.EmailDTOs;
 using Infrastructure.BackgroundTasks;
 using Hangfire;
 using Hangfire.PostgreSql;
-using Infrastructure.Interfaces;
 using Microsoft.AspNetCore.HttpOverrides;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Serilog configuration
+// Serilog
 builder.Host.UseSerilog((context, services, configuration) =>
 {
     configuration
         .ReadFrom.Configuration(context.Configuration)
         .Enrich.FromLogContext();
 });
-var uploadPath = builder.Configuration.GetValue<string>("UploadPath") ?? "wwwroot";
+
+var uploadPath        = builder.Configuration.GetValue<string>("UploadPath") ?? "wwwroot";
+var hangfireEnabled   = builder.Configuration.GetValue<bool>("Features:HangfireEnabled",           true);
+var migrationsEnabled = builder.Configuration.GetValue<bool>("Features:ApplyMigrationsOnStartup",  true);
+var enableSwagger     = builder.Configuration.GetValue<bool>("Swagger:Enabled",                    false);
+
+// Services
 builder.Services.AddRegisterService(builder.Configuration);
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddIdentityServices(builder.Configuration);
@@ -26,15 +31,10 @@ builder.Services.AddCorsServices();
 var emailConfig = builder.Configuration.GetSection("EmailConfiguration").Get<EmailConfiguration>();
 builder.Services.AddSingleton(emailConfig);
 
-
-var hangfireEnabled = builder.Configuration.GetValue<bool>("Features:HangfireEnabled", true);
-var migrationsEnabled = builder.Configuration.GetValue<bool>("Features:ApplyMigrationsOnStartup", true);
-
-
 if (hangfireEnabled)
 {
-    builder.Services.AddHangfire(configuration => configuration
-        .UsePostgreSqlStorage(builder.Configuration.GetConnectionString("DefaultConnection")));
+    builder.Services.AddHangfire(cfg =>
+        cfg.UsePostgreSqlStorage(builder.Configuration.GetConnectionString("DefaultConnection")));
     builder.Services.AddHangfireServer();
 }
 
@@ -42,8 +42,21 @@ builder.Services.AddApplicationServices(builder.Configuration, uploadPath);
 builder.Services.AddSwaggerServices();
 builder.Services.AddBackgroundServices();
 builder.Services.AddControllers();
+
 var app = builder.Build();
+
+var fwd = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor
+                     | ForwardedHeaders.XForwardedProto
+                     | ForwardedHeaders.XForwardedHost
+};
+fwd.KnownNetworks.Clear();
+fwd.KnownProxies.Clear();
+app.UseForwardedHeaders(fwd);
+
 app.UseSerilogRequestLogging();
+
 if (migrationsEnabled)
 {
     await app.ApplyMigrationsAndSeedData();
@@ -53,46 +66,39 @@ if (hangfireEnabled)
 {
     app.UseHangfireDashboard("/hangfire", new DashboardOptions
     {
-        DashboardTitle = "Kavsar Academy - Background Jobs",
-        StatsPollingInterval = 5000,
-        AppPath = "/swagger"
+        DashboardTitle        = "Kavsar Academy - Background Jobs",
+        StatsPollingInterval  = 5000,
+        AppPath               = "/swagger"
     });
+
+    using var scope = app.Services.CreateScope();
+    var hangfireTaskService = scope.ServiceProvider.GetRequiredService<Infrastructure.Services.HangfireBackgroundTaskService>();
+    hangfireTaskService.StartAllBackgroundTasks();
 }
 
-// Start Hangfire background tasks
-if (hangfireEnabled)
-{
-    using (var scope = app.Services.CreateScope())
-    {
-        var hangfireTaskService = scope.ServiceProvider.GetRequiredService<Infrastructure.Services.HangfireBackgroundTaskService>();
-        hangfireTaskService.StartAllBackgroundTasks();
-    }
-}
-
-if (app.Environment.IsDevelopment())
+if (enableSwagger)
 {
     app.UseSwagger();
     app.UseSwaggerUI(c =>
-    {  
+    {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "Kavsar Academy v1");
-        c.AddThemes(app);  
+        c.AddThemes(app);
+
     });
 }
 
 app.UseStaticFilesConfiguration(uploadPath);
 app.UseHttpsRedirection();
+
 app.UseCors("AllowFrontend");
+
 app.UseRouting();
-var fh = new ForwardedHeadersOptions
-{
-    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
-};
-fh.KnownNetworks.Clear();
-fh.KnownProxies.Clear();
-app.UseForwardedHeaders(fh);
-app.UseAuthentication(); 
-app.UseAuthorization();  
+
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.UseMiddleware<WebApp.Middleware.LogEnrichmentMiddleware>();
-app.MapControllers(); 
+
+app.MapControllers();
 
 app.Run();
