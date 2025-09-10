@@ -247,8 +247,10 @@ public static class Register
         {
             "http://localhost:5173",
             "http://localhost:5174",
-            "http://localhost:5064/",
-            "http://localhost:5032/"
+            "http://localhost:5064",
+            "http://localhost:5032",
+            "https://crm.kavsaracademy.tj",
+            "http://crm.kavsaracademy.tj"
         };
         
         services.AddCors(options =>
