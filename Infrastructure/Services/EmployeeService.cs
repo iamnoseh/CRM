@@ -174,7 +174,7 @@ public class EmployeeService : IEmployeeService
             if (!string.IsNullOrEmpty(user.PhoneNumber))
             {
                 var loginUrl = _configuration["AppSettings:LoginUrl"];
-                var smsMessage = $"Салом, {user.FullName}!\nUsername: {username},\nPassword: {password}.\nЛутфан, барои ворид шудан ба система ба ин суроға ташриф оред: {loginUrl}\nKavsar Academy";
+                var smsMessage = $"Салом, {user.FullName}!\nUsername: {username},\nPassword: {password}\nЛутфан, барои ворид шудан ба система ба ин суроға ташриф оред: {loginUrl}\nKavsar Academy";
                 await _osonSmsService.SendSmsAsync(user.PhoneNumber, smsMessage);
             }
 
