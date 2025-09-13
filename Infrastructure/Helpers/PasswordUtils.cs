@@ -4,29 +4,25 @@ public static class PasswordUtils
 {
     public static string GenerateRandomPassword(int length = 8)
     {
-        const string upperChars = "ABC";
-        const string lowerChars = "a";
-        const string numericChars = "0123456789";
-        const string specialChars = "-";
+        // Generate password that contains only digits and exactly one letter
+        if (length < 2) length = 2; // ensure room for at least one digit and one letter
+
+        const string digits = "0123456789";
+        const string letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
         var random = new Random();
-        var chars = new List<char>();
-        chars.Add(upperChars[random.Next(upperChars.Length)]);
-        chars.Add(lowerChars[random.Next(lowerChars.Length)]);
-        chars.Add(numericChars[random.Next(numericChars.Length)]);
-        chars.Add(specialChars[random.Next(specialChars.Length)]);
-        for (int i = chars.Count; i < length; i++)
+        var chars = new char[length];
+
+        // Fill all positions with digits
+        for (int i = 0; i < length; i++)
         {
-            var allChars = upperChars + lowerChars + numericChars + specialChars;
-            chars.Add(allChars[random.Next(allChars.Length)]);
+            chars[i] = digits[random.Next(digits.Length)];
         }
 
-        for (int i = 0; i < chars.Count; i++)
-        {
-            int swapIndex = random.Next(chars.Count);
-            (chars[i], chars[swapIndex]) = (chars[swapIndex], chars[i]);
-        }
+        // Replace one random position with a letter (exactly one letter in the password)
+        int letterIndex = random.Next(length);
+        chars[letterIndex] = letters[random.Next(letters.Length)];
 
-        return new string(chars.ToArray());
+        return new string(chars);
     }
 }
