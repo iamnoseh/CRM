@@ -33,7 +33,8 @@ public class AccountController(IAccountService service) : ControllerBase
     
     [HttpPut("change-password")]
     [Authorize]
-    public async Task<Response<string>> ChangePassword([FromBody] ChangePasswordDto changePasswordDto) =>
+    [Consumes("multipart/form-data")]
+    public async Task<Response<string>> ChangePassword([FromForm] ChangePasswordDto changePasswordDto) =>
         await service.ChangePassword(changePasswordDto);
 
     [HttpPost("forgot-password")]
