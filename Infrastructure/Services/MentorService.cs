@@ -56,7 +56,7 @@ public class MentorService(
             var userResult = await UserManagementHelper.CreateUserAsync(
                 createMentorDto,
                 userManager,
-                Roles.Teacher,
+                Roles.Mentor,
                 dto => dto.PhoneNumber,
                 dto => dto.Email,
                 dto => dto.FullName,
@@ -436,7 +436,7 @@ public class MentorService(
                     if (user != null)
                     {
                         var roles = await userManager.GetRolesAsync(user);
-                        mentor.Role = roles.FirstOrDefault() ?? "Teacher";
+                        mentor.Role = roles.FirstOrDefault() ?? "Mentor";
                     }
                 }
             }
@@ -505,7 +505,7 @@ public class MentorService(
                     if (user != null)
                     {
                         var roles = await userManager.GetRolesAsync(user);
-                        mentor.Role = roles.FirstOrDefault() ?? "Teacher";
+                        mentor.Role = roles.FirstOrDefault() ?? "Mentor";
                     }
                 }
             }

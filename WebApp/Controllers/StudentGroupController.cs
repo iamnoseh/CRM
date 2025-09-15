@@ -43,7 +43,7 @@ public class StudentGroupController(IStudentGroupService studentGroupService) : 
     }
     
     [HttpGet("{id}")]
-    [Authorize(Roles = "Admin,SuperAdmin,Manager,Teacher,Student")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor,Student")]
     public async Task<ActionResult<Response<GetStudentGroupDto>>> GetStudentGroupById(int id)
     {
         var result = await studentGroupService.GetStudentGroupByIdAsync(id);
@@ -52,7 +52,7 @@ public class StudentGroupController(IStudentGroupService studentGroupService) : 
     
     [HttpGet]
     [Authorize]
-    [Authorize(Roles = "Admin,SuperAdmin,Manager,Teacher,Student")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor,Student")]
     public async Task<ActionResult<Response<List<GetStudentGroupDto>>>> GetAllStudentGroups()
     {
         var result = await studentGroupService.GetAllStudentGroupsAsync();
@@ -76,7 +76,7 @@ public class StudentGroupController(IStudentGroupService studentGroupService) : 
     }
     
     [HttpGet("group/{groupId}")]
-    [Authorize(Roles = "Admin,SuperAdmin,Manager,Teacher,Student")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor,Student")]
     public async Task<ActionResult<Response<List<GetStudentGroupDto>>>> GetStudentGroupsByGroup(int groupId)
     {
         var result = await studentGroupService.GetStudentGroupsByGroupAsync(groupId);

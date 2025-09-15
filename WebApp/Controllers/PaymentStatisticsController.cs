@@ -12,7 +12,7 @@ namespace WebApp.Controllers;
 public class PaymentStatisticsController(IPaymentStatisticsService paymentStatisticsService) : ControllerBase
 {
     [HttpGet("student/{studentId}")]
-    [Authorize(Roles = "Admin,Manager,Teacher")]
+    [Authorize(Roles = "Admin,Manager,Mentor")]
     [ProducesResponseType(typeof(Response<StudentPaymentStatisticsDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]

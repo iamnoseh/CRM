@@ -17,10 +17,9 @@ builder.Host.UseSerilog((context, services, configuration) =>
         .Enrich.FromLogContext();
 });
 
-var uploadPath        = builder.Configuration.GetValue<string>("UploadPath") ?? "wwwroot";
-var hangfireEnabled   = builder.Configuration.GetValue<bool>("Features:HangfireEnabled",           true);
-var migrationsEnabled = builder.Configuration.GetValue<bool>("Features:ApplyMigrationsOnStartup",  true);
-var enableSwagger     = builder.Configuration.GetValue<bool>("Swagger:Enabled",                    false);
+var uploadPath = builder.Configuration.GetValue<string>("UploadPath") ?? "wwwroot";
+var migrationsEnabled = builder.Configuration.GetValue<bool>("Features:ApplyMigrationsOnStartup", true);
+var enableSwagger = builder.Configuration.GetValue<bool>("Swagger:Enabled", false);
 
 // Services
 builder.Services.AddRegisterService(builder.Configuration);
@@ -31,12 +30,11 @@ builder.Services.AddCorsServices();
 var emailConfig = builder.Configuration.GetSection("EmailConfiguration").Get<EmailConfiguration>();
 builder.Services.AddSingleton(emailConfig);
 
-if (hangfireEnabled)
-{
-    builder.Services.AddHangfire(cfg =>
-        cfg.UsePostgreSqlStorage(builder.Configuration.GetConnectionString("DefaultConnection")));
-    builder.Services.AddHangfireServer();
-}
+
+builder.Services.AddHangfire(cfg =>
+    cfg.UsePostgreSqlStorage(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddHangfireServer();
+
 
 builder.Services.AddApplicationServices(builder.Configuration, uploadPath);
 builder.Services.AddSwaggerServices();
@@ -48,8 +46,8 @@ var app = builder.Build();
 var fwd = new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor
-                     | ForwardedHeaders.XForwardedProto
-                     | ForwardedHeaders.XForwardedHost
+                       | ForwardedHeaders.XForwardedProto
+                       | ForwardedHeaders.XForwardedHost
 };
 fwd.KnownNetworks.Clear();
 fwd.KnownProxies.Clear();
@@ -62,19 +60,19 @@ if (migrationsEnabled)
     await app.ApplyMigrationsAndSeedData();
 }
 
-if (hangfireEnabled)
-{
-    app.UseHangfireDashboard("/hangfire", new DashboardOptions
-    {
-        DashboardTitle        = "Kavsar Academy - Background Jobs",
-        StatsPollingInterval  = 5000,
-        AppPath               = "/swagger"
-    });
 
-    using var scope = app.Services.CreateScope();
-    var hangfireTaskService = scope.ServiceProvider.GetRequiredService<Infrastructure.Services.HangfireBackgroundTaskService>();
-    hangfireTaskService.StartAllBackgroundTasks();
-}
+app.UseHangfireDashboard("/hangfire", new DashboardOptions
+{
+    DashboardTitle = "Kavsar Academy - Background Jobs",
+    StatsPollingInterval = 5000,
+    AppPath = "/swagger"
+});
+
+using var scope = app.Services.CreateScope();
+var hangfireTaskService =
+    scope.ServiceProvider.GetRequiredService<Infrastructure.Services.HangfireBackgroundTaskService>();
+hangfireTaskService.StartAllBackgroundTasks();
+
 
 if (enableSwagger)
 {
@@ -83,7 +81,6 @@ if (enableSwagger)
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "Kavsar Academy v1");
         c.AddThemes(app);
-
     });
 }
 

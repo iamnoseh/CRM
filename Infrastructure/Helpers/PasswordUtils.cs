@@ -13,13 +13,11 @@ public static class PasswordUtils
         var random = new Random();
         var chars = new char[length];
 
-        // Fill all positions with digits
         for (int i = 0; i < length; i++)
         {
             chars[i] = digits[random.Next(digits.Length)];
         }
 
-        // Replace one random position with a letter (exactly one letter in the password)
         int letterIndex = random.Next(length);
         chars[letterIndex] = letters[random.Next(letters.Length)];
 

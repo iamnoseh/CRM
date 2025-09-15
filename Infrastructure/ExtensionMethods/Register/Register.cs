@@ -65,7 +65,7 @@ public static class Register
             options.Password.RequireLowercase = false;
             options.Password.RequireUppercase = false;
             options.Password.RequireNonAlphanumeric = false;
-            options.Password.RequiredLength = 7; // >6
+            options.Password.RequiredLength = 6; // >6
             options.Password.RequiredUniqueChars = 1;
         })
             .AddEntityFrameworkStores<DataContext>()
@@ -105,7 +105,8 @@ public static class Register
                 sp.GetRequiredService<IEmailService>(),
                 sp.GetRequiredService<IHashService>(),
                 sp.GetRequiredService<IOsonSmsService>(),
-                uploadPath
+                uploadPath,
+                sp.GetRequiredService<IHttpContextAccessor>()
             ));
 
         services.AddScoped<IEmployeeService>(sp =>

@@ -11,6 +11,7 @@ using Infrastructure.Interfaces;
 using Infrastructure.Services.EmailService;
 using Infrastructure.Services.HashService;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
@@ -25,7 +26,8 @@ public class AccountService(
     IEmailService emailService,
     IHashService hashService,
     IOsonSmsService osonSmsService,
-    string uploadPath) : IAccountService
+    string uploadPath,
+    IHttpContextAccessor httpContextAccessor) : IAccountService
 {
     public async Task<Response<string>> Register(RegisterDto model)
     {
@@ -314,14 +316,21 @@ public class AccountService(
         }
     }
 
-    public async Task<Response<string>> ChangePassword(ChangePasswordDto passwordDto, int userId)
+    public async Task<Response<string>> ChangePassword(ChangePasswordDto passwordDto)
     {
         try
         {
             if (passwordDto == null)
                 return new Response<string>(HttpStatusCode.BadRequest, "Маълумоти рамз нодуруст аст");
+            
+            var userIdClaim = httpContextAccessor.HttpContext?.User?.FindFirst("UserId")?.Value
+                              ?? httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                              ?? httpContextAccessor.HttpContext?.User?.FindFirst("nameid")?.Value;
 
-            var existingUser = await userManager.Users.FirstOrDefaultAsync(x => x.Id == userId);
+            if (string.IsNullOrWhiteSpace(userIdClaim) || !int.TryParse(userIdClaim, out var userIdFromClaim) || userIdFromClaim <= 0)
+                return new Response<string>(HttpStatusCode.Unauthorized, "Истифодабаранда аутентификатсия нашудааст");
+
+            var existingUser = await userManager.Users.FirstOrDefaultAsync(x => x.Id == userIdFromClaim);
             if (existingUser == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Корбар ёфт нашуд");
 

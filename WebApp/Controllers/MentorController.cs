@@ -23,7 +23,7 @@ public class MentorController(IMentorService mentorService) : ControllerBase
     }
     
     [HttpGet("{id}")]
-    [Authorize(Roles = "Admin,SuperAdmin,Manager,Teacher")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor")]
     public async Task<ActionResult<Response<GetMentorDto>>> GetMentorById(int id)
     {
         var response = await mentorService.GetMentorByIdAsync(id);
@@ -74,7 +74,7 @@ public class MentorController(IMentorService mentorService) : ControllerBase
 
 
     [HttpPut("profile-image")]
-    [Authorize(Roles = "Admin,Teacher")]
+    [Authorize(Roles = "Admin,Mentor")]
     public async Task<ActionResult<Response<string>>> UpdateProfileImage(int id, IFormFile profileImage)
     {
         var response = await mentorService.UpdateUserProfileImageAsync(id, profileImage);

@@ -428,7 +428,7 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 .ToHashSet(StringComparer.OrdinalIgnoreCase) ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             bool isAdminLike = roles.Contains("Admin") || roles.Contains("SuperAdmin") || roles.Contains("Manager");
-            bool isTeacherLike = roles.Contains("Mentor") || roles.Contains("Teacher");
+            bool isTeacherLike = roles.Contains("Mentor");
 
             if (!isAdminLike && principalId > 0)
             {

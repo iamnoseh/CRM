@@ -6,6 +6,6 @@ public static class Roles
     public const string SuperAdmin = "SuperAdmin";
     public const string Manager = "Manager";
     public const string Student = "Student";
-    public const string Teacher = "Teacher";
+    public const string Mentor = "Mentor";
     public const string User = "User";
 }

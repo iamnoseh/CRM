@@ -12,7 +12,7 @@ namespace WebApp.Controllers;
 public class MentorGroupController(IMentorGroupService mentorGroupService) : ControllerBase
 {
     [HttpPost]
-    [Authorize(Roles = "Admin,Teacher")]
+    [Authorize(Roles = "Admin,Mentor")]
     public async Task<ActionResult<Response<string>>> CreateMentorGroup([FromBody] CreateMentorGroupDto request)
     {
         var result = await mentorGroupService.CreateMentorGroupAsync(request);
@@ -20,7 +20,7 @@ public class MentorGroupController(IMentorGroupService mentorGroupService) : Con
     }
     
     [HttpPut]
-    [Authorize(Roles = "Admin,Teacher")]
+    [Authorize(Roles = "Admin,Mentor")]
     public async Task<ActionResult<Response<string>>> UpdateMentorGroup(int id, [FromBody] UpdateMentorGroupDto request)
     {
         var result = await mentorGroupService.UpdateMentorGroupAsync(id, request);
@@ -76,7 +76,7 @@ public class MentorGroupController(IMentorGroupService mentorGroupService) : Con
     }
     
     [HttpPost("group/{groupId}/mentors")]
-    [Authorize(Roles = "Admin,Teacher")]
+    [Authorize(Roles = "Admin,Mentor")]
     public async Task<ActionResult<Response<string>>> AddMultipleMentorsToGroup(int groupId, [FromBody] List<int> mentorIds)
     {
         var result = await mentorGroupService.AddMultipleMentorsToGroupAsync(groupId, mentorIds);

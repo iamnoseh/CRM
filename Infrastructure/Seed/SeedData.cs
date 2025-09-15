@@ -70,7 +70,7 @@ public class SeedData(UserManager<User> userManager, RoleManager<IdentityRole<in
             new (Roles.Manager),
             new (Roles.SuperAdmin),
             new (Roles.Student),
-            new (Roles.Teacher),
+            new (Roles.Mentor),
         };
         
         var roles = await roleManager.Roles.ToListAsync();

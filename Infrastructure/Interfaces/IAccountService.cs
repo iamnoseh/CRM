@@ -11,5 +11,5 @@ public interface IAccountService
     Task<Response<string>> AddRoleToUser(RoleDto userRole);
     Task<Response<string>> ResetPassword(ResetPasswordDto resetPasswordDto);
     Task<Response<string>> ForgotPasswordCodeGenerator(ForgotPasswordDto forgotPasswordDto);
-    Task<Response<string>> ChangePassword(ChangePasswordDto passwordDto, int userId);
+    Task<Response<string>> ChangePassword(ChangePasswordDto passwordDto);
 }

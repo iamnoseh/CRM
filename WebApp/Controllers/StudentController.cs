@@ -15,7 +15,7 @@ namespace WebApp.Controllers;
 public class StudentController (IStudentService service) : ControllerBase
 {
     [HttpGet]
-    [Authorize(Roles = "Admin,SuperAdmin,Manager,Teacher,Student")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor,Student")]
     public async Task<IActionResult> GetAllStudents()
     {
         var res = await service.GetStudents();
@@ -31,18 +31,18 @@ public class StudentController (IStudentService service) : ControllerBase
     }
 
     [HttpGet("{id}")]
-    [Authorize(Roles = "Admin,SuperAdmin,Manager,Teacher,Student")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor,Student")]
     public async Task<Response<GetStudentDto>> GetStudentById(int id ) => 
         await service.GetStudentByIdAsync(id );
     
     [HttpGet("filter")]
-    [Authorize(Roles = "Admin,SuperAdmin,Manager,Teacher,Student")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor,Student")]
     public async Task<PaginationResponse<List<GetStudentDto>>> 
         GetStudentsPagination([FromQuery] StudentFilter filter ) =>
         await service.GetStudentsPagination(filter );
 
     [HttpGet("simple")]
-    [Authorize(Roles = "Admin,SuperAdmin,Manager,Teacher,Student")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor,Student")]
     public async Task<PaginationResponse<List<GetSimpleDto>>> 
         GetSimpleStudents([FromQuery] StudentFilter filter) =>
         await service.GetSimpleStudents(filter);
@@ -73,7 +73,7 @@ public class StudentController (IStudentService service) : ControllerBase
     
         
     [HttpGet("document/{studentId}")]
-    [Authorize(Roles = "Admin,SuperAdmin,Manager,Teacher,Student")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor,Student")]
     public async Task<IActionResult> GetStudentDocument(int studentId)
     {
         var studentDebugResponse = await service.GetStudentByIdAsync(studentId);

@@ -4,7 +4,7 @@ public enum Role
 {
     Admin,
     Manager,
-    Teacher,
+    Mentor,
     SuperAdmin,
     Student,
     User

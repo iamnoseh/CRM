@@ -33,8 +33,8 @@ public class AccountController(IAccountService service) : ControllerBase
     
     [HttpPut("change-password")]
     [Authorize]
-    public async Task<Response<string>> ChangePassword([FromBody] ChangePasswordDto changePasswordDto, int id) =>
-        await service.ChangePassword(changePasswordDto, id);
+    public async Task<Response<string>> ChangePassword([FromBody] ChangePasswordDto changePasswordDto) =>
+        await service.ChangePassword(changePasswordDto);
 
     [HttpPost("forgot-password")]
     [AllowAnonymous]

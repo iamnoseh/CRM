@@ -102,7 +102,7 @@ public class HangfireBackgroundTaskService(
             {
                 status[job.Id] = new
                 {
-                    Cron = job.Cron,               // CRON-иви job
+                    Cron = job.Cron,               
                     NextExecution = job.NextExecution,
                     LastExecution = job.LastExecution,
                     LastJobId = job.LastJobId,
