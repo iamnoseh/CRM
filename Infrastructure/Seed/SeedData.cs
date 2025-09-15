@@ -83,6 +83,23 @@ public class SeedData(UserManager<User> userManager, RoleManager<IdentityRole<in
             await roleManager.CreateAsync(role);
         }
 
+        // Migrate legacy 'Teacher' role to 'Mentor'
+        var legacyTeacherRole = await roleManager.FindByNameAsync("Teacher");
+        var mentorRole = await roleManager.FindByNameAsync(Roles.Mentor);
+        if (legacyTeacherRole != null && mentorRole != null)
+        {
+            var usersInTeacher = await userManager.GetUsersInRoleAsync("Teacher");
+            foreach (var u in usersInTeacher)
+            {
+                if (!await userManager.IsInRoleAsync(u, Roles.Mentor))
+                    await userManager.AddToRoleAsync(u, Roles.Mentor);
+                await userManager.RemoveFromRoleAsync(u, "Teacher");
+            }
+
+            // Remove legacy role to prevent future assignments
+            await roleManager.DeleteAsync(legacyTeacherRole);
+        }
+
         return true;
     }
     

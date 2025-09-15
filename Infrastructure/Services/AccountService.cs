@@ -172,10 +172,14 @@ public class AccountService(
 
         // Determine principal identifier to embed into JWT (Student.Id / Mentor.Id / User.Id)
         var roles = await userManager.GetRolesAsync(user);
+        var normalizedRoles = roles?.Select(r => string.Equals(r, "Teacher", StringComparison.OrdinalIgnoreCase) ? "Mentor" : r)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList() ?? new List<string>();
+
         int principalId = user.Id;
         string principalType = "User";
 
-        if (roles != null && roles.Contains("Student"))
+        if (normalizedRoles.Contains("Student"))
         {
             var student = await context.Students.AsNoTracking().FirstOrDefaultAsync(s => s.UserId == user.Id);
             if (student != null)
@@ -184,7 +188,7 @@ public class AccountService(
                 principalType = "Student";
             }
         }
-        else if (roles != null && roles.Contains("Mentor"))
+        else if (normalizedRoles.Contains("Mentor"))
         {
             var mentor = await context.Mentors.AsNoTracking().FirstOrDefaultAsync(m => m.UserId == user.Id);
             if (mentor != null)
@@ -225,12 +229,12 @@ public class AccountService(
             claims.Add(new Claim(JwtRegisteredClaimNames.Picture, "null"));
         }
 
-        if (roles != null)
+        if (normalizedRoles.Count > 0)
         {
-            claims.AddRange(roles.Where(role => !string.IsNullOrEmpty(role)).Select(role => new Claim("role", role)));
+            claims.AddRange(normalizedRoles.Where(role => !string.IsNullOrEmpty(role)).Select(role => new Claim("role", role)));
         }
 
-        bool isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
+        bool isSuperAdmin = normalizedRoles.Contains("SuperAdmin");
         if (!isSuperAdmin && user.CenterId.HasValue)
         {
             claims.Add(new Claim("CenterId", user.CenterId.Value.ToString()));
