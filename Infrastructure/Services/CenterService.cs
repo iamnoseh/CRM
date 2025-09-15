@@ -53,12 +53,7 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
                 imagePath = $"/uploads/centers/{uniqueFileName}";
             }
 
-            if (createCenterDto.ManagerId.HasValue)
-            {
-                var manager = await context.Users.FirstOrDefaultAsync(u => u.Id == createCenterDto.ManagerId.Value && !u.IsDeleted);
-                if (manager == null)
-                    return new Response<string>(HttpStatusCode.BadRequest, "Manager not found");
-            }
+            // Manager is assigned later (by SuperAdmin) after center creation
 
             var center = new Center
             {
@@ -67,7 +62,7 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
                 Address = createCenterDto.Address,
                 ContactPhone = createCenterDto.ContactPhone,
                 Email = createCenterDto.ContactEmail,
-                ManagerId = createCenterDto.ManagerId,
+                ManagerId = null,
                 Image = imagePath,
                 MonthlyIncome = 0, 
                 YearlyIncome = 0, 
