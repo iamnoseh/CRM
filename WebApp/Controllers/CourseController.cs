@@ -39,7 +39,7 @@ public class CourseController (ICourseService service) : ControllerBase
         await service.UpdateCourseAsync(dto);
 
     [HttpDelete("{id}")]
-    [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin}")]
+    [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin},{Roles.Manager}")]
     public async Task<Response<string>> DeleteCourse(int id) =>
         await service.DeleteCourseAsync(id);
 

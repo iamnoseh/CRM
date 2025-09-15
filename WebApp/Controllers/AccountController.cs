@@ -22,12 +22,12 @@ public class AccountController(IAccountService service) : ControllerBase
         await service.Login(request);
 
     [HttpPost("add-role-to-user")]
-    [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin}")]
+    [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin},{Roles.Manager}")]
     public async Task<Response<string>> AddRoleToUser(RoleDto request) =>
         await service.AddRoleToUser(request);
 
     [HttpDelete("remove-role-from-user")]
-    [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin}")]
+    [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin},{Roles.Manager}")]
     public async Task<Response<string>> RemoveRoleFromUser(RoleDto request) =>
         await service.RemoveRoleFromUser(request);
     

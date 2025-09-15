@@ -12,7 +12,7 @@ namespace WebApp.Controllers;
 public class FinanceController(IFinanceService financeService) : ControllerBase
 {
     [HttpGet("centers/{centerId}/summary")]
-    [Authorize(Roles = "Admin,Manager,SuperAdmin")]
+    [Authorize(Roles = "Manager,SuperAdmin")]
     public async Task<ActionResult<Response<CenterFinancialSummaryDto>>> GetSummary(
         int centerId,
         [FromQuery] DateTimeOffset start,
@@ -23,7 +23,7 @@ public class FinanceController(IFinanceService financeService) : ControllerBase
     }
 
     [HttpGet("centers/{centerId}/daily")]
-    [Authorize(Roles = "Admin,Manager,SuperAdmin")]
+    [Authorize(Roles = "Manager,SuperAdmin")]
     public async Task<ActionResult<Response<DailyFinancialSummaryDto>>> GetDaily(
         int centerId,
         [FromQuery] DateTimeOffset date)
@@ -33,7 +33,7 @@ public class FinanceController(IFinanceService financeService) : ControllerBase
     }
 
     [HttpGet("centers/{centerId}/monthly")]
-    [Authorize(Roles = "Admin,Manager,SuperAdmin")]
+    [Authorize(Roles = "Manager,SuperAdmin")]
     public async Task<ActionResult<Response<MonthlyFinancialSummaryDto>>> GetMonthly(
         int centerId,
         [FromQuery] int year,
@@ -44,7 +44,7 @@ public class FinanceController(IFinanceService financeService) : ControllerBase
     }
 
     [HttpGet("centers/{centerId}/yearly")]
-    [Authorize(Roles = "Admin,Manager,SuperAdmin")]
+    [Authorize(Roles = "Manager,SuperAdmin")]
     public async Task<ActionResult<Response<YearlyFinancialSummaryDto>>> GetYearly(
         int centerId,
         [FromQuery] int year)
@@ -54,7 +54,7 @@ public class FinanceController(IFinanceService financeService) : ControllerBase
     }
 
     [HttpPost("centers/{centerId}/payroll")]
-    [Authorize(Roles = "Admin,Manager,SuperAdmin")]
+    [Authorize(Roles = "Manager,SuperAdmin")]
     public async Task<ActionResult<Response<int>>> GeneratePayroll(
         int centerId,
         [FromQuery] int year,

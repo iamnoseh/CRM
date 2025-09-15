@@ -13,7 +13,7 @@ namespace WebApp.Controllers;
 public class UserController(IUserService service) : ControllerBase
 {
     [HttpGet]
-    [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin}")]
+    [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin},{Roles.Manager}")]
     public async Task<ActionResult<PaginationResponse<List<GetUserDto>>>> GetAllUsers([FromQuery] UserFilter filter)
     {
         var result = await service.GetUsersAsync(filter);
@@ -21,7 +21,7 @@ public class UserController(IUserService service) : ControllerBase
     }
 
     [HttpGet("{id}")]
-    [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin}")]
+    [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin},{Roles.Manager}")]
     public async Task<ActionResult<Response<GetUserDto>>> GetUserById(int id)
     {
         var result = await service.GetUserByIdAsync(id);
@@ -37,7 +37,7 @@ public class UserController(IUserService service) : ControllerBase
     }
     
     [HttpGet("search")]
-    [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin}")]
+    [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin},{Roles.Manager}")]
     public async Task<ActionResult<Response<List<GetUserDto>>>> SearchUsers([FromQuery] string searchTerm)
     {
         var result = await service.SearchUsersAsync(searchTerm);
@@ -45,7 +45,7 @@ public class UserController(IUserService service) : ControllerBase
     }
     
     [HttpGet("role/{role}")]
-    [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin}")]
+    [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin},{Roles.Manager}")]
     public async Task<ActionResult<Response<List<GetUserDto>>>> GetUsersByRole(string role)
     {
         var result = await service.GetUsersByRoleAsync(role);
@@ -53,7 +53,7 @@ public class UserController(IUserService service) : ControllerBase
     }
 
     [HttpGet("upcoming-birthdays")]
-    [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin}")]
+    [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin},{Roles.Manager}")]
     public async Task<ActionResult<PaginationResponse<List<GetUserDto>>>> GetUpcomingBirthdays([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
         var result = await service.GetUpcomingBirthdaysAsync(page, pageSize);

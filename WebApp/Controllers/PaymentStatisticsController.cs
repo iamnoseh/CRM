@@ -12,7 +12,7 @@ namespace WebApp.Controllers;
 public class PaymentStatisticsController(IPaymentStatisticsService paymentStatisticsService) : ControllerBase
 {
     [HttpGet("student/{studentId}")]
-    [Authorize(Roles = "Admin,Manager,Mentor")]
+    [Authorize(Roles = "Manager,SuperAdmin")]
     [ProducesResponseType(typeof(Response<StudentPaymentStatisticsDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -28,7 +28,7 @@ public class PaymentStatisticsController(IPaymentStatisticsService paymentStatis
     }    
     
     [HttpGet("group/{groupId}")]
-    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
+    [Authorize(Roles = "Manager,SuperAdmin")]
     [ProducesResponseType(typeof(Response<GroupPaymentStatisticsDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -44,7 +44,7 @@ public class PaymentStatisticsController(IPaymentStatisticsService paymentStatis
 
 
     [HttpGet("group/{groupId}/daily")]
-    [Authorize(Roles = "Admin,Manager")]
+    [Authorize(Roles = "Manager,SuperAdmin")]
     [ProducesResponseType(typeof(Response<List<GroupPaymentStatisticsDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -58,7 +58,7 @@ public class PaymentStatisticsController(IPaymentStatisticsService paymentStatis
     }    
     
     [HttpGet("group/{groupId}/monthly")]
-    [Authorize(Roles = "Admin,Manager")]
+    [Authorize(Roles = "Manager,SuperAdmin")]
     [ProducesResponseType(typeof(Response<GroupPaymentStatisticsDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -74,7 +74,7 @@ public class PaymentStatisticsController(IPaymentStatisticsService paymentStatis
 
 
     [HttpGet("center/{centerId}")]
-    [Authorize(Roles = "Admin,Manager")]
+    [Authorize(Roles = "Manager,SuperAdmin")]
     [ProducesResponseType(typeof(Response<CenterPaymentStatisticsDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -89,7 +89,7 @@ public class PaymentStatisticsController(IPaymentStatisticsService paymentStatis
     }    
     
     [HttpGet("center/{centerId}/daily")]
-    [Authorize(Roles = "Admin,Manager")]
+    [Authorize(Roles = "Manager,SuperAdmin")]
     [ProducesResponseType(typeof(Response<List<CenterPaymentStatisticsDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -103,7 +103,7 @@ public class PaymentStatisticsController(IPaymentStatisticsService paymentStatis
     }
     
     [HttpGet("center/{centerId}/monthly")]
-    [Authorize(Roles = "Admin,Manager")]
+    [Authorize(Roles = "Manager,SuperAdmin")]
     [ProducesResponseType(typeof(Response<CenterPaymentStatisticsDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]

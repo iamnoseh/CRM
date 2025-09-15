@@ -9,10 +9,11 @@ namespace WebApp.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor,Student")]
 public class GroupController(IGroupService groupService, DataContext context) : ControllerBase
 {
     [HttpPost]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<IActionResult> CreateGroup([FromForm]CreateGroupDto createDto)
     {
         if (!ModelState.IsValid)
@@ -46,6 +47,7 @@ public class GroupController(IGroupService groupService, DataContext context) : 
     }
 
     [HttpGet]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor,Student")]
     public async Task<IActionResult> GetGroups()
     {
         var response = await groupService.GetGroups();
@@ -58,6 +60,7 @@ public class GroupController(IGroupService groupService, DataContext context) : 
     }
 
     [HttpGet("by-student/{studentId}")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Student")]
     public async Task<IActionResult> GetGroupsByStudent(int studentId)
     {
         var response = await groupService.GetGroupsByStudentIdAsync(studentId);
@@ -65,6 +68,7 @@ public class GroupController(IGroupService groupService, DataContext context) : 
     }
 
     [HttpGet("by-mentor/{mentorId}")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor")]
     public async Task<IActionResult> GetGroupsByMentor(int mentorId)
     {
         var response = await groupService.GetGroupsByMentorIdAsync(mentorId);
@@ -95,6 +99,7 @@ public class GroupController(IGroupService groupService, DataContext context) : 
     }
 
     [HttpGet("paginated")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor,Student")]
     public async Task<IActionResult> GetGroupsPaginated([FromQuery] GroupFilter filter)
     {
         var response = await groupService.GetGroupPaginated(filter);
@@ -107,6 +112,7 @@ public class GroupController(IGroupService groupService, DataContext context) : 
     }
 
     [HttpPut("{id}")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<IActionResult> UpdateGroup(int id, [FromForm] UpdateGroupDto updateDto)
     {
         if (!ModelState.IsValid)
@@ -126,6 +132,7 @@ public class GroupController(IGroupService groupService, DataContext context) : 
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<IActionResult> DeleteGroup(int id)
     {
         var response = await groupService.DeleteGroupAsync(id);
