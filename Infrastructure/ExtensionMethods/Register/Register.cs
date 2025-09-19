@@ -188,7 +188,9 @@ public static class Register
          services.AddScoped<IFinanceService, FinanceService>();
          services.AddScoped<IPaymentStatisticsService, PaymentStatisticsService>();
          services.AddScoped<IOsonSmsService, OsonSmsService>();
-        
+         services.AddScoped<IDiscountService, DiscountService>();
+         services.AddScoped<IPaymentService, PaymentService>();
+         
         services.AddScoped<IGroupService>(gs => 
             new GroupService(
                 gs.GetRequiredService<DataContext>(),
@@ -260,7 +262,9 @@ public static class Register
             "http://localhost:5064",
             "http://localhost:5032",
             "https://crm.kavsaracademy.tj",
-            "http://crm.kavsaracademy.tj"
+            "http://crm.kavsaracademy.tj",
+            "http://37.27.249.153:3001",
+            "https://37.27.249.153:3001"
         };
         
         services.AddCors(options =>

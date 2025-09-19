@@ -87,9 +87,9 @@ if (enableSwagger)
 app.UseStaticFilesConfiguration(uploadPath);
 app.UseHttpsRedirection();
 
-app.UseCors("AllowFrontend");
-
+// Correct CORS order: after routing, before auth
 app.UseRouting();
+app.UseCors("AllowFrontend");
 
 app.UseAuthentication();
 app.UseAuthorization();

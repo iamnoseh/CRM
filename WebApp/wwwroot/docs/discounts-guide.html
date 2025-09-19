@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="tg">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Роҳнамо: Купон/Тахфифҳо дар CRM</title>
+<style>
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; line-height: 1.6; color: #1f2937; padding: 24px; max-width: 920px; margin: auto; }
+  h1, h2, h3 { color: #111827; }
+  code, pre { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; }
+  pre { padding: 12px; overflow: auto; }
+  .note { background: #ecfeff; border-left: 4px solid #06b6d4; padding: 12px; }
+  .endpoint { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; margin: 16px 0; }
+  .method { font-weight: 700; }
+  .get { color: #2563eb; }
+  .post { color: #16a34a; }
+  .put { color: #d97706; }
+  .delete { color: #dc2626; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+  .print-btn { position: sticky; top: 12px; float: right; background: #111827; color: #fff; border: none; padding: 10px 14px; border-radius: 8px; cursor: pointer; }
+  .print-btn:hover { background: #374151; }
+  .page-break { page-break-before: always; }
+  @media print { .print-btn { display: none; } .endpoint { page-break-inside: avoid; } }
+</style>
+</head>
+<body>
+  <button class="print-btn" onclick="window.print()">Чоп ба PDF</button>
+  <h1>Роҳнамо: Купон/Тахфифҳо дар CRM</h1>
+  <p>Ин ҳуҷҷат шарҳ медиҳад, ки чӣ гуна механизми тахфифи маблағӣ барои донишҷӯён дар гурӯҳҳо кор мекунад ва чӣ гуна аз рӯи API истифода бурда мешавад. Тахфиф фақат маблағист (сомонӣ), на фоизӣ.</p>
+
+  <h2>Ҳикояи кӯтоҳ (ба забони инсонӣ)</h2>
+  <p>
+    Дар маркази мо менеҷере бо номи Меҳрубон аст. Ӯ гурӯҳи “Frontend-A”-ро нигоҳубин мекунад. Ба ин гурӯҳ донишҷӯе бо номи Фирдавс омадааст.
+    Нархномаи моҳонаи курс 400 сомонӣ. Волидайни Фирдавс хоҳиш мекунанд, ки ба фарзандашон тахфиф диҳем. Меҳрубон ба система медарояд,
+    Фирдавсро дар <i>Frontend-A</i> мекушояд ва ба ӯ барои ҳамин гурӯҳ <b>50 сомонӣ</b> тахфиф таъин мекунад.
+  </p>
+  <p>
+    Рӯзи пардохт фаро мерасад. Меҳрубон пеш аз баровардани ҳисоб тугмаи “Preview”-ро мезанад: система ба ӯ нишон медиҳад, ки
+    <b>OriginalAmount = 400</b>, <b>DiscountAmount = 50</b>, <b>PayableAmount = 350</b>. Ҳама чиз возеҳ аст. Ӯ пардохтро месозад — сервер худкор
+    ҳамин ҳисобро сабт мекунад ва пардохт бо маблағи <b>350 сомонӣ</b> анҷом меёбад. Агар фардо Фирдавс ба гурӯҳи дигар, масалан “Backend-B”, низ
+    ҳамроҳ шавад, метавонанд барои ҳамон гурӯҳи нав <b>тахфифи дигар</b> (масалан 70 сомонӣ) таъин кунанд. Ҳамин тавр, ҳар <b>донишҷӯ + гурӯҳ</b>
+    тахфифи шахсии худро дорад.
+  </p>
+  <p>
+    Агар баъзан вазъ иваз шавад — масалан, имкони тахфиф дигар нест — Меҳрубон тахфифро <i>нав</i> мекунад ё <i>нест</i> мекунад. Пардохтҳои гузашта
+    бетағйир мемонанд, пардохтҳои оянда бошад, бо қоидаи нав ҳисоб мешаванд. Ҳамаи ин қадамҳо бо забони тоҷикӣ ба дафтарчаи лог (Serilog)
+    сабт мешаванд, то пасон ҳар мушкилие зуд фаҳмида шавад.
+  </p>
+
+  <div class="page-break"></div>
+
+  <h2>Консепсия</h2>
+  <ul>
+    <li>Барои ҳар <b>донишҷӯ + гурӯҳ</b> метавон <b>тахфифи маблағӣ</b> таъин кард (масалан 50 сомонӣ).</li>
+    <li>Дар як гурӯҳ донишҷӯён метавонанд тахфифҳои гуногун дошта бошанд.</li>
+    <li>Як донишҷӯ метавонад дар гурӯҳҳои гуногун бо тахфифҳои гуногун таҳсил кунад.</li>
+    <li>Ҳангоми пардохт система худкор <b>OriginalAmount</b>, <b>DiscountAmount</b>, <b>Amount</b>=Original−Discount ҳисоб карда сабт мекунад.</li>
+  </ul>
+
+  <div class="note">
+    <b>Эзоҳ:</b> Тахфиф танҳо агар донишҷӯ узви гурӯҳ бошад татбиқ мешавад; маблағи пардохт ҳеҷ гоҳ манфӣ намешавад (агар тахфиф аз нарх зиёд бошад, Amount=0).
+  </div>
+
+  <h2>Эндпоинтҳо (API)</h2>
+
+  <div class="endpoint">
+    <div class="method post">POST /api/Discounts</div>
+    <p>Таъини тахфиф ба донишҷӯ дар гурӯҳ (ё навсозии сабти мавҷуд).</p>
+    <pre class="mono">{
+  "studentId": 101,
+  "groupId": 55,
+  "discountAmount": 50.0
+}</pre>
+    <p><b>Ҷавоб (201):</b> Тахфиф таъин карда шуд. Ё (200): Тахфиф навсозӣ шуд.</p>
+  </div>
+
+  <div class="endpoint">
+    <div class="method put">PUT /api/Discounts</div>
+    <p>Нав кардани миқдори тахфиф аз рӯи Id.</p>
+    <pre class="mono">{
+  "id": 123,
+  "discountAmount": 70.0
+}</pre>
+  </div>
+
+  <div class="endpoint">
+    <div class="method get">GET /api/Discounts?studentId=&groupId=</div>
+    <p>Рӯйхати тахфифҳои як донишҷӯ дар як гурӯҳ (одатан 0 ё 1 сабт).</p>
+  </div>
+
+  <div class="endpoint">
+    <div class="method get">GET /api/Discounts/{id}</div>
+    <p>Гирифтани як сабти тахфиф аз рӯи Id.</p>
+  </div>
+
+  <div class="endpoint">
+    <div class="method delete">DELETE /api/Discounts/{id}</div>
+    <p>Нест кардани (soft-delete) сабти тахфиф.</p>
+  </div>
+
+  <div class="endpoint">
+    <div class="method get">GET /api/Discounts/preview?studentId=&groupId=&month=&year=</div>
+    <p>Пешнамоиш: OriginalAmount, DiscountAmount, PayableAmount.</p>
+  </div>
+
+  <div class="endpoint">
+    <div class="method post">POST /api/Payments</div>
+    <p>Эҷоди пардохт бо татбиқи худкори тахфиф.</p>
+    <pre class="mono">{
+  "studentId": 101,
+  "groupId": 55,
+  "month": 9,
+  "year": 2025,
+  "paymentMethod": "Cash",
+  "transactionId": "INV-2025-09-101-55",
+  "description": "Пардохти моҳонаи сентябр"
+}</pre>
+    <p>Ҷавоб дорои <b>originalAmount</b>, <b>discountAmount</b>, <b>amount</b> мебошад.</p>
+  </div>
+
+  <div class="endpoint">
+    <div class="method get">GET /api/Payments/{id}</div>
+    <p>Гирифтани пардохт аз рӯи Id.</p>
+  </div>
+
+  <h2>Зина ба зина (сценария)</h2>
+  <ol>
+    <li>Мененҷер ба донишҷӯ дар гурӯҳ тахфиф таъин мекунад (мас., 50 сомонӣ).</li>
+    <li>Ихтиёрӣ: Preview-ро мебинад, ки 400 − 50 = 350 сомонӣ мешавад.</li>
+    <li>Пардохт месозад; сервер худкор Original/Discount/Amount-ро ҳисоб карда сабт мекунад.</li>
+    <li>Ҳисоботҳои молиявӣ аз <b>Amount</b> истифода мебаранд (нетто).</li>
+  </ol>
+
+  <h2>Мисолҳои кӯтоҳ</h2>
+  <ul>
+    <li>Гурӯҳ A (нарх 400): Донишҷӯ 1 — тахфиф 50 → пардохт 350; Донишҷӯ 2 — тахфиф 30 → пардохт 370.</li>
+    <li>Донишҷӯ 1 дар Гурӯҳ B (нарх 500) — тахфиф 70 → пардохт 430.</li>
+  </ul>
+
+  <p>Барои чоп ба PDF: ин саҳифаро дар браузер кушоед → Print → Save as PDF.</p>
+</body>
+</html>

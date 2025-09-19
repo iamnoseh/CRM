@@ -159,6 +159,19 @@ public class EmployeeService : IEmployeeService
             user.DocumentPath = documentPath;
             user.UpdatedAt = DateTime.UtcNow;
             await _userManager.UpdateAsync(user);
+
+            // If created employee is a Manager and a Center is specified, attach as the Center's Manager
+            if (request.Role == Role.Manager && safeCenterId.HasValue)
+            {
+                var center = await _context.Centers.FirstOrDefaultAsync(c => c.Id == safeCenterId.Value && !c.IsDeleted);
+                if (center != null)
+                {
+                    center.ManagerId = user.Id;
+                    center.UpdatedAt = DateTime.UtcNow;
+                    _context.Centers.Update(center);
+                    await _context.SaveChangesAsync();
+                }
+            }
             if (!string.IsNullOrEmpty(request.Email))
             {
                 await EmailHelper.SendLoginDetailsEmailAsync(
