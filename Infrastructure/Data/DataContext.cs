@@ -16,6 +16,7 @@ public class DataContext(DbContextOptions<DataContext> options)
     public DbSet<MentorGroup> MentorGroups { get; set; }
     public DbSet<Center> Centers { get; set; }
     public DbSet<Payment> Payments { get; set; }
+    public DbSet<StudentGroupDiscount> StudentGroupDiscounts { get; set; }
     public DbSet<Classroom> Classrooms { get; set; }
     public DbSet<Schedule> Schedules { get; set; }
     public DbSet<Journal> Journals { get; set; }
@@ -275,6 +276,31 @@ public class DataContext(DbContextOptions<DataContext> options)
             .Property(p => p.Amount)
             .HasPrecision(18, 2);
 
+        modelBuilder.Entity<Payment>()
+            .Property(p => p.OriginalAmount)
+            .HasPrecision(18, 2);
+
+        modelBuilder.Entity<Payment>()
+            .Property(p => p.DiscountAmount)
+            .HasPrecision(18, 2);
+
+        // StudentGroupDiscount relations and precision
+        modelBuilder.Entity<StudentGroupDiscount>()
+            .HasOne(sgd => sgd.Student)
+            .WithMany()
+            .HasForeignKey(sgd => sgd.StudentId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<StudentGroupDiscount>()
+            .HasOne(sgd => sgd.Group)
+            .WithMany()
+            .HasForeignKey(sgd => sgd.GroupId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<StudentGroupDiscount>()
+            .Property(sgd => sgd.DiscountAmount)
+            .HasPrecision(18, 2);
+
         // Student TotalPaid precision
         modelBuilder.Entity<Student>()
             .Property(s => s.TotalPaid)
@@ -386,6 +412,17 @@ public class DataContext(DbContextOptions<DataContext> options)
 
         modelBuilder.Entity<Payment>()
             .HasIndex(p => p.PaymentDate);
+
+        // StudentGroupDiscount indexes and unique constraint (one active per Student-Group)
+        modelBuilder.Entity<StudentGroupDiscount>()
+            .HasIndex(sgd => sgd.StudentId);
+
+        modelBuilder.Entity<StudentGroupDiscount>()
+            .HasIndex(sgd => sgd.GroupId);
+
+        modelBuilder.Entity<StudentGroupDiscount>()
+            .HasIndex(sgd => new { sgd.StudentId, sgd.GroupId, sgd.IsDeleted })
+            .HasDatabaseName("IX_StudentGroupDiscount_Student_Group_IsDeleted");
 
         // Expense indexes
         modelBuilder.Entity<Expense>()

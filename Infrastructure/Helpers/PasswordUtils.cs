@@ -4,9 +4,7 @@ public static class PasswordUtils
 {
     public static string GenerateRandomPassword(int length = 8)
     {
-        // Generate password that contains only digits and exactly one letter
-        if (length < 2) length = 2; // ensure room for at least one digit and one letter
-
+        if (length < 2) length = 2; 
         const string digits = "0123456789";
         const string letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
