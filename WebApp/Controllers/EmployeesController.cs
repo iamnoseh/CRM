@@ -12,7 +12,7 @@ namespace WebApp.Controllers;
 public class EmployeesController(IEmployeeService service) : ControllerBase
 {
     [HttpGet]
-    [Authorize(Roles = "SuperAdmin,Manager")] 
+    [Authorize(Roles = "SuperAdmin,Manager,Admin")] 
     public async Task<ActionResult<PaginationResponse<List<GetEmployeeDto>>>> GetAll([FromQuery] EmployeeFilter filter)
     {
         var result = await service.GetEmployeesAsync(filter);
@@ -20,7 +20,7 @@ public class EmployeesController(IEmployeeService service) : ControllerBase
     }
 
     [HttpGet("{id}")]
-    [Authorize(Roles = "SuperAdmin,Manager")]
+    [Authorize(Roles = "SuperAdmin,Manager,Admin")] 
     public async Task<ActionResult<Response<GetEmployeeDto>>> GetById(int id)
     {
         var result = await service.GetEmployeeAsync(id);
@@ -28,7 +28,7 @@ public class EmployeesController(IEmployeeService service) : ControllerBase
     }
 
     [HttpGet("managers/select")]
-    [Authorize(Roles = "SuperAdmin,Manager")]
+    [Authorize(Roles = "SuperAdmin,Manager,Admin")] 
     public async Task<ActionResult<Response<List<ManagerSelectDto>>>> GetManagersForSelect()
     {
         var result = await service.GetManagersForSelectAsync();
@@ -44,7 +44,7 @@ public class EmployeesController(IEmployeeService service) : ControllerBase
     }
 
     [HttpPut]
-    [Authorize(Roles = "SuperAdmin,Manager")]
+    [Authorize(Roles = "SuperAdmin,Manager,Admin")] 
     public async Task<ActionResult<Response<string>>> Update([FromForm] UpdateEmployeeDto dto)
     {
         var result = await service.UpdateEmployeeAsync(dto);
@@ -52,7 +52,7 @@ public class EmployeesController(IEmployeeService service) : ControllerBase
     }
 
     [HttpDelete("{id}")]
-    [Authorize(Roles = "SuperAdmin,Manager")]
+    [Authorize(Roles = "SuperAdmin,Manager,Admin")] 
     public async Task<ActionResult<Response<string>>> Delete(int id)
     {
         var result = await service.DeleteEmployeeAsync(id);
@@ -60,7 +60,7 @@ public class EmployeesController(IEmployeeService service) : ControllerBase
     }
 
     [HttpPut("payment-status")] 
-    [Authorize(Roles = "SuperAdmin,Manager")]
+    [Authorize(Roles = "SuperAdmin,Manager,Admin")] 
     public async Task<ActionResult<Response<string>>> UpdatePaymentStatus([FromBody] UpdateEmployeePaymentStatusDto dto)
     {
         var result = await service.UpdateEmployeePaymentStatusAsync(dto.EmployeeId, dto.Status);
