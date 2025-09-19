@@ -310,7 +310,7 @@ public class AccountService(
             if (!string.IsNullOrWhiteSpace(existingUser.Email))
             {
                 await EmailHelper.SendResetPasswordCodeEmailAsync(emailService, existingUser.Email, code);
-                await osonSmsService.SendSmsAsync(existingUser.PhoneNumber, $"Рамзи шубо барои {code}");
+                await osonSmsService.SendSmsAsync(existingUser.PhoneNumber, $"Рамзи тасдиқ: {code}");
             }
 
             return new Response<string>(HttpStatusCode.OK, "Рамзи тасдиқ бо муваффақият сохта шуд  фиристода шуд");
