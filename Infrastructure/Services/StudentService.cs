@@ -254,7 +254,7 @@ public class StudentService(
                 ActiveStatus = s.ActiveStatus,
                 PaymentStatus = s.PaymentStatus,
                 UserId = s.UserId,
-                ImagePath = s.ProfileImage ?? context.Users.Where(u => u.Id == s.UserId).Select(u => u.ProfileImagePath).FirstOrDefault(),
+                ImagePath = context.Users.Where(u => u.Id == s.UserId).Select(u => u.ProfileImagePath).FirstOrDefault() ?? s.ProfileImage,
                 Document = s.Document
             })
             .ToListAsync();
@@ -341,7 +341,7 @@ public class StudentService(
             Gender = student.Gender,
             ActiveStatus = student.ActiveStatus,
             PaymentStatus = student.PaymentStatus,
-            ImagePath = student.ProfileImage ?? context.Users.Where(u => u.Id == student.UserId).Select(u => u.ProfileImagePath).FirstOrDefault(),
+            ImagePath = context.Users.Where(u => u.Id == student.UserId).Select(u => u.ProfileImagePath).FirstOrDefault() ?? student.ProfileImage,
             Document = student.Document,
             UserId = student.UserId,
             CenterId = student.CenterId
@@ -420,7 +420,7 @@ public class StudentService(
                 Gender = s.Gender,
                 ActiveStatus = s.ActiveStatus,
                 PaymentStatus = s.PaymentStatus,
-                ImagePath = s.ProfileImage,
+                ImagePath = context.Users.Where(u => u.Id == s.UserId).Select(u => u.ProfileImagePath).FirstOrDefault() ?? s.ProfileImage,
                 UserId = s.UserId,
                 CenterId = s.CenterId
             })

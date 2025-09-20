@@ -466,7 +466,7 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
                         Gender = s.Gender,
                         ActiveStatus = s.ActiveStatus,
                         PaymentStatus = s.PaymentStatus,
-                        ImagePath = s.ProfileImage ?? context.Users.Where(u => u.Id == s.UserId).Select(u => u.ProfileImagePath).FirstOrDefault(),
+                        ImagePath = context.Users.Where(u => u.Id == s.UserId).Select(u => u.ProfileImagePath).FirstOrDefault() ?? s.ProfileImage,
                         UserId = s.UserId,
                         CenterId = s.CenterId
                     }).ToList(),
@@ -518,7 +518,7 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
                         Email = m.Email,
                         Phone = m.PhoneNumber,
                         Address = m.Address,
-                        ImagePath = m.ProfileImage ?? context.Users.Where(u => u.Id == m.UserId).Select(u => u.ProfileImagePath).FirstOrDefault(),
+                        ImagePath = context.Users.Where(u => u.Id == m.UserId).Select(u => u.ProfileImagePath).FirstOrDefault() ?? m.ProfileImage,
                         Gender = m.Gender,
                         Birthday = m.Birthday,
                         Age = m.Age,
