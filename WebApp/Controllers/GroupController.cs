@@ -63,6 +63,16 @@ public class GroupController(IGroupService groupService, DataContext context) : 
     [Authorize(Roles = "Admin,SuperAdmin,Manager,Student")]
     public async Task<IActionResult> GetGroupsByStudent(int studentId)
     {
+        var roles = User?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToHashSet(StringComparer.OrdinalIgnoreCase) ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (roles.Contains("Student"))
+        {
+            var idStr = User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                         ?? User?.FindFirst("nameid")?.Value;
+            if (string.IsNullOrEmpty(idStr) || !int.TryParse(idStr, out var selfId))
+                return Unauthorized("Invalid token: missing identifier");
+            var respSelf = await groupService.GetGroupsByStudentIdAsync(selfId);
+            return StatusCode(respSelf.StatusCode, respSelf);
+        }
         var response = await groupService.GetGroupsByStudentIdAsync(studentId);
         return StatusCode(response.StatusCode, response);
     }
@@ -71,6 +81,16 @@ public class GroupController(IGroupService groupService, DataContext context) : 
     [Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor")]
     public async Task<IActionResult> GetGroupsByMentor(int mentorId)
     {
+        var roles = User?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToHashSet(StringComparer.OrdinalIgnoreCase) ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (roles.Contains("Mentor"))
+        {
+            var idStr = User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                         ?? User?.FindFirst("nameid")?.Value;
+            if (string.IsNullOrEmpty(idStr) || !int.TryParse(idStr, out var selfId))
+                return Unauthorized("Invalid token: missing identifier");
+            var respSelf = await groupService.GetGroupsByMentorIdAsync(selfId);
+            return StatusCode(respSelf.StatusCode, respSelf);
+        }
         var response = await groupService.GetGroupsByMentorIdAsync(mentorId);
         return StatusCode(response.StatusCode, response);
     }
