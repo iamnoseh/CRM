@@ -12,6 +12,7 @@ using Infrastructure.Helpers;
 using Infrastructure.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace Infrastructure.Services;
 
@@ -20,11 +21,38 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
 {
     private readonly IHttpContextAccessor _httpContextAccessor = httpContextAccessor;
 
+    private async Task<int?> GetEffectiveCenterIdAsync()
+    {
+        var user = _httpContextAccessor.HttpContext?.User;
+        var roles = user?.Claims
+            .Where(c => c.Type == ClaimTypes.Role || string.Equals(c.Type, "role", StringComparison.OrdinalIgnoreCase))
+            .Select(c => c.Value)
+            .ToList();
+        if (roles != null && roles.Any(r => string.Equals(r, "SuperAdmin", StringComparison.OrdinalIgnoreCase)))
+            return null;
+
+        var centerIdClaim = user?.Claims.FirstOrDefault(c => c.Type == "CenterId")?.Value;
+        if (int.TryParse(centerIdClaim, out var centerIdFromClaim))
+            return centerIdFromClaim;
+
+        var userIdRaw = user?.FindFirst("UserId")?.Value
+                        ?? user?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (int.TryParse(userIdRaw, out var userId) && userId > 0)
+        {
+            var dbCenterId = await context.Users
+                .Where(u => u.Id == userId && !u.IsDeleted)
+                .Select(u => u.CenterId)
+                .FirstOrDefaultAsync();
+            return dbCenterId;
+        }
+        return null;
+    }
+
     public async Task<Response<string>> CreateGroupAsync(CreateGroupDto request)
     {
         try
         {
-            var centerId = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
+            var centerId = await GetEffectiveCenterIdAsync();
             if (centerId == null)
             {
                 return new Response<string>
@@ -158,7 +186,7 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
     {
         try
         {
-            var centerId = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
+            var centerId = await GetEffectiveCenterIdAsync();
             if (centerId == null)
             {
                 return new Response<string>
@@ -297,7 +325,7 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
     {
         try
         {
-            var centerId5 = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
+            var centerId5 = await GetEffectiveCenterIdAsync();
             var delQuery = context.Groups
                 .Include(g => g.StudentGroups)
                 .Include(g => g.Course)
@@ -355,7 +383,7 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
     {
         try
         {
-            var centerId2 = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
+            var centerId2 = await GetEffectiveCenterIdAsync();
             var queryById = context.Groups
                 .Include(g => g.Course)
                 .Include(g => g.Mentor)
@@ -403,7 +431,7 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
     {
         try
         {
-            var centerId3 = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
+            var centerId3 = await GetEffectiveCenterIdAsync();
             var queryAll = context.Groups
                 .Include(g => g.Course)
                 .Include(g => g.Mentor)
@@ -444,7 +472,7 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
     {
         try
         {
-            var centerId4 = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
+            var centerId4 = await GetEffectiveCenterIdAsync();
             var query = context.Groups
                 .Include(g => g.Course)
                 .Include(g => g.Mentor)
@@ -561,7 +589,7 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
     {
         try
         {
-            var centerId6 = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
+            var centerId6 = await GetEffectiveCenterIdAsync();
             var byStudentQuery = context.Groups
                 .Include(g => g.Course)
                 .Include(g => g.Mentor)
@@ -601,7 +629,7 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
     {
         try
         {
-            var centerId7 = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
+            var centerId7 = await GetEffectiveCenterIdAsync();
             var byMentorQuery = context.Groups
                 .Include(g => g.Course)
                 .Include(g => g.Mentor)
