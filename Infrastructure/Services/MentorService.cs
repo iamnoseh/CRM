@@ -274,7 +274,7 @@ public class MentorService(
             Gender = m.Gender,
             ActiveStatus = m.ActiveStatus,
             PaymentStatus = m.PaymentStatus,
-            ImagePath = m.ProfileImage,
+            ImagePath = m.ProfileImage ?? context.Users.Where(u => u.Id == m.UserId).Select(u => u.ProfileImagePath).FirstOrDefault(),
             Document = m.Document,
             CenterId = m.CenterId,
             UserId = m.UserId
@@ -305,7 +305,7 @@ public class MentorService(
             Gender = m.Gender,
             ActiveStatus = m.ActiveStatus,
             PaymentStatus = m.PaymentStatus,
-            ImagePath = m.ProfileImage,
+            ImagePath = m.ProfileImage ?? context.Users.Where(u => u.Id == m.UserId).Select(u => u.ProfileImagePath).FirstOrDefault(),
             Document = m.Document,
             CenterId = m.CenterId,
             UserId = m.UserId
@@ -345,7 +345,6 @@ public class MentorService(
 
     public async Task<PaginationResponse<List<GetMentorDto>>> GetMentorsPagination(MentorFilter filter)
     {
-        // Sanitize pagination inputs to avoid zero/negative values
         var pageNumber = filter.PageNumber < 1 ? 1 : filter.PageNumber;
         var pageSize = filter.PageSize < 1 ? 10 : filter.PageSize;
 
@@ -428,7 +427,7 @@ public class MentorService(
                     Gender = u.Gender,
                     ActiveStatus = u.ActiveStatus,
                     PaymentStatus = u.PaymentStatus,
-                    ImagePath = u.ProfileImage,
+                    ImagePath = u.ProfileImage ?? context.Users.Where(x => x.Id == u.UserId).Select(x => x.ProfileImagePath).FirstOrDefault(),
                     Experience = u.Experience,
                     Document = u.Document,
                     Salary = u.Salary,
@@ -497,7 +496,7 @@ public class MentorService(
                     Gender = u.Gender,
                     ActiveStatus = u.ActiveStatus,
                     PaymentStatus = u.PaymentStatus,
-                    ImagePath = u.ProfileImage,
+                    ImagePath = u.ProfileImage ?? context.Users.Where(x => x.Id == u.UserId).Select(x => x.ProfileImagePath).FirstOrDefault(),
                     Experience = u.Experience,
                     Document = u.Document,
                     UserId = u.UserId,

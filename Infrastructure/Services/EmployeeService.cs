@@ -124,7 +124,7 @@ public class EmployeeService : IEmployeeService
             string documentPath = string.Empty;
             if (request.Document != null)
             {
-                var docResult = await FileUploadHelper.UploadFileAsync(request.Document, _uploadPath, "documents", "document");
+                var docResult = await FileUploadHelper.UploadFileAsync(request.Document, _uploadPath, "employee", "document");
                 if (docResult.StatusCode != 200)
                     return new Response<string>((HttpStatusCode)docResult.StatusCode, docResult.Message);
                 documentPath = docResult.Data;
@@ -160,7 +160,6 @@ public class EmployeeService : IEmployeeService
             user.UpdatedAt = DateTime.UtcNow;
             await _userManager.UpdateAsync(user);
 
-            // If created employee is a Manager and a Center is specified, attach as the Center's Manager
             if (request.Role == Role.Manager && safeCenterId.HasValue)
             {
                 var center = await _context.Centers.FirstOrDefaultAsync(c => c.Id == safeCenterId.Value && !c.IsDeleted);
@@ -216,7 +215,7 @@ public class EmployeeService : IEmployeeService
         {
             if (!string.IsNullOrEmpty(user.DocumentPath))
                 FileDeleteHelper.DeleteFile(user.DocumentPath, _uploadPath);
-            var docResult = await FileUploadHelper.UploadFileAsync(request.Document, _uploadPath, "documents", "document");
+            var docResult = await FileUploadHelper.UploadFileAsync(request.Document, _uploadPath, "employee", "document");
             if (docResult.StatusCode == 200)
                 user.DocumentPath = docResult.Data;
         }

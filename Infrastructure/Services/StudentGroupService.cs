@@ -241,7 +241,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                     GroupName = sg.Group!.Name,
                     student = new StudentDTO{
                         Id = sg.Student!.Id,
-                        ImagePath = sg.Student.ProfileImage,
+                        ImagePath = sg.Student.ProfileImage ?? context.Users.Where(u => u.Id == sg.Student.UserId).Select(u => u.ProfileImagePath).FirstOrDefault(),
                         Age = sg.Student.Age,
                         FullName = sg.Student.FullName,
                         PhoneNumber = sg.Student.PhoneNumber,
@@ -322,7 +322,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                     student = new StudentDTO
                     {
                         Id = sg.Student!.Id,
-                        ImagePath = sg.Student.ProfileImage,
+                        ImagePath = sg.Student.ProfileImage ?? context.Users.Where(u => u.Id == sg.Student.UserId).Select(u => u.ProfileImagePath).FirstOrDefault(),
                         Age = sg.Student.Age,
                         FullName = sg.Student.FullName,
                         PhoneNumber = sg.Student.PhoneNumber,
@@ -375,7 +375,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                     student = new StudentDTO()
                     {
                         Id = sg.Student!.Id,
-                        ImagePath = sg.Student.ProfileImage,
+                        ImagePath = sg.Student.ProfileImage ?? context.Users.Where(u => u.Id == sg.Student.UserId).Select(u => u.ProfileImagePath).FirstOrDefault(),
                         Age = sg.Student.Age,
                         FullName = sg.Student.FullName,
                         PhoneNumber = sg.Student.PhoneNumber,
@@ -422,7 +422,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                     student = new StudentDTO()
                     {
                         Id = sg.Student!.Id,
-                        ImagePath = sg.Student.ProfileImage,
+                        ImagePath = sg.Student.ProfileImage ?? context.Users.Where(u => u.Id == sg.Student.UserId).Select(u => u.ProfileImagePath).FirstOrDefault(),
                         Age = sg.Student.Age,
                         FullName = sg.Student.FullName,
                         PhoneNumber = sg.Student.PhoneNumber,
@@ -623,7 +623,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                     student = new StudentDTO()
                     {
                         Id = sg.Student!.Id,
-                        ImagePath = sg.Student.ProfileImage,
+                        ImagePath = sg.Student.ProfileImage ?? context.Users.Where(u => u.Id == sg.Student.UserId).Select(u => u.ProfileImagePath).FirstOrDefault(),
                         Age = sg.Student.Age,
                         FullName = sg.Student.FullName,
                         PhoneNumber = sg.Student.PhoneNumber,
@@ -672,8 +672,8 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                     student = new StudentDTO()
                     {
                         Id = sg.Student!.Id,
+                        ImagePath = sg.Student.ProfileImage ?? context.Users.Where(u => u.Id == sg.Student.UserId).Select(u => u.ProfileImagePath).FirstOrDefault(),
                         Age = sg.Student.Age,
-                        ImagePath = sg.Student.ProfileImage,
                         FullName = sg.Student.FullName,
                         PhoneNumber = sg.Student.PhoneNumber,
                         JoinedDate = sg.JoinDate,

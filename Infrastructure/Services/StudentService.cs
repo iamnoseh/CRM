@@ -240,7 +240,7 @@ public class StudentService(
             .Where(s => !s.IsDeleted);
         studentsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
             studentsQuery, httpContextAccessor, s => s.CenterId);
-        var students = await studentsQuery
+            var students = await studentsQuery
             .Select(s => new GetStudentDto
             {
                 Id = s.Id,
@@ -254,7 +254,7 @@ public class StudentService(
                 ActiveStatus = s.ActiveStatus,
                 PaymentStatus = s.PaymentStatus,
                 UserId = s.UserId,
-                ImagePath = s.ProfileImage,
+                ImagePath = s.ProfileImage ?? context.Users.Where(u => u.Id == s.UserId).Select(u => u.ProfileImagePath).FirstOrDefault(),
                 Document = s.Document
             })
             .ToListAsync();
