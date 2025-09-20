@@ -325,17 +325,12 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
     {
         try
         {
-            var centerId5 = await GetEffectiveCenterIdAsync();
             var delQuery = context.Groups
                 .Include(g => g.StudentGroups)
                 .Include(g => g.Course)
                 .Where(g => !g.IsDeleted)
                 .AsQueryable();
-
-            if (centerId5 != null)
-            {
-                delQuery = delQuery.Where(g => g.Course!.CenterId == centerId5);
-            }
+            delQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(delQuery, _httpContextAccessor, g => (int?)g.Course!.CenterId);
 
             var group = await delQuery.FirstOrDefaultAsync(g => g.Id == id);
 
@@ -383,7 +378,6 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
     {
         try
         {
-            var centerId2 = await GetEffectiveCenterIdAsync();
             var queryById = context.Groups
                 .Include(g => g.Course)
                 .Include(g => g.Mentor)
@@ -392,11 +386,7 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 .Include(g => g.StudentGroups.Where(sg => !sg.IsDeleted))
                 .Where(g => !g.IsDeleted)
                 .AsQueryable();
-
-            if (centerId2 != null)
-            {
-                queryById = queryById.Where(g => g.Course!.CenterId == centerId2);
-            }
+            queryById = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(queryById, _httpContextAccessor, g => (int?)g.Course!.CenterId);
 
             var group = await queryById.FirstOrDefaultAsync(g => g.Id == id);
 
@@ -431,7 +421,6 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
     {
         try
         {
-            var centerId3 = await GetEffectiveCenterIdAsync();
             var queryAll = context.Groups
                 .Include(g => g.Course)
                 .Include(g => g.Mentor)
@@ -440,11 +429,7 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 .Include(g => g.StudentGroups.Where(sg => !sg.IsDeleted))
                 .Where(g => !g.IsDeleted)
                 .AsQueryable();
-
-            if (centerId3 != null)
-            {
-                queryAll = queryAll.Where(g => g.Course!.CenterId == centerId3);
-            }
+            queryAll = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(queryAll, _httpContextAccessor, g => (int?)g.Course!.CenterId);
 
             var groups = await queryAll
                 .OrderBy(g => g.Name)
@@ -472,7 +457,6 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
     {
         try
         {
-            var centerId4 = await GetEffectiveCenterIdAsync();
             var query = context.Groups
                 .Include(g => g.Course)
                 .Include(g => g.Mentor)
@@ -481,11 +465,7 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 .Include(g => g.StudentGroups.Where(sg => !sg.IsDeleted))
                 .Where(g => !g.IsDeleted)
                 .AsQueryable();
-
-            if (centerId4 != null)
-            {
-                query = query.Where(g => g.Course!.CenterId == centerId4);
-            }
+            query = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(query, _httpContextAccessor, g => (int?)g.Course!.CenterId);
 
             var user = _httpContextAccessor.HttpContext?.User;
             var principalType = user?.FindFirst("PrincipalType")?.Value;
@@ -589,7 +569,6 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
     {
         try
         {
-            var centerId6 = await GetEffectiveCenterIdAsync();
             var byStudentQuery = context.Groups
                 .Include(g => g.Course)
                 .Include(g => g.Mentor)
@@ -598,11 +577,7 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 .Include(g => g.StudentGroups.Where(sg => !sg.IsDeleted && sg.StudentId == studentId))
                 .Where(g => !g.IsDeleted && g.StudentGroups.Any(sg => sg.StudentId == studentId && !sg.IsDeleted))
                 .AsQueryable();
-
-            if (centerId6 != null)
-            {
-                byStudentQuery = byStudentQuery.Where(g => g.Course!.CenterId == centerId6);
-            }
+            byStudentQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(byStudentQuery, _httpContextAccessor, g => (int?)g.Course!.CenterId);
 
             var groups = await byStudentQuery
                 .OrderBy(g => g.Name)
@@ -629,7 +604,6 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
     {
         try
         {
-            var centerId7 = await GetEffectiveCenterIdAsync();
             var byMentorQuery = context.Groups
                 .Include(g => g.Course)
                 .Include(g => g.Mentor)
@@ -638,11 +612,7 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 .Include(g => g.StudentGroups.Where(sg => !sg.IsDeleted))
                 .Where(g => !g.IsDeleted && g.MentorId == mentorId)
                 .AsQueryable();
-
-            if (centerId7 != null)
-            {
-                byMentorQuery = byMentorQuery.Where(g => g.Course!.CenterId == centerId7);
-            }
+            byMentorQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(byMentorQuery, _httpContextAccessor, g => (int?)g.Course!.CenterId);
 
             var groups = await byMentorQuery
                 .OrderBy(g => g.Name)
