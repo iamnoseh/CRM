@@ -461,7 +461,7 @@ public class StudentService(
             FileDeleteHelper.DeleteFile(student.ProfileImage, uploadPath);
         }
 
-        var uploadResult = await FileUploadHelper.UploadFileAsync(profileImage, uploadPath, "student", "profile");
+        var uploadResult = await FileUploadHelper.UploadFileAsync(profileImage, uploadPath, "profiles", "profile");
         if (uploadResult.StatusCode != 200)
             return new Response<string>((HttpStatusCode)uploadResult.StatusCode, uploadResult.Message);
 

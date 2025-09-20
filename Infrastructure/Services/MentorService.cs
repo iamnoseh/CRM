@@ -147,6 +147,15 @@ public class MentorService(
                 if (imageResult.StatusCode != (int)HttpStatusCode.OK)
                     return new Response<string>((HttpStatusCode)imageResult.StatusCode, imageResult.Message);
                 mentor.ProfileImage = imageResult.Data;
+                if (mentor.UserId != 0)
+                {
+                    var linkedUser = await userManager.FindByIdAsync(mentor.UserId.ToString());
+                    if (linkedUser != null)
+                    {
+                        linkedUser.ProfileImagePath = mentor.ProfileImage;
+                        await userManager.UpdateAsync(linkedUser);
+                    }
+                }
             }
 
             mentor.FullName = updateMentorDto.FullName;
