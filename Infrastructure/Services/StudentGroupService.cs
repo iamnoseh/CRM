@@ -204,7 +204,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                 student = new StudentDTO()
                 {
                     Id = studentGroup.Student!.Id,
-                    ImagePath = studentGroup.Student.ProfileImage,
+                    ImagePath = context.Users.Where(u => u.Id == studentGroup.Student.UserId).Select(u => u.ProfileImagePath).FirstOrDefault() ?? studentGroup.Student.ProfileImage,
                     Age = studentGroup.Student.Age,
                     FullName = studentGroup.Student.FullName,
                     PhoneNumber = studentGroup.Student.PhoneNumber,
