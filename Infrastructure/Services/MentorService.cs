@@ -387,8 +387,8 @@ public class MentorService(
             Experience = m.Experience,
             Gender = m.Gender,
             ActiveStatus = m.ActiveStatus,
-            PaymentStatus = m.PaymentStatus,
-            ImagePath = m.ProfileImage,
+            PaymentStatus = m.PaymentStatus, 
+            ImagePath = m.ProfileImage ?? context.Users.Where(u => u.Id == m.UserId).Select(u => u.ProfileImagePath).FirstOrDefault(),
             Document = m.Document,
             CenterId = m.CenterId,
             UserId = m.UserId

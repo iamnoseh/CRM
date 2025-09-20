@@ -341,7 +341,7 @@ public class StudentService(
             Gender = student.Gender,
             ActiveStatus = student.ActiveStatus,
             PaymentStatus = student.PaymentStatus,
-            ImagePath = student.ProfileImage,
+            ImagePath = student.ProfileImage ?? context.Users.Where(u => u.Id == student.UserId).Select(u => u.ProfileImagePath).FirstOrDefault(),
             Document = student.Document,
             UserId = student.UserId,
             CenterId = student.CenterId
