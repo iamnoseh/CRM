@@ -8,6 +8,7 @@ using Infrastructure.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Http;
 using Infrastructure.Helpers;
+using System.Security.Claims;
 
 namespace Infrastructure.Services;
 
@@ -167,7 +168,11 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
                     journal.Group = await context.Groups.Include(g => g.Course).FirstOrDefaultAsync(g => g.Id == journal.GroupId);
                 }
                 if (journal.Group?.Course?.CenterId != centerId)
-                    return new Response<GetJournalDto>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
+                {
+                    var hasAssignmentAccess = await HasGroupAccessAsync(journal.GroupId);
+                    if (!hasAssignmentAccess)
+                        return new Response<GetJournalDto>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
+                }
             }
 
             if (journal == null)
@@ -257,7 +262,11 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
                     journal.Group = await context.Groups.Include(g => g.Course).FirstOrDefaultAsync(g => g.Id == journal.GroupId);
                 }
                 if (journal.Group?.Course?.CenterId != centerId2)
-                    return new Response<GetJournalDto>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
+                {
+                    var hasAssignmentAccess = await HasGroupAccessAsync(journal.GroupId);
+                    if (!hasAssignmentAccess)
+                        return new Response<GetJournalDto>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
+                }
             }
 
             if (journal == null)
@@ -356,7 +365,11 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
                     journal.Group = await context.Groups.Include(g => g.Course).FirstOrDefaultAsync(g => g.Id == journal.GroupId);
                 }
                 if (journal.Group?.Course?.CenterId != centerId3)
-                    return new Response<GetJournalDto>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
+                {
+                    var hasAssignmentAccess = await HasGroupAccessAsync(journal.GroupId);
+                    if (!hasAssignmentAccess)
+                        return new Response<GetJournalDto>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
+                }
             }
 
             if (journal == null)
@@ -443,7 +456,11 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
             if (centerId4 != null)
             {
                 if (entry.Journal?.Group?.Course?.CenterId != centerId4)
-                    return new Response<string>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
+                {
+                    var hasAssignmentAccess = await HasGroupAccessAsync(entry.Journal!.GroupId);
+                    if (!hasAssignmentAccess)
+                        return new Response<string>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
+                }
             }
 
             if (request.Grade.HasValue) entry.Grade = request.Grade.Value;
@@ -471,7 +488,11 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
             var groupAllowed = await context.Groups.Include(g => g.Course)
                 .AnyAsync(g => g.Id == groupId && !g.IsDeleted && (centerId5 == null || g.Course!.CenterId == centerId5));
             if (!groupAllowed)
-                return new Response<string>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
+            {
+                var hasAssignmentAccess = await HasGroupAccessAsync(groupId);
+                if (!hasAssignmentAccess)
+                    return new Response<string>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
+            }
 
             var isActiveMember = await context.StudentGroups
                 .AnyAsync(sg => sg.GroupId == groupId && sg.StudentId == studentId && sg.IsActive && !sg.IsDeleted);
@@ -561,7 +582,11 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
             var allowed = await context.Groups.Include(g => g.Course)
                 .AnyAsync(g => g.Id == groupId && !g.IsDeleted && (centerId6 == null || g.Course!.CenterId == centerId6));
             if (!allowed)
-                return new Response<string>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
+            {
+                var hasAssignmentAccess = await HasGroupAccessAsync(groupId);
+                if (!hasAssignmentAccess)
+                    return new Response<string>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
+            }
 
             var activeIds = await context.StudentGroups
                 .Where(sg => sg.GroupId == groupId && ids.Contains(sg.StudentId) && sg.IsActive && !sg.IsDeleted)
@@ -654,7 +679,11 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
             var allowed2 = await context.Groups.Include(g => g.Course)
                 .AnyAsync(g => g.Id == groupId && !g.IsDeleted && (centerId7 == null || g.Course!.CenterId == centerId7));
             if (!allowed2)
-                return new Response<string>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
+            {
+                var hasAssignmentAccess = await HasGroupAccessAsync(groupId);
+                if (!hasAssignmentAccess)
+                    return new Response<string>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
+            }
 
             var futureJournalIds = await context.Journals
                 .Where(j => j.GroupId == groupId && !j.IsDeleted && j.WeekStartDate > nowUtc)
@@ -954,5 +983,45 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
         {
             return new Response<List<int>>(HttpStatusCode.InternalServerError, ex.Message);
         }
+    }
+
+    private async Task<bool> HasGroupAccessAsync(int groupId)
+    {
+        var user = _httpContextAccessor.HttpContext?.User;
+        if (user == null) return false;
+
+        var roles = user.Claims
+            .Where(c => c.Type == ClaimTypes.Role || string.Equals(c.Type, "role", StringComparison.OrdinalIgnoreCase))
+            .Select(c => c.Value)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (roles.Contains("SuperAdmin") || roles.Contains("Admin") || roles.Contains("Manager"))
+            return true;
+
+        var principalType = user.FindFirst("PrincipalType")?.Value;
+        var idStr = user.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                     ?? user.FindFirst("nameid")?.Value;
+        if (!int.TryParse(idStr, out var principalId) || principalId <= 0)
+            return false;
+
+        if (roles.Contains("Mentor") || string.Equals(principalType, "Mentor", StringComparison.OrdinalIgnoreCase))
+        {
+            var isPrimaryMentor = await context.Groups
+                .AnyAsync(g => g.Id == groupId && !g.IsDeleted && g.MentorId == principalId);
+            if (isPrimaryMentor) return true;
+
+            var isCoMentor = await context.MentorGroups
+                .AnyAsync(mg => mg.GroupId == groupId && mg.MentorId == principalId && (mg.IsActive ?? true) && !mg.IsDeleted);
+            return isCoMentor;
+        }
+
+        if (roles.Contains("Student") || string.Equals(principalType, "Student", StringComparison.OrdinalIgnoreCase))
+        {
+            var isMember = await context.StudentGroups
+                .AnyAsync(sg => sg.GroupId == groupId && sg.StudentId == principalId && sg.IsActive && !sg.IsDeleted);
+            return isMember;
+        }
+
+        return false;
     }
 }
