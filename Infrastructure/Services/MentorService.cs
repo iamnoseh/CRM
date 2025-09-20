@@ -37,7 +37,7 @@ public class MentorService(
             if (createMentorDto.ProfileImage != null)
             {
                 var imageResult = await FileUploadHelper.UploadFileAsync(
-                    createMentorDto.ProfileImage, uploadPath, "mentor", "profile");
+                    createMentorDto.ProfileImage, uploadPath, "profiles", "profile");
                 if (imageResult.StatusCode != (int)HttpStatusCode.OK)
                     return new Response<string>((HttpStatusCode)imageResult.StatusCode, imageResult.Message);
                 profileImagePath = imageResult.Data;
@@ -143,7 +143,7 @@ public class MentorService(
             if (updateMentorDto.ProfileImage != null)
             {
                 var imageResult = await FileUploadHelper.UploadFileAsync(
-                    updateMentorDto.ProfileImage, uploadPath, "mentor", "profile", true, mentor.ProfileImage);
+                    updateMentorDto.ProfileImage, uploadPath, "profiles", "profile", true, mentor.ProfileImage);
                 if (imageResult.StatusCode != (int)HttpStatusCode.OK)
                     return new Response<string>((HttpStatusCode)imageResult.StatusCode, imageResult.Message);
                 mentor.ProfileImage = imageResult.Data;
@@ -525,7 +525,7 @@ public class MentorService(
             return new Response<string>(HttpStatusCode.NotFound, "Устод ёфт нашуд");
 
         var imageResult = await FileUploadHelper.UploadFileAsync(
-            profileImage, uploadPath, "mentor", "profile", true, mentor.ProfileImage);
+            profileImage, uploadPath, "profiles", "profile", true, mentor.ProfileImage);
         if (imageResult.StatusCode != (int)HttpStatusCode.OK)
             return new Response<string>((HttpStatusCode)imageResult.StatusCode, imageResult.Message);
 

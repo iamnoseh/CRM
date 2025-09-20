@@ -36,7 +36,7 @@ public class StudentService(
             if (createStudentDto.ProfilePhoto != null)
             {
                 var imageResult = await FileUploadHelper.UploadFileAsync(
-                    createStudentDto.ProfilePhoto, uploadPath, "student", "profile");
+                    createStudentDto.ProfilePhoto, uploadPath, "profiles", "profile");
                 if (imageResult.StatusCode != 200)
                     return new Response<string>((HttpStatusCode)imageResult.StatusCode, imageResult.Message);
                 profileImagePath = imageResult.Data;
@@ -138,7 +138,7 @@ public class StudentService(
             }
 
             var imageResult = await FileUploadHelper.UploadFileAsync(
-                updateStudentDto.ProfilePhoto, uploadPath, "student", "profile");
+                updateStudentDto.ProfilePhoto, uploadPath, "profiles", "profile");
             if (imageResult.StatusCode != 200)
                 return new Response<string>((HttpStatusCode)imageResult.StatusCode, imageResult.Message);
             newProfileImagePath = imageResult.Data;

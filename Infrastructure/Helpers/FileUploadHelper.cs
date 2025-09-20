@@ -48,7 +48,8 @@ public static class FileUploadHelper
                 }
             }
         }
-        var folder = Path.Combine(uploadPath, "uploads", fileType == "profile" ? entityType : $"documents/{entityType}");
+        var subFolder = fileType == "profile" ? "profiles" : $"documents/{entityType}";
+        var folder = Path.Combine(uploadPath, "uploads", subFolder);
         if (!Directory.Exists(folder))
             Directory.CreateDirectory(folder);
         var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
@@ -59,7 +60,7 @@ public static class FileUploadHelper
             await file.CopyToAsync(fileStream);
         }
 
-        return new Response<string>($"/uploads/{(fileType == "profile" ? entityType : $"documents/{entityType}")}/{uniqueFileName}");
+        return new Response<string>($"/uploads/{subFolder}/{uniqueFileName}");
     }
 
     public static async Task<Response<byte[]>> GetFileAsync(string filePath, string uploadPath)

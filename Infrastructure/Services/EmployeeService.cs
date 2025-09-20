@@ -116,7 +116,7 @@ public class EmployeeService : IEmployeeService
             string imagePath = string.Empty;
             if (request.Image != null)
             {
-                var imageResult = await FileUploadHelper.UploadFileAsync(request.Image, _uploadPath, "employee", "profile");
+                var imageResult = await FileUploadHelper.UploadFileAsync(request.Image, _uploadPath, "profiles", "profile");
                 if (imageResult.StatusCode != 200)
                     return new Response<string>((HttpStatusCode)imageResult.StatusCode, imageResult.Message);
                 imagePath = imageResult.Data;
@@ -124,7 +124,7 @@ public class EmployeeService : IEmployeeService
             string documentPath = string.Empty;
             if (request.Document != null)
             {
-                var docResult = await FileUploadHelper.UploadFileAsync(request.Document, _uploadPath, "employee", "document");
+                var docResult = await FileUploadHelper.UploadFileAsync(request.Document, _uploadPath, "documents", "document");
                 if (docResult.StatusCode != 200)
                     return new Response<string>((HttpStatusCode)docResult.StatusCode, docResult.Message);
                 documentPath = docResult.Data;
@@ -208,7 +208,7 @@ public class EmployeeService : IEmployeeService
         {
             if (!string.IsNullOrEmpty(user.ProfileImagePath))
                 FileDeleteHelper.DeleteFile(user.ProfileImagePath, _uploadPath);
-            var imageResult = await FileUploadHelper.UploadFileAsync(request.Image, _uploadPath, "employee", "profile");
+            var imageResult = await FileUploadHelper.UploadFileAsync(request.Image, _uploadPath, "profiles", "profile");
             if (imageResult.StatusCode == 200)
                 user.ProfileImagePath = imageResult.Data;
         }
@@ -216,7 +216,7 @@ public class EmployeeService : IEmployeeService
         {
             if (!string.IsNullOrEmpty(user.DocumentPath))
                 FileDeleteHelper.DeleteFile(user.DocumentPath, _uploadPath);
-            var docResult = await FileUploadHelper.UploadFileAsync(request.Document, _uploadPath, "employee", "document");
+            var docResult = await FileUploadHelper.UploadFileAsync(request.Document, _uploadPath, "documents", "document");
             if (docResult.StatusCode == 200)
                 user.DocumentPath = docResult.Data;
         }
