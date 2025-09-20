@@ -154,6 +154,7 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
     {
         try
         {
+            var centerId = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
             var journal = await context.Journals
                 .Include(j => j.Group)
                 .Include(j => j.Entries)

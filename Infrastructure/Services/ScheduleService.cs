@@ -36,15 +36,19 @@ public class ScheduleService : IScheduleService
         return userCenter == null || userCenter.Value == centerId.Value;
     }
 
-    private async Task<(bool allowed, int centerId)> IsGroupAllowedAsync(int groupId)
+    private async Task<(bool allowed, int? centerId)> IsGroupAllowedAsync(int? groupId)
     {
+        if (!groupId.HasValue)
+        {
+            return (true, null);
+        }
         var centerId = await _context.Groups.Include(g => g.Course)
-            .Where(g => g.Id == groupId)
+            .Where(g => g.Id == groupId.Value)
             .Select(g => (int?)g.Course!.CenterId)
             .FirstOrDefaultAsync();
-        if (centerId == null) return (false, 0);
+        if (centerId == null) return (false, null);
         var userCenter = CurrentCenterId;
-        return (userCenter == null || userCenter.Value == centerId.Value, centerId.Value);
+        return (userCenter == null || userCenter.Value == centerId.Value, centerId);
     }
 
     public async Task<Response<GetScheduleDto>> CreateScheduleAsync(CreateScheduleDto createDto)
@@ -69,8 +73,8 @@ public class ScheduleService : IScheduleService
                 };
             }
             var classroomCenter = await _context.Classrooms.Where(c => c.Id == createDto.ClassroomId)
-                .Select(c => c.CenterId).FirstOrDefaultAsync();
-            if (classroomCenter != groupCenterId)
+                .Select(c => (int?)c.CenterId).FirstOrDefaultAsync();
+            if (groupCenterId.HasValue && classroomCenter != groupCenterId)
             {
                 return new Response<GetScheduleDto>
                 {
@@ -286,8 +290,8 @@ public class ScheduleService : IScheduleService
                 return new Response<GetScheduleDto>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст (Group)");
             }
             var classroomCenter2 = await _context.Classrooms.Where(c => c.Id == updateDto.ClassroomId)
-                .Select(c => c.CenterId).FirstOrDefaultAsync();
-            if (classroomCenter2 != groupCenter2)
+                .Select(c => (int?)c.CenterId).FirstOrDefaultAsync();
+            if (groupCenter2.HasValue && classroomCenter2 != groupCenter2)
             {
                 return new Response<GetScheduleDto>(HttpStatusCode.BadRequest, "Синфхона ва гурӯҳ бояд ба як марказ тааллуқ дошта бошанд");
             }
