@@ -8,6 +8,8 @@ using Domain.Enums;
 using Domain.Responses;
 using Infrastructure.Data;
 using Infrastructure.Interfaces;
+using Infrastructure.Helpers;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Services;
@@ -15,16 +17,67 @@ namespace Infrastructure.Services;
 public class ScheduleService : IScheduleService
 {
     private readonly DataContext _context;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public ScheduleService(DataContext context)
+    public ScheduleService(DataContext context, IHttpContextAccessor httpContextAccessor)
     {
         _context = context;
+        _httpContextAccessor = httpContextAccessor;
+    }
+
+    private int? CurrentCenterId => UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
+
+    private async Task<bool> IsClassroomAllowedAsync(int classroomId)
+    {
+        var centerId = await _context.Classrooms.Where(c => c.Id == classroomId)
+            .Select(c => (int?)c.CenterId).FirstOrDefaultAsync();
+        if (centerId == null) return false;
+        var userCenter = CurrentCenterId;
+        return userCenter == null || userCenter.Value == centerId.Value;
+    }
+
+    private async Task<(bool allowed, int centerId)> IsGroupAllowedAsync(int groupId)
+    {
+        var centerId = await _context.Groups.Include(g => g.Course)
+            .Where(g => g.Id == groupId)
+            .Select(g => (int?)g.Course!.CenterId)
+            .FirstOrDefaultAsync();
+        if (centerId == null) return (false, 0);
+        var userCenter = CurrentCenterId;
+        return (userCenter == null || userCenter.Value == centerId.Value, centerId.Value);
     }
 
     public async Task<Response<GetScheduleDto>> CreateScheduleAsync(CreateScheduleDto createDto)
     {
         try
         {
+            if (!await IsClassroomAllowedAsync(createDto.ClassroomId))
+            {
+                return new Response<GetScheduleDto>
+                {
+                    StatusCode = (int)HttpStatusCode.Forbidden,
+                    Message = "Дастрасӣ манъ аст (Classroom)"
+                };
+            }
+            var (groupAllowed, groupCenterId) = await IsGroupAllowedAsync(createDto.GroupId);
+            if (!groupAllowed)
+            {
+                return new Response<GetScheduleDto>
+                {
+                    StatusCode = (int)HttpStatusCode.Forbidden,
+                    Message = "Дастрасӣ манъ аст (Group)"
+                };
+            }
+            var classroomCenter = await _context.Classrooms.Where(c => c.Id == createDto.ClassroomId)
+                .Select(c => c.CenterId).FirstOrDefaultAsync();
+            if (classroomCenter != groupCenterId)
+            {
+                return new Response<GetScheduleDto>
+                {
+                    StatusCode = (int)HttpStatusCode.BadRequest,
+                    Message = "Синфхона ва гурӯҳ бояд ба як марказ тааллуқ дошта бошанд"
+                };
+            }
             var conflictCheck = await CheckScheduleConflictAsync(createDto);
             if (conflictCheck.StatusCode != 200)
             {
@@ -92,6 +145,15 @@ public class ScheduleService : IScheduleService
                     Message = "Ҷадвали дарс ёфт нашуд"
                 };
             }
+            var userCenter = CurrentCenterId;
+            if (userCenter != null && schedule.Classroom.CenterId != userCenter.Value)
+            {
+                return new Response<GetScheduleDto>
+                {
+                    StatusCode = (int)HttpStatusCode.Forbidden,
+                    Message = "Дастрасӣ манъ аст"
+                };
+            }
 
             var scheduleDto = MapToGetScheduleDto(schedule);
 
@@ -115,6 +177,14 @@ public class ScheduleService : IScheduleService
     {
         try
         {
+            if (!await IsClassroomAllowedAsync(classroomId))
+            {
+                return new Response<List<GetScheduleDto>>
+                {
+                    StatusCode = (int)HttpStatusCode.Forbidden,
+                    Message = "Дастрасӣ манъ аст"
+                };
+            }
             startDate ??= DateOnly.FromDateTime(DateTime.UtcNow.Date);
             endDate ??= startDate.Value.AddDays(6);
 
@@ -153,6 +223,15 @@ public class ScheduleService : IScheduleService
     {
         try
         {
+            var (groupAllowed, _) = await IsGroupAllowedAsync(groupId);
+            if (!groupAllowed)
+            {
+                return new Response<List<GetScheduleDto>>
+                {
+                    StatusCode = (int)HttpStatusCode.Forbidden,
+                    Message = "Дастрасӣ манъ аст"
+                };
+            }
             var schedules = await _context.Schedules
                 .Include(s => s.Classroom)
                 .ThenInclude(c => c.Center)
@@ -196,6 +275,21 @@ public class ScheduleService : IScheduleService
                     StatusCode = (int)HttpStatusCode.NotFound,
                     Message = "Ҷадвали дарс ёфт нашуд"
                 };
+            }
+            if (!await IsClassroomAllowedAsync(updateDto.ClassroomId))
+            {
+                return new Response<GetScheduleDto>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст (Classroom)");
+            }
+            var (groupAllowed2, groupCenter2) = await IsGroupAllowedAsync(updateDto.GroupId);
+            if (!groupAllowed2)
+            {
+                return new Response<GetScheduleDto>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст (Group)");
+            }
+            var classroomCenter2 = await _context.Classrooms.Where(c => c.Id == updateDto.ClassroomId)
+                .Select(c => c.CenterId).FirstOrDefaultAsync();
+            if (classroomCenter2 != groupCenter2)
+            {
+                return new Response<GetScheduleDto>(HttpStatusCode.BadRequest, "Синфхона ва гурӯҳ бояд ба як марказ тааллуқ дошта бошанд");
             }
             var conflictDto = new CreateScheduleDto
             {
@@ -271,6 +365,11 @@ public class ScheduleService : IScheduleService
                     Message = "Ҷадвали дарс ёфт нашуд"
                 };
             }
+            var allowed = await IsClassroomAllowedAsync(schedule.ClassroomId);
+            if (!allowed)
+            {
+                return new Response<bool>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
+            }
 
             schedule.IsDeleted = true;
             schedule.UpdatedAt = DateTimeOffset.UtcNow;
@@ -299,6 +398,21 @@ public class ScheduleService : IScheduleService
         try
         {
             var conflictDto = new ScheduleConflictDto();
+            if (!await IsClassroomAllowedAsync(scheduleDto.ClassroomId))
+            {
+                return new Response<ScheduleConflictDto>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст (Classroom)");
+            }
+            var (groupAllowed, groupCenter) = await IsGroupAllowedAsync(scheduleDto.GroupId);
+            if (!groupAllowed)
+            {
+                return new Response<ScheduleConflictDto>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст (Group)");
+            }
+            var classroomCenter = await _context.Classrooms.Where(c => c.Id == scheduleDto.ClassroomId)
+                .Select(c => c.CenterId).FirstOrDefaultAsync();
+            if (classroomCenter != groupCenter)
+            {
+                return new Response<ScheduleConflictDto>(HttpStatusCode.BadRequest, "Синфхона ва гурӯҳ бояд ба як марказ тааллуқ дошта бошанд");
+            }
 
             var conflicts = await _context.Schedules
                 .Include(s => s.Classroom)
@@ -362,6 +476,10 @@ public class ScheduleService : IScheduleService
     {
         try
         {
+            if (!await IsClassroomAllowedAsync(classroomId))
+            {
+                return new Response<List<TimeSlotSuggestion>>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
+            }
             var classroom = await _context.Classrooms
                 .FirstOrDefaultAsync(c => c.Id == classroomId && !c.IsDeleted);
 
@@ -438,6 +556,10 @@ public class ScheduleService : IScheduleService
     {
         try
         {
+            if (!await IsClassroomAllowedAsync(classroomId))
+            {
+                return new Response<bool>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
+            }
             var hasConflict = await _context.Schedules
                 .AnyAsync(s => s.ClassroomId == classroomId &&
                               s.DayOfWeek == dayOfWeek &&
@@ -467,6 +589,11 @@ public class ScheduleService : IScheduleService
     {
         try
         {
+            var userCenter = CurrentCenterId;
+            if (userCenter != null && userCenter.Value != centerId)
+            {
+                return new Response<List<GetScheduleDto>>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
+            }
             var weekEnd = weekStart.AddDays(6);
 
             var schedules = await _context.Schedules

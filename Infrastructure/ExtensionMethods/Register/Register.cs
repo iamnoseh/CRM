@@ -181,8 +181,16 @@ public static class Register
                 cs.GetRequiredService<IHttpContextAccessor>()
             ));
         
-        services.AddScoped<IScheduleService, ScheduleService>();
-        services.AddScoped<IJournalService, JournalService>();
+        services.AddScoped<IScheduleService>(sp =>
+            new ScheduleService(
+                sp.GetRequiredService<DataContext>(),
+                sp.GetRequiredService<IHttpContextAccessor>()
+            ));
+        services.AddScoped<IJournalService>(sp =>
+            new JournalService(
+                sp.GetRequiredService<DataContext>(),
+                sp.GetRequiredService<IHttpContextAccessor>()
+            ));
          services.AddScoped<IStudentAnalyticsExportService, StudentAnalyticsExportService>();
          services.AddScoped<IExpenseService, ExpenseService>();
          services.AddScoped<IFinanceService, FinanceService>();

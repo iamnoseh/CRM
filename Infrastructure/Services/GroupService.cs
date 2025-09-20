@@ -74,8 +74,13 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 }
             }
 
-            var existingGroup = await context.Groups
-                .AnyAsync(g => g.Name.ToLower() == request.Name.ToLower() && !g.IsDeleted);
+            var duplicateQuery = context.Groups
+                .Where(g => g.Name.ToLower() == request.Name.ToLower() && !g.IsDeleted);
+            if (centerId != null)
+            {
+                duplicateQuery = duplicateQuery.Where(g => g.Course!.CenterId == centerId);
+            }
+            var existingGroup = await duplicateQuery.AnyAsync();
             if (existingGroup)
             {
                 return new Response<string>
@@ -164,7 +169,8 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
             }
 
             var group = await context.Groups
-                .FirstOrDefaultAsync(g => g.Id == id && !g.IsDeleted);
+                .Include(g => g.Course)
+                .FirstOrDefaultAsync(g => g.Id == id && !g.IsDeleted && g.Course!.CenterId == centerId);
 
             if (group == null)
             {
@@ -216,8 +222,9 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 }
             }
             var existingGroup = await context.Groups
+                .Include(g => g.Course)
                 .AnyAsync(g => g.Name.ToLower() == request.Name.ToLower() && 
-                              g.Id != id && !g.IsDeleted);
+                              g.Id != id && !g.IsDeleted && g.Course!.CenterId == centerId);
             if (existingGroup)
             {
                 return new Response<string>
@@ -290,9 +297,19 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
     {
         try
         {
-            var group = await context.Groups
+            var centerId5 = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
+            var delQuery = context.Groups
                 .Include(g => g.StudentGroups)
-                .FirstOrDefaultAsync(g => g.Id == id && !g.IsDeleted);
+                .Include(g => g.Course)
+                .Where(g => !g.IsDeleted)
+                .AsQueryable();
+
+            if (centerId5 != null)
+            {
+                delQuery = delQuery.Where(g => g.Course!.CenterId == centerId5);
+            }
+
+            var group = await delQuery.FirstOrDefaultAsync(g => g.Id == id);
 
             if (group == null)
             {
@@ -338,13 +355,22 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
     {
         try
         {
-            var group = await context.Groups
+            var centerId2 = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
+            var queryById = context.Groups
                 .Include(g => g.Course)
                 .Include(g => g.Mentor)
                 .Include(g => g.Classroom)
                 .ThenInclude(c => c.Center)
                 .Include(g => g.StudentGroups.Where(sg => !sg.IsDeleted))
-                .FirstOrDefaultAsync(g => g.Id == id && !g.IsDeleted);
+                .Where(g => !g.IsDeleted)
+                .AsQueryable();
+
+            if (centerId2 != null)
+            {
+                queryById = queryById.Where(g => g.Course!.CenterId == centerId2);
+            }
+
+            var group = await queryById.FirstOrDefaultAsync(g => g.Id == id);
 
             if (group == null)
             {
@@ -377,13 +403,22 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
     {
         try
         {
-            var groups = await context.Groups
+            var centerId3 = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
+            var queryAll = context.Groups
                 .Include(g => g.Course)
                 .Include(g => g.Mentor)
                 .Include(g => g.Classroom)
                 .ThenInclude(c => c.Center)
                 .Include(g => g.StudentGroups.Where(sg => !sg.IsDeleted))
                 .Where(g => !g.IsDeleted)
+                .AsQueryable();
+
+            if (centerId3 != null)
+            {
+                queryAll = queryAll.Where(g => g.Course!.CenterId == centerId3);
+            }
+
+            var groups = await queryAll
                 .OrderBy(g => g.Name)
                 .ToListAsync();
 
@@ -409,6 +444,7 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
     {
         try
         {
+            var centerId4 = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
             var query = context.Groups
                 .Include(g => g.Course)
                 .Include(g => g.Mentor)
@@ -417,6 +453,11 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 .Include(g => g.StudentGroups.Where(sg => !sg.IsDeleted))
                 .Where(g => !g.IsDeleted)
                 .AsQueryable();
+
+            if (centerId4 != null)
+            {
+                query = query.Where(g => g.Course!.CenterId == centerId4);
+            }
 
             var user = _httpContextAccessor.HttpContext?.User;
             var principalType = user?.FindFirst("PrincipalType")?.Value;
@@ -520,13 +561,22 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
     {
         try
         {
-            var groups = await context.Groups
+            var centerId6 = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
+            var byStudentQuery = context.Groups
                 .Include(g => g.Course)
                 .Include(g => g.Mentor)
                 .Include(g => g.Classroom)
                 .ThenInclude(c => c.Center)
                 .Include(g => g.StudentGroups.Where(sg => !sg.IsDeleted && sg.StudentId == studentId))
                 .Where(g => !g.IsDeleted && g.StudentGroups.Any(sg => sg.StudentId == studentId && !sg.IsDeleted))
+                .AsQueryable();
+
+            if (centerId6 != null)
+            {
+                byStudentQuery = byStudentQuery.Where(g => g.Course!.CenterId == centerId6);
+            }
+
+            var groups = await byStudentQuery
                 .OrderBy(g => g.Name)
                 .ToListAsync();
 
@@ -551,13 +601,22 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
     {
         try
         {
-            var groups = await context.Groups
+            var centerId7 = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
+            var byMentorQuery = context.Groups
                 .Include(g => g.Course)
                 .Include(g => g.Mentor)
                 .Include(g => g.Classroom)
                 .ThenInclude(c => c.Center)
                 .Include(g => g.StudentGroups.Where(sg => !sg.IsDeleted))
                 .Where(g => !g.IsDeleted && g.MentorId == mentorId)
+                .AsQueryable();
+
+            if (centerId7 != null)
+            {
+                byMentorQuery = byMentorQuery.Where(g => g.Course!.CenterId == centerId7);
+            }
+
+            var groups = await byMentorQuery
                 .OrderBy(g => g.Name)
                 .ToListAsync();
 

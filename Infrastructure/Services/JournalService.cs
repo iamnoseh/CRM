@@ -6,16 +6,28 @@ using Domain.Responses;
 using Infrastructure.Data;
 using Infrastructure.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Http;
+using Infrastructure.Helpers;
 
 namespace Infrastructure.Services;
 
-public class JournalService(DataContext context) : IJournalService
+public class JournalService(DataContext context, IHttpContextAccessor httpContextAccessor) : IJournalService
 {
+    private readonly IHttpContextAccessor _httpContextAccessor = httpContextAccessor;
     public async Task<Response<string>> GenerateWeeklyJournalAsync(int groupId, int weekNumber)
     {
         try
         {
-            var group = await context.Groups.FirstOrDefaultAsync(g => g.Id == groupId && !g.IsDeleted);
+            var centerId = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
+            var groupQuery = context.Groups
+                .Include(g => g.Course)
+                .Where(g => !g.IsDeleted)
+                .AsQueryable();
+            if (centerId != null)
+            {
+                groupQuery = groupQuery.Where(g => g.Course!.CenterId == centerId);
+            }
+            var group = await groupQuery.FirstOrDefaultAsync(g => g.Id == groupId);
             if (group == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Гурӯҳ ёфт нашуд");
 
@@ -145,7 +157,17 @@ public class JournalService(DataContext context) : IJournalService
             var journal = await context.Journals
                 .Include(j => j.Group)
                 .Include(j => j.Entries)
-                .FirstOrDefaultAsync(j => j.GroupId == groupId && j.WeekNumber == weekNumber && !j.IsDeleted);
+                .Where(j => j.GroupId == groupId && j.WeekNumber == weekNumber && !j.IsDeleted)
+                .FirstOrDefaultAsync();
+            if (journal != null && centerId != null)
+            {
+                if (journal.Group == null)
+                {
+                    journal.Group = await context.Groups.Include(g => g.Course).FirstOrDefaultAsync(g => g.Id == journal.GroupId);
+                }
+                if (journal.Group?.Course?.CenterId != centerId)
+                    return new Response<GetJournalDto>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
+            }
 
             if (journal == null)
                 return new Response<GetJournalDto>(HttpStatusCode.NotFound, "Журнал ёфт нашуд");
@@ -219,12 +241,23 @@ public class JournalService(DataContext context) : IJournalService
     {
         try
         {
+            var centerId2 = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
             var journal = await context.Journals
                 .Include(j => j.Group)
                 .Include(j => j.Entries)
                 .Where(j => j.GroupId == groupId && !j.IsDeleted)
                 .OrderByDescending(j => j.WeekNumber)
                 .FirstOrDefaultAsync();
+
+            if (journal != null && centerId2 != null)
+            {
+                if (journal.Group == null)
+                {
+                    journal.Group = await context.Groups.Include(g => g.Course).FirstOrDefaultAsync(g => g.Id == journal.GroupId);
+                }
+                if (journal.Group?.Course?.CenterId != centerId2)
+                    return new Response<GetJournalDto>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
+            }
 
             if (journal == null)
                 return new Response<GetJournalDto>(HttpStatusCode.NotFound, "Журналҳо ёфт нашуданд");
@@ -298,7 +331,13 @@ public class JournalService(DataContext context) : IJournalService
     {
         try
         {
-            var group = await context.Groups.FirstOrDefaultAsync(g => g.Id == groupId && !g.IsDeleted);
+            var centerId3 = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
+            var groupQuery = context.Groups.Include(g => g.Course).Where(g => !g.IsDeleted).AsQueryable();
+            if (centerId3 != null)
+            {
+                groupQuery = groupQuery.Where(g => g.Course!.CenterId == centerId3);
+            }
+            var group = await groupQuery.FirstOrDefaultAsync(g => g.Id == groupId);
             if (group == null)
                 return new Response<GetJournalDto>(HttpStatusCode.NotFound, "Гурӯҳ ёфт нашуд");
             var localDate = DateTime.SpecifyKind(dateLocal.Date, DateTimeKind.Unspecified);
@@ -309,6 +348,15 @@ public class JournalService(DataContext context) : IJournalService
                 .Include(j => j.Entries)
                 .Where(j => j.GroupId == groupId && !j.IsDeleted)
                 .FirstOrDefaultAsync(j => localStart <= j.WeekEndDate && localEnd > j.WeekStartDate);
+            if (journal != null && centerId3 != null)
+            {
+                if (journal.Group == null)
+                {
+                    journal.Group = await context.Groups.Include(g => g.Course).FirstOrDefaultAsync(g => g.Id == journal.GroupId);
+                }
+                if (journal.Group?.Course?.CenterId != centerId3)
+                    return new Response<GetJournalDto>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
+            }
 
             if (journal == null)
                 return new Response<GetJournalDto>(HttpStatusCode.NotFound, "Журнал барои ин сана ёфт нашуд");
@@ -382,9 +430,20 @@ public class JournalService(DataContext context) : IJournalService
     {
         try
         {
-            var entry = await context.JournalEntries.FirstOrDefaultAsync(e => e.Id == entryId && !e.IsDeleted);
+            var entry = await context.JournalEntries
+                .Include(e => e.Journal)
+                .ThenInclude(j => j.Group)
+                .ThenInclude(g => g.Course)
+                .FirstOrDefaultAsync(e => e.Id == entryId && !e.IsDeleted);
             if (entry == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Элемент ёфт нашуд");
+
+            var centerId4 = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
+            if (centerId4 != null)
+            {
+                if (entry.Journal?.Group?.Course?.CenterId != centerId4)
+                    return new Response<string>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
+            }
 
             if (request.Grade.HasValue) entry.Grade = request.Grade.Value;
             if (request.BonusPoints.HasValue) entry.BonusPoints = request.BonusPoints.Value;
@@ -407,6 +466,12 @@ public class JournalService(DataContext context) : IJournalService
     {
         try
         {
+            var centerId5 = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
+            var groupAllowed = await context.Groups.Include(g => g.Course)
+                .AnyAsync(g => g.Id == groupId && !g.IsDeleted && (centerId5 == null || g.Course!.CenterId == centerId5));
+            if (!groupAllowed)
+                return new Response<string>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
+
             var isActiveMember = await context.StudentGroups
                 .AnyAsync(sg => sg.GroupId == groupId && sg.StudentId == studentId && sg.IsActive && !sg.IsDeleted);
             if (!isActiveMember)
@@ -490,6 +555,12 @@ public class JournalService(DataContext context) : IJournalService
             var ids = studentIds.Distinct().ToList();
             if (ids.Count == 0)
                 return new Response<string>(HttpStatusCode.BadRequest, "Студенты не указаны");
+
+            var centerId6 = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
+            var allowed = await context.Groups.Include(g => g.Course)
+                .AnyAsync(g => g.Id == groupId && !g.IsDeleted && (centerId6 == null || g.Course!.CenterId == centerId6));
+            if (!allowed)
+                return new Response<string>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
 
             var activeIds = await context.StudentGroups
                 .Where(sg => sg.GroupId == groupId && ids.Contains(sg.StudentId) && sg.IsActive && !sg.IsDeleted)
@@ -578,6 +649,12 @@ public class JournalService(DataContext context) : IJournalService
         try
         {
             var nowUtc = DateTimeOffset.UtcNow;
+            var centerId7 = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
+            var allowed2 = await context.Groups.Include(g => g.Course)
+                .AnyAsync(g => g.Id == groupId && !g.IsDeleted && (centerId7 == null || g.Course!.CenterId == centerId7));
+            if (!allowed2)
+                return new Response<string>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
+
             var futureJournalIds = await context.Journals
                 .Where(j => j.GroupId == groupId && !j.IsDeleted && j.WeekStartDate > nowUtc)
                 .Select(j => j.Id)
