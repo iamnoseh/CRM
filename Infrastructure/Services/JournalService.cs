@@ -63,8 +63,8 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
                 lessonDays = new List<int> { 1, 2, 3, 4, 5 };
             }
 
-            // Plan exactly as many lessons as selected lesson days per week
-            var targetLessons = lessonDays.Count;
+            // Always plan 6 lessons per week (last one can be exam)
+            var targetLessons = 6;
             DateTime cursor;
             if (weekNumber == 1)
             {
