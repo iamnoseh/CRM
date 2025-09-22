@@ -13,7 +13,7 @@ public class Group : BaseEntity
     [Required]
     public int DurationMonth { get; set; }
     public int LessonInWeek { get; set; } = 5;
-    public bool HasWeeklyExam { get; set; } = true;
+    public bool HasWeeklyExam { get; set; } = false;
     public int TotalWeeks { get; set; }
     public bool Started { get; set; } = false;
     public ActiveStatus Status { get; set; }

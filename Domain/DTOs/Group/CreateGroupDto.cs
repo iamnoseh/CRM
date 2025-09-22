@@ -18,7 +18,7 @@ public class CreateGroupDto
     public int MentorId { get; set; }
     public int? ClassroomId { get; set; }
     public IFormFile? Image { get; set; }
-    public bool HasWeeklyExam { get; set; } = true;
+    public bool? HasWeeklyExam { get; set; }
     
     [Required(ErrorMessage = "Санаи оғози дарсҳо зарур аст")]
     public DateTimeOffset? StartDate { get; set; }

@@ -147,7 +147,7 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 CourseId = request.CourseId,
                 DurationMonth = calculatedDurationMonth,
                 LessonInWeek = calculatedLessonInWeek,
-                HasWeeklyExam = request.HasWeeklyExam,
+                HasWeeklyExam = request.HasWeeklyExam ?? false,
                 TotalWeeks = totalWeeks,
                 MentorId = request.MentorId,
                 ClassroomId = request.ClassroomId,
@@ -267,7 +267,7 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
             group.CourseId = request.CourseId;
             group.MentorId = request.MentorId;
             group.ClassroomId = request.ClassroomId;
-            group.HasWeeklyExam = request.HasWeeklyExam;
+            group.HasWeeklyExam = request.HasWeeklyExam ?? false;
             group.StartDate = request.StartDate.Value;
             group.EndDate = request.EndDate.Value;
             group.LessonDays = request.LessonDays;
