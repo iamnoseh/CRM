@@ -233,50 +233,7 @@ public class StudentService(
             ? new Response<string>(HttpStatusCode.OK, "Student Deleted Successfully")
             : new Response<string>(HttpStatusCode.BadRequest, "Student Deletion Failed");
     }
-
-    public async Task<Response<List<GetStudentDto>>> GetStudents()
-    {
-        var studentsQuery = context.Students
-            .Where(s => !s.IsDeleted);
-        studentsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
-            studentsQuery, httpContextAccessor, s => s.CenterId);
-            var students = await studentsQuery
-            .Select(s => new GetStudentDto
-            {
-                Id = s.Id,
-                FullName = s.FullName,
-                Email = s.Email,
-                Address = s.Address,
-                Phone = s.PhoneNumber,
-                Birthday = s.Birthday,
-                Age = s.Age,
-                Gender = s.Gender,
-                ActiveStatus = s.ActiveStatus,
-                PaymentStatus = s.PaymentStatus,
-                UserId = s.UserId,
-                ImagePath = context.Users.Where(u => u.Id == s.UserId).Select(u => u.ProfileImagePath).FirstOrDefault() ?? s.ProfileImage,
-                Document = s.Document
-            })
-            .ToListAsync();
-
-        foreach (var student in students)
-        {
-            if (student.UserId > 0)
-            {
-                var user = await userManager.FindByIdAsync(student.UserId.ToString());
-                if (user != null)
-                {
-                    var roles = await userManager.GetRolesAsync(user);
-                    student.Role = roles.FirstOrDefault() ?? "Student";
-                }
-            }
-        }
-
-        return students.Any()
-            ? new Response<List<GetStudentDto>>(students)
-            : new Response<List<GetStudentDto>>(HttpStatusCode.NotFound, "No students found");
-    }
-
+    
     public async Task<PaginationResponse<List<GetStudentForSelectDto>>> GetStudentForSelect(
         StudentFilterForSelect filter)
     {

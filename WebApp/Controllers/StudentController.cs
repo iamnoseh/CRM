@@ -14,14 +14,6 @@ namespace WebApp.Controllers;
 [Route("api/[controller]")]
 public class StudentController (IStudentService service) : ControllerBase
 {
-    [HttpGet]
-    [Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor,Student")]
-    public async Task<IActionResult> GetAllStudents()
-    {
-        var res = await service.GetStudents();
-        return Ok(res);
-    }
-
     [HttpGet("select-students")]
     [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<IActionResult> GetStudentForSelect([FromQuery] StudentFilterForSelect filter)

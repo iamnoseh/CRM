@@ -14,13 +14,6 @@ namespace WebApp.Controllers;
 [ApiController]
 public class MentorController(IMentorService mentorService) : ControllerBase
 {
-    [HttpGet]
-    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
-    public async Task<ActionResult<Response<List<GetMentorDto>>>> GetMentors()
-    {
-        var response = await mentorService.GetMentors();
-        return StatusCode(response.StatusCode, response);
-    }
     
     [HttpGet("{id}")]
     [Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor")]

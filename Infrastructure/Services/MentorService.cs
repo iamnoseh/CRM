@@ -252,36 +252,7 @@ public class MentorService(
             return new Response<string>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми несткунии устод: {ex.Message}");
         }
     }
-
-    public async Task<Response<List<GetMentorDto>>> GetMentors()
-    {
-        var mentorsQuery = context.Mentors
-            .Where(m => !m.IsDeleted);
-        mentorsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
-            mentorsQuery, httpContextAccessor, m => m.CenterId);
-        var mentors = await mentorsQuery.ToListAsync();
-        var dtos = mentors.Select(m => new GetMentorDto
-        {
-            Id = m.Id,
-            FullName = m.FullName,
-            Email = m.Email,
-            Phone = m.PhoneNumber,
-            Address = m.Address,
-            Birthday = m.Birthday,
-            Age = m.Age,
-            Salary = m.Salary,
-            Experience = m.Experience,
-            Gender = m.Gender,
-            ActiveStatus = m.ActiveStatus,
-            PaymentStatus = m.PaymentStatus,
-            ImagePath = context.Users.Where(u => u.Id == m.UserId).Select(u => u.ProfileImagePath).FirstOrDefault() ?? m.ProfileImage,
-            Document = m.Document,
-            CenterId = m.CenterId,
-            UserId = m.UserId
-        }).ToList();
-        return new Response<List<GetMentorDto>>(dtos);
-    }
-
+    
     public async Task<Response<GetMentorDto>> GetMentorByIdAsync(int id)
     {
         var mentorsQuery = context.Mentors
@@ -613,7 +584,7 @@ public class MentorService(
                 return new Response<List<GetSimpleDto>>(HttpStatusCode.NotFound,"Mentors not found");
             }
         }
-        catch (Exception ex)
+        catch 
         {
             return new Response<List<GetSimpleDto>>(HttpStatusCode.InternalServerError
             ,"Something went wrong");

@@ -37,7 +37,7 @@ public class GetGroupDto
                 
             return LessonDays.Split(',', StringSplitOptions.RemoveEmptyEntries)
                 .Select(d => d.Trim())
-                .Where(d => int.TryParse(d, out var dayInt) && dayInt >= 0 && dayInt <= 6)
+                .Where(d => int.TryParse(d, out var dayInt) && dayInt >= 1 && dayInt <= 7)
                 .Select(int.Parse)
                 .Distinct()
                 .ToList();
