@@ -43,6 +43,9 @@ bld/
 # Ignore built/static assets in WebApp wwwroot
 WebApp/wwwroot/
 
+# Ignore appsettings (secrets) and local configs
+WebApp/appsettings.json
+WebApp/appsettings.*.json
 
 # Visual Studio 2017 auto generated files
 Generated\ Files/
