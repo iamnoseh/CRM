@@ -23,11 +23,6 @@ public class LeadService(
             if (centerId == null)
                 return new Response<string>(HttpStatusCode.BadRequest, "ID-и марказ дар токен ёфт нашуд");
             
-            var existingLead = await context.Leads
-                .FirstOrDefaultAsync(l => l.PhoneNumber == request.PhoneNumber && !l.IsDeleted);
-            
-            if (existingLead != null)
-                return new Response<string>(HttpStatusCode.BadRequest, "Лид бо ин рақами телефон аллакай мавҷуд аст");
 
             var lead = new Lead
             {
@@ -69,16 +64,6 @@ public class LeadService(
             if (lead == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Лид ёфт нашуд");
             
-            if (lead.PhoneNumber != request.PhoneNumber)
-            {
-                var existingLead = await context.Leads
-                    .FirstOrDefaultAsync(l => l.PhoneNumber == request.PhoneNumber && 
-                                            l.Id != request.Id && 
-                                            !l.IsDeleted);
-                
-                if (existingLead != null)
-                    return new Response<string>(HttpStatusCode.BadRequest, "Лид бо ин рақами телефон аллакай мавҷуд аст");
-            }
 
             lead.FullName = request.FullName ?? lead.FullName;
             lead.PhoneNumber = request.PhoneNumber ?? lead.PhoneNumber;

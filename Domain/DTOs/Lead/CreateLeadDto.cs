@@ -21,7 +21,7 @@ public class CreateLeadDto
     [Required(ErrorMessage = "Моҳи қайд зарур аст")]
     public DateTime? RegisterForMonth { get; set; }
     [StringLength(100, ErrorMessage = "Номи курс наметавонад аз 100 ҳарф зиёд бошад")]
-    public string Course { get; set; } = string.Empty;
+    public string? Course { get; set; } 
     public TimeSpan LessonTime { get; set; }
 
     [StringLength(500, ErrorMessage = "Қайдҳо наметавонанд аз 500 ҳарф зиёд бошанд")]

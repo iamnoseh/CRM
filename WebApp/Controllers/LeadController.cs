@@ -11,21 +11,13 @@ namespace WebApp.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class LeadController : ControllerBase
+public class LeadController(ILeadService leadService) : ControllerBase
 {
-    private readonly ILeadService _leadService;
-
-    public LeadController(ILeadService leadService)
-    {
-        _leadService = leadService;
-    }
-
-    
     [HttpPost]
     [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin},{Roles.Manager}")]
     public async Task<ActionResult<Response<string>>> CreateLead([FromBody] CreateLeadDto request)
     {
-        var result = await _leadService.CreateLead(request);
+        var result = await leadService.CreateLead(request);
         return StatusCode((int)result.StatusCode, result);
     }
 
@@ -34,7 +26,7 @@ public class LeadController : ControllerBase
     [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin},{Roles.Manager}")]
     public async Task<ActionResult<Response<string>>> UpdateLead([FromBody] UpdateLeadDto request)
     {
-        var result = await _leadService.UpdateLead(request);
+        var result = await leadService.UpdateLead(request);
         return StatusCode((int)result.StatusCode, result);
     }
 
@@ -42,7 +34,7 @@ public class LeadController : ControllerBase
     [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin},{Roles.Manager}")]
     public async Task<ActionResult<Response<string>>> DeleteLead(int id)
     {
-        var result = await _leadService.DeleteLead(id);
+        var result = await leadService.DeleteLead(id);
         return StatusCode((int)result.StatusCode, result);
     }
     
@@ -50,7 +42,7 @@ public class LeadController : ControllerBase
     [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin},{Roles.Manager}")]
     public async Task<ActionResult<PaginationResponse<List<GetLeadDto>>>> GetLeads([FromQuery] LeadFilter filter)
     {
-        var result = await _leadService.GetLeads(filter);
+        var result = await leadService.GetLeads(filter);
         return StatusCode((int)result.StatusCode, result);
     }
     
@@ -58,7 +50,7 @@ public class LeadController : ControllerBase
     [Authorize(Roles = $"{Roles.Admin},{Roles.SuperAdmin},{Roles.Manager}")]
     public async Task<ActionResult<Response<GetLeadDto>>> GetLead(int id)
     {
-        var result = await _leadService.GetLead(id);
+        var result = await leadService.GetLead(id);
         return StatusCode((int)result.StatusCode, result);
     }
     

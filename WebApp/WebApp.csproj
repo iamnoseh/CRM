@@ -31,15 +31,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="wwwroot\uploads\" />
-    <Folder Include="wwwroot\uploads\centers\" />
-    <Folder Include="wwwroot\uploads\courses\" />
-    <Folder Include="wwwroot\uploads\documents\employee\" />
-    <Folder Include="wwwroot\uploads\documents\groups\" />
-    <Folder Include="wwwroot\uploads\documents\student\" />
-    <Folder Include="wwwroot\uploads\employee\" />
-    <Folder Include="wwwroot\uploads\mentor\" />
-    <Folder Include="wwwroot\uploads\student\" />
+    <_ContentIncludedByDefault Remove="wwwroot\docs\discounts-guide.html" />
+    <_ContentIncludedByDefault Remove="wwwroot\uploads\documents\groups\9ec8afb6-b86e-43e9-9283-5a5f7a56596e.jpg" />
+    <_ContentIncludedByDefault Remove="wwwroot\uploads\documents\groups\ab3be27b-973c-4b07-9aeb-0b8613866f4d.jpg" />
+    <_ContentIncludedByDefault Remove="wwwroot\uploads\documents\groups\e6daae95-c661-4d0f-b22b-1f0099e3f13d.jpg" />
   </ItemGroup>
 
 </Project>
