@@ -256,14 +256,6 @@ public class PaymentStatisticsService(DataContext db,
                 return new Response<CenterPaymentStatisticsDto>(System.Net.HttpStatusCode.NotFound, "Марказ ёфт нашуд");
 
             var paymentsQuery = _db.Payments.AsNoTracking().Where(p => p.CenterId == effectiveCenterId);
-            if (!startDate.HasValue || !endDate.HasValue)
-            {
-                var now = DateTimeOffset.UtcNow;
-                var first = new DateTimeOffset(now.Year, now.Month, 1, 0, 0, 0, TimeSpan.Zero);
-                var last = first.AddMonths(1).AddTicks(-1);
-                startDate ??= first;
-                endDate ??= last;
-            }
             if (startDate.HasValue)
                 paymentsQuery = paymentsQuery.Where(p => p.PaymentDate >= startDate.Value.UtcDateTime);
             if (endDate.HasValue)
@@ -302,8 +294,8 @@ public class PaymentStatisticsService(DataContext db,
                 PaidAmount = paid,
                 UnpaidAmount = unpaid,
                 TotalPayments = payments.Count,
-                StartDate = startDate!.Value,
-                EndDate = endDate!.Value,
+                StartDate = startDate ?? (payments.Count > 0 ? new DateTimeOffset(payments.Min(x => x.PaymentDate), TimeSpan.Zero) : DateTimeOffset.MinValue),
+                EndDate = endDate ?? (payments.Count > 0 ? new DateTimeOffset(payments.Max(x => x.PaymentDate), TimeSpan.Zero) : DateTimeOffset.MinValue),
                 GroupStatistics = groupStats
             };
             return new Response<CenterPaymentStatisticsDto>(dto);

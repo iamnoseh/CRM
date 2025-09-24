@@ -1,10 +1,6 @@
 using Domain.Enums;
-using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Domain.DTOs.EmailDTOs;
-using Domain.Enums;
+
 using Domain.Responses;
 using Infrastructure.Data;
 using Infrastructure.Helpers;

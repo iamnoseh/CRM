@@ -59,11 +59,9 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
             var lessonDays = ParseLessonDays(group.LessonDays);
             if (lessonDays.Count == 0)
             {
-                // Default to Monday(1) .. Friday(5) to match frontend (Mon=1..Sun=7)
-                lessonDays = new List<int> { 1, 2, 3, 4, 5 };
+                lessonDays = new List<int> { 2, 3, 4, 5, 6 };
             }
 
-            // Always plan 6 lessons per week (last one can be exam)
             var targetLessons = 6;
             DateTime cursor;
             if (weekNumber == 1)
@@ -730,34 +728,31 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
     
     private static int ConvertCrmToDotNetDayOfWeek(int crmDayOfWeek)
     { 
-        // Frontend mapping: Monday=1 .. Sunday=7
-        // .NET DayOfWeek: Sunday=0 .. Saturday=6
         return crmDayOfWeek switch
         {
-            1 => 1, // Monday
-            2 => 2, // Tuesday
-            3 => 3, // Wednesday
-            4 => 4, // Thursday
-            5 => 5, // Friday
-            6 => 6, // Saturday
-            7 => 0, // Sunday
+            1 => 0, // Yakshanbe -> Sunday
+            2 => 1, // Dushanbe -> Monday
+            3 => 2, // Seshanbe -> Tuesday
+            4 => 3, // Chorshanbe -> Wednesday
+            5 => 4, // Panjshanbe -> Thursday
+            6 => 5, // Juma -> Friday
+            7 => 6, // Shanbe -> Saturday
             _ => throw new ArgumentOutOfRangeException(nameof(crmDayOfWeek), "Рӯзи ҳафта бояд аз 1 то 7 бошад")
         };
     }
 
     private static int ConvertDotNetToCrmDayOfWeek(int dotNetDayOfWeek)
     {
-        // .NET DayOfWeek: Sunday=0 .. Saturday=6
-        // Frontend mapping: Monday=1 .. Sunday=7
+       
         return dotNetDayOfWeek switch
         {
-            0 => 7, // Sunday
-            1 => 1, // Monday
-            2 => 2, // Tuesday
-            3 => 3, // Wednesday
-            4 => 4, // Thursday
-            5 => 5, // Friday
-            6 => 6, // Saturday
+            0 => 1, // Sunday -> Yakshanbe
+            1 => 2, // Monday -> Dushanbe
+            2 => 3, // Tuesday -> Seshanbe
+            3 => 4, // Wednesday -> Chorshanbe
+            4 => 5, // Thursday -> Panjshanbe
+            5 => 6, // Friday -> Juma
+            6 => 7, // Saturday -> Shanbe
             _ => throw new ArgumentOutOfRangeException(nameof(dotNetDayOfWeek), "Рӯзи ҳафта бояд аз 0 то 6 бошад")
         };
     }
