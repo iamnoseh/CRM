@@ -34,9 +34,22 @@ public class LeadService(
                 return new Response<string>(HttpStatusCode.BadRequest, "ID-и марказ дар токен ёфт нашуд ё SuperAdmin бояд ID-и марказро муайян кунад");
 
             // Verify that the CenterId exists in the database
-            var centerExists = await context.Centers.AnyAsync(c => c.Id == centerId.Value);
+            var centerExists = await context.Centers.AnyAsync(c => c.Id == centerId.Value && !c.IsDeleted);
             if (!centerExists)
-                return new Response<string>(HttpStatusCode.BadRequest, "Маркази муайяншуда вуҷуд надорад");
+            {
+                // Get available centers for better error message
+                var availableCenters = await context.Centers
+                    .Where(c => !c.IsDeleted)
+                    .Select(c => new { c.Id, c.Name })
+                    .ToListAsync();
+                
+                var centerList = availableCenters.Any() 
+                    ? string.Join(", ", availableCenters.Select(c => $"{c.Id} ({c.Name})"))
+                    : "ҳеҷ марказе вуҷуд надорад";
+                
+                return new Response<string>(HttpStatusCode.BadRequest, 
+                    $"Маркази муайяншуда (ID: {centerId.Value}) вуҷуд надорад. Марказҳои дастрас: {centerList}");
+            }
 
             var lead = new Lead
             {
@@ -132,7 +145,7 @@ public class LeadService(
             var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
             var isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
 
-            // For SuperAdmin users, allow them to filter by CenterId or see all leads
+            // For SuperAdmin users, allow them to see all leads
             var leadsQuery = context.Leads
                 .Include(l => l.Center)
                 .Where(l => !l.IsDeleted);
@@ -145,11 +158,6 @@ public class LeadService(
                         "ID-и марказ дар токен ёфт нашуд");
                 
                 leadsQuery = leadsQuery.Where(l => l.CenterId == centerId.Value);
-            }
-            else if (filter.CenterId.HasValue)
-            {
-                // SuperAdmin can filter by specific center
-                leadsQuery = leadsQuery.Where(l => l.CenterId == filter.CenterId.Value);
             }
 
             if (!string.IsNullOrEmpty(filter.FullName))

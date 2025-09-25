@@ -13,7 +13,4 @@ public class LeadFilter : BaseFilter
     public string? UtmSource { get; set; }
     public DateTime? StartDate { get; set; }
     public DateTime? EndDate { get; set; }
-    
-    // Optional CenterId for SuperAdmin users to filter by center
-    public int? CenterId { get; set; }
 }
