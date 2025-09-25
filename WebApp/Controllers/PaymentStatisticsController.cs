@@ -13,9 +13,6 @@ public class PaymentStatisticsController(IPaymentStatisticsService paymentStatis
 {
     [HttpGet("student/{studentId}")]
     [Authorize(Roles = "Manager,SuperAdmin")]
-    [ProducesResponseType(typeof(Response<StudentPaymentStatisticsDto>), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<Response<StudentPaymentStatisticsDto>>> GetStudentStatistics(
         int studentId,
         [FromQuery] int? groupId = null,
@@ -25,13 +22,10 @@ public class PaymentStatisticsController(IPaymentStatisticsService paymentStatis
         var response = await paymentStatisticsService.GetStudentPaymentStatisticsAsync(
             studentId, groupId, startDate, endDate);
         return StatusCode(response.StatusCode, response);
-    }    
-    
+    }
+
     [HttpGet("group/{groupId}")]
     [Authorize(Roles = "Manager,SuperAdmin")]
-    [ProducesResponseType(typeof(Response<GroupPaymentStatisticsDto>), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<Response<GroupPaymentStatisticsDto>>> GetGroupStatistics(
         int groupId,
         [FromQuery] DateTimeOffset? startDate = null,
@@ -45,9 +39,6 @@ public class PaymentStatisticsController(IPaymentStatisticsService paymentStatis
 
     [HttpGet("group/{groupId}/daily")]
     [Authorize(Roles = "Manager,SuperAdmin")]
-    [ProducesResponseType(typeof(Response<List<GroupPaymentStatisticsDto>>), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<Response<List<GroupPaymentStatisticsDto>>>> GetDailyGroupStatistics(
         int groupId,
         [FromQuery] DateTimeOffset date)
@@ -55,13 +46,10 @@ public class PaymentStatisticsController(IPaymentStatisticsService paymentStatis
         var response = await paymentStatisticsService.GetDailyGroupPaymentStatisticsAsync(
             groupId, date);
         return StatusCode(response.StatusCode, response);
-    }    
-    
+    }
+
     [HttpGet("group/{groupId}/monthly")]
     [Authorize(Roles = "Manager,SuperAdmin")]
-    [ProducesResponseType(typeof(Response<GroupPaymentStatisticsDto>), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<Response<GroupPaymentStatisticsDto>>> GetMonthlyGroupStatistics(
         int groupId,
         [FromQuery] int year,
@@ -75,9 +63,6 @@ public class PaymentStatisticsController(IPaymentStatisticsService paymentStatis
 
     [HttpGet("center/{centerId}")]
     [Authorize(Roles = "Manager,SuperAdmin")]
-    [ProducesResponseType(typeof(Response<CenterPaymentStatisticsDto>), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<Response<CenterPaymentStatisticsDto>>> GetCenterStatistics(
         int centerId,
         [FromQuery] DateTimeOffset? startDate = null,
@@ -86,13 +71,10 @@ public class PaymentStatisticsController(IPaymentStatisticsService paymentStatis
         var response = await paymentStatisticsService.GetCenterPaymentStatisticsAsync(
             centerId, startDate, endDate);
         return StatusCode(response.StatusCode, response);
-    }    
-    
+    }
+
     [HttpGet("center/{centerId}/daily")]
     [Authorize(Roles = "Manager,SuperAdmin")]
-    [ProducesResponseType(typeof(Response<List<CenterPaymentStatisticsDto>>), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<Response<List<CenterPaymentStatisticsDto>>>> GetDailyCenterStatistics(
         int centerId,
         [FromQuery] DateTimeOffset date)
@@ -101,12 +83,9 @@ public class PaymentStatisticsController(IPaymentStatisticsService paymentStatis
             centerId, date);
         return StatusCode(response.StatusCode, response);
     }
-    
+
     [HttpGet("center/{centerId}/monthly")]
     [Authorize(Roles = "Manager,SuperAdmin")]
-    [ProducesResponseType(typeof(Response<CenterPaymentStatisticsDto>), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<Response<CenterPaymentStatisticsDto>>> GetMonthlyCenterStatistics(
         int centerId,
         [FromQuery] int year,

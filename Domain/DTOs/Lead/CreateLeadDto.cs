@@ -28,4 +28,7 @@ public class CreateLeadDto
     public string Notes { get; set; } = string.Empty;
     [StringLength(100, ErrorMessage = "UTM source наметавонад аз 100 ҳарф зиёд бошад")]
     public string UtmSource { get; set; } = string.Empty;
+    
+    // Optional CenterId for SuperAdmin users
+    public int? CenterId { get; set; }
 }
