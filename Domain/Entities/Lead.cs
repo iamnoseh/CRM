@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using Domain.Enums;
 
 namespace Domain.Entities;
@@ -36,4 +36,3 @@ public class Lead : BaseEntity
     public int CenterId { get; set; }
     public Center? Center { get; set; }
 }
-
