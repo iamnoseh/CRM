@@ -130,7 +130,7 @@ public class DataContext(DbContextOptions<DataContext> options)
             .OnDelete(DeleteBehavior.Cascade);
 
 
-        // StudentGroup (Student ↔ Group Many-to-Many)
+        // StudentGroup (Student в†” Group Many-to-Many)
         modelBuilder.Entity<StudentGroup>()
             .HasKey(sg => new { sg.StudentId, sg.GroupId });
 
@@ -146,7 +146,7 @@ public class DataContext(DbContextOptions<DataContext> options)
             .HasForeignKey(sg => sg.GroupId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // MentorGroup (Mentor ↔ Group Many-to-Many)
+        // MentorGroup (Mentor в†” Group Many-to-Many)
         modelBuilder.Entity<MentorGroup>()
             .HasKey(mg => new { mg.MentorId, mg.GroupId });
 
