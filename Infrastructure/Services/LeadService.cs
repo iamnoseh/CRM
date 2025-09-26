@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using Domain.DTOs.Lead;
 using Domain.Entities;
 using Domain.Filters;
@@ -20,36 +20,9 @@ public class LeadService(
         try
         {
             var centerId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
-            var user = httpContextAccessor.HttpContext?.User;
-            var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
-            var isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
-
-            // For SuperAdmin users, allow them to specify CenterId in the request
-            if (isSuperAdmin && request.CenterId.HasValue)
-            {
-                centerId = request.CenterId.Value;
-            }
-
             if (centerId == null)
-                return new Response<string>(HttpStatusCode.BadRequest, "ID-и марказ дар токен ёфт нашуд ё SuperAdmin бояд ID-и марказро муайян кунад");
-
-            // Verify that the CenterId exists in the database
-            var centerExists = await context.Centers.AnyAsync(c => c.Id == centerId.Value && !c.IsDeleted);
-            if (!centerExists)
-            {
-                // Get available centers for better error message
-                var availableCenters = await context.Centers
-                    .Where(c => !c.IsDeleted)
-                    .Select(c => new { c.Id, c.Name })
-                    .ToListAsync();
-                
-                var centerList = availableCenters.Any() 
-                    ? string.Join(", ", availableCenters.Select(c => $"{c.Id} ({c.Name})"))
-                    : "ҳеҷ марказе вуҷуд надорад";
-                
-                return new Response<string>(HttpStatusCode.BadRequest, 
-                    $"Маркази муайяншуда (ID: {centerId.Value}) вуҷуд надорад. Марказҳои дастрас: {centerList}");
-            }
+                return new Response<string>(HttpStatusCode.BadRequest, "ID-и марказ дар токен ёфт нашуд");
+            
 
             var lead = new Lead
             {
@@ -141,24 +114,13 @@ public class LeadService(
         try
         {
             var centerId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
-            var user = httpContextAccessor.HttpContext?.User;
-            var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
-            var isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
+            if (centerId == null)
+                return new PaginationResponse<List<GetLeadDto>>(HttpStatusCode.BadRequest,
+                    "ID-и марказ дар токен ёфт нашуд");
 
-            // For SuperAdmin users, allow them to see all leads
             var leadsQuery = context.Leads
                 .Include(l => l.Center)
-                .Where(l => !l.IsDeleted);
-
-            // If not SuperAdmin, filter by user's center
-            if (!isSuperAdmin)
-            {
-                if (centerId == null)
-                    return new PaginationResponse<List<GetLeadDto>>(HttpStatusCode.BadRequest,
-                        "ID-и марказ дар токен ёфт нашуд");
-                
-                leadsQuery = leadsQuery.Where(l => l.CenterId == centerId.Value);
-            }
+                .Where(l => !l.IsDeleted && l.CenterId == centerId.Value);
 
             if (!string.IsNullOrEmpty(filter.FullName))
                 leadsQuery = leadsQuery.Where(l => EF.Functions.ILike(l.FullName, $"%{filter.FullName}%"));
@@ -237,24 +199,12 @@ public class LeadService(
         try
         {
             var centerId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
-            var user = httpContextAccessor.HttpContext?.User;
-            var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
-            var isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
+            if (centerId == null)
+                return new Response<GetLeadDto>(HttpStatusCode.BadRequest, "ID-и марказ дар токен ёфт нашуд");
 
-            var leadQuery = context.Leads
+            var lead = await context.Leads
                 .Include(l => l.Center)
-                .Where(l => l.Id == id && !l.IsDeleted);
-
-            // If not SuperAdmin, filter by user's center
-            if (!isSuperAdmin)
-            {
-                if (centerId == null)
-                    return new Response<GetLeadDto>(HttpStatusCode.BadRequest, "ID-и марказ дар токен ёфт нашуд");
-                
-                leadQuery = leadQuery.Where(l => l.CenterId == centerId.Value);
-            }
-
-            var lead = await leadQuery
+                .Where(l => l.Id == id && !l.IsDeleted && l.CenterId == centerId.Value)
                 .Select(l => new GetLeadDto
                 {
                     Id = l.Id,
@@ -285,4 +235,6 @@ public class LeadService(
             return new Response<GetLeadDto>(HttpStatusCode.InternalServerError, $"Хатогии гирифтани лид: {ex.Message}");
         }
     }
+
+
 }
