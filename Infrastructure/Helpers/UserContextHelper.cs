@@ -1,0 +1,19 @@
+using Microsoft.AspNetCore.Http;
+using System.Security.Claims;
+
+namespace Infrastructure.Helpers;
+
+public static class UserContextHelper
+{
+    public static int? GetCurrentUserCenterId(IHttpContextAccessor httpContextAccessor)
+    {
+        var user = httpContextAccessor.HttpContext?.User;
+        var roles = user?.Claims.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value).ToList();
+        if (roles != null && roles.Contains("SuperAdmin"))
+            return null;
+        var centerIdClaim = user?.Claims.FirstOrDefault(c => c.Type == "CenterId")?.Value;
+        if (int.TryParse(centerIdClaim, out int centerId))
+            return centerId;
+        return null;
+    }
+} 
