@@ -195,6 +195,7 @@ public static class Register
          services.AddScoped<IExpenseService, ExpenseService>();
          services.AddScoped<IFinanceService, FinanceService>();
          services.AddScoped<IPaymentStatisticsService, PaymentStatisticsService>();
+         services.AddScoped<IAttendanceStatisticsService, AttendanceStatisticsService>();
          services.AddScoped<IOsonSmsService, OsonSmsService>();
          services.AddScoped<IDiscountService, DiscountService>();
          services.AddScoped<IPaymentService, PaymentService>();
