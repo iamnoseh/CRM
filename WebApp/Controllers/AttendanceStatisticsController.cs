@@ -18,12 +18,12 @@ public class AttendanceStatisticsController(IAttendanceStatisticsService attenda
     [HttpGet("daily-summary")]
     [Authorize(Roles = $"{Roles.SuperAdmin},{Roles.Admin},{Roles.Manager}")]
     public async Task<ActionResult<Response<DailyAttendanceSummaryDto>>> GetDailyAttendanceSummary(
-        [FromQuery] DateTime date,
+        [FromQuery] DateTime? date = null,
         [FromQuery] int? centerId = null)
     {
         try
         {
-            var result = await _attendanceStatisticsService.GetDailyAttendanceSummaryAsync(date, centerId);
+            var result = await _attendanceStatisticsService.GetDailyAttendanceSummaryAsync(date ?? default(DateTime), centerId);
             return Ok(result);
         }
         catch (Exception ex)
@@ -36,12 +36,12 @@ public class AttendanceStatisticsController(IAttendanceStatisticsService attenda
     [HttpGet("absent-students")]
     [Authorize(Roles = $"{Roles.SuperAdmin},{Roles.Admin},{Roles.Manager}")]
     public async Task<ActionResult<Response<List<AbsentStudentDto>>>> GetAbsentStudents(
-        [FromQuery] DateTime date,
+        [FromQuery] DateTime? date = null,
         [FromQuery] int? centerId = null)
     {
         try
         {
-            var result = await _attendanceStatisticsService.GetAbsentStudentsAsync(date, centerId);
+            var result = await _attendanceStatisticsService.GetAbsentStudentsAsync(date ?? default(DateTime), centerId);
             return Ok(result);
         }
         catch (Exception ex)
@@ -116,12 +116,12 @@ public class AttendanceStatisticsController(IAttendanceStatisticsService attenda
     [HttpGet("paid-but-absent")]
     [Authorize(Roles = $"{Roles.SuperAdmin},{Roles.Admin},{Roles.Manager}")]
     public async Task<ActionResult<Response<List<AbsentStudentDto>>>> GetStudentsWithPaidLessonsButAbsent(
-        [FromQuery] DateTime date,
+        [FromQuery] DateTime? date = null,
         [FromQuery] int? centerId = null)
     {
         try
         {
-            var result = await _attendanceStatisticsService.GetStudentsWithPaidLessonsButAbsentAsync(date, centerId);
+            var result = await _attendanceStatisticsService.GetStudentsWithPaidLessonsButAbsentAsync(date ?? default(DateTime), centerId);
             return Ok(result);
         }
         catch (Exception ex)
@@ -134,12 +134,12 @@ public class AttendanceStatisticsController(IAttendanceStatisticsService attenda
     [HttpGet("paid-and-present")]
     [Authorize(Roles = $"{Roles.SuperAdmin},{Roles.Admin},{Roles.Manager}")]
     public async Task<ActionResult<Response<List<StudentAttendanceStatisticsDto>>>> GetStudentsWithPaidLessonsAndPresent(
-        [FromQuery] DateTime date,
+        [FromQuery] DateTime? date = null,
         [FromQuery] int? centerId = null)
     {
         try
         {
-            var result = await _attendanceStatisticsService.GetStudentsWithPaidLessonsAndPresentAsync(date, centerId);
+            var result = await _attendanceStatisticsService.GetStudentsWithPaidLessonsAndPresentAsync(date ?? default(DateTime), centerId);
             return Ok(result);
         }
         catch (Exception ex)

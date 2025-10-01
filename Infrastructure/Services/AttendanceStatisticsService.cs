@@ -20,6 +20,12 @@ public class AttendanceStatisticsService(DataContext db, IHttpContextAccessor ht
     {
         try
         {
+            // Агар date мушаххас нашуда бошад, вақти ҷорӣ гирифта мешавад
+            if (date == default(DateTime))
+            {
+                date = DateTime.Now.Date;
+            }
+
             var userCenterId = UserContextHelper.GetCurrentUserCenterId(_http);
             var user = _http.HttpContext?.User;
             var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
@@ -110,6 +116,12 @@ public class AttendanceStatisticsService(DataContext db, IHttpContextAccessor ht
     {
         try
         {
+            // Агар date мушаххас нашуда бошад, вақти ҷорӣ гирифта мешавад
+            if (date == default(DateTime))
+            {
+                date = DateTime.Now.Date;
+            }
+
             var userCenterId = UserContextHelper.GetCurrentUserCenterId(_http);
             var user = _http.HttpContext?.User;
             var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
@@ -392,6 +404,12 @@ public class AttendanceStatisticsService(DataContext db, IHttpContextAccessor ht
     {
         try
         {
+            // Агар date мушаххас нашуда бошад, вақти ҷорӣ гирифта мешавад
+            if (date == default(DateTime))
+            {
+                date = DateTime.Now.Date;
+            }
+
             var userCenterId = UserContextHelper.GetCurrentUserCenterId(_http);
             var user = _http.HttpContext?.User;
             var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
