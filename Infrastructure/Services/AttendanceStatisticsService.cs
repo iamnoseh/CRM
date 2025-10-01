@@ -27,92 +27,61 @@ public class AttendanceStatisticsService(DataContext db, IHttpContextAccessor ht
             
             var effectiveCenterId = isSuperAdmin ? centerId : userCenterId;
 
-            // Донишҷӯёне ки вақти дарсиашон шудааст (пардохт кардаанд) ва дарсҳои онҳо сар шудаанд
-            var studentsWithPaidLessonsQuery = _db.Students
+            // Донишҷӯёне ки вақти дарсиашон шудааст (пардохт кардаанд)
+            var studentsWithPaidLessons = await _db.Students
                 .Where(s => !s.IsDeleted && 
                            s.ActiveStatus == ActiveStatus.Active &&
                            s.PaymentStatus == PaymentStatus.Paid &&
-                           (effectiveCenterId == null || s.CenterId == effectiveCenterId) &&
-                           s.StudentGroups.Any(sg => sg.IsActive && !sg.IsDeleted && 
-                                                    sg.Group.Started && 
-                                                    sg.Group.Status == ActiveStatus.Active &&
-                                                    sg.Group.LessonDays != null &&
-                                                    sg.Group.LessonStartTime != null));
+                           (effectiveCenterId == null || s.CenterId == effectiveCenterId))
+                .CountAsync();
 
-            var studentsWithPaidLessons = await studentsWithPaidLessonsQuery.CountAsync();
-
-            // Ҳисоб кардани донишҷӯёни ҳозир бо назардошти вақти дарс
-            var presentStudents = 0;
-            var absentStudents = 0;
-            var lateStudents = 0;
-
-            var groupsWithLessonsToday = await _db.Groups
-                .Where(g => !g.IsDeleted && 
-                           g.Started && 
-                           g.Status == ActiveStatus.Active &&
-                           g.LessonDays != null &&
-                           g.LessonStartTime != null &&
-                           g.LessonEndTime != null &&
-                           (effectiveCenterId == null || g.Mentor.CenterId == effectiveCenterId))
-                .ToListAsync();
-
-            foreach (var group in groupsWithLessonsToday)
+            // Донишҷӯёне ки дар рӯзи мушаххас ҳозиранд
+            var presentStudentsQuery = _db.JournalEntries
+                .Where(je => je.EntryDate.Date == date.Date &&
+                           je.AttendanceStatus == AttendanceStatus.Present &&
+                           !je.IsDeleted);
+            
+            if (effectiveCenterId.HasValue)
             {
-                if (group.LessonDays == null || group.LessonStartTime == null || group.LessonEndTime == null)
-                    continue;
-
-                // Санҷидани ки рӯзи ҷорӣ дарс дорад
-                var dayOfWeek = (int)date.DayOfWeek;
-                var lessonDays = group.LessonDays.Split(',').Select(int.Parse).ToList();
-                
-                if (!lessonDays.Contains(dayOfWeek))
-                    continue;
-
-                var lessonStartTime = group.LessonStartTime.Value;
-                var lessonEndTime = group.LessonEndTime.Value;
-                var currentTime = TimeOnly.FromDateTime(DateTime.Now);
-
-                // Агар вақти ҷорӣ аз вақти оғози дарс калонтар бошад, дарс сар шудааст
-                if (currentTime >= lessonStartTime)
-                {
-                    var groupStudents = await _db.StudentGroups
-                        .Where(sg => sg.GroupId == group.Id && 
-                                   sg.IsActive && 
-                                   !sg.IsDeleted &&
-                                   sg.Student.PaymentStatus == PaymentStatus.Paid)
-                        .ToListAsync();
-
-                    foreach (var studentGroup in groupStudents)
-                    {
-                        var journalEntry = await _db.JournalEntries
-                            .Where(je => je.StudentId == studentGroup.StudentId &&
-                                       je.EntryDate.Date == date.Date &&
-                                       !je.IsDeleted)
-                            .FirstOrDefaultAsync();
-
-                        if (journalEntry != null)
-                        {
-                            switch (journalEntry.AttendanceStatus)
-                            {
-                                case AttendanceStatus.Present:
-                                    presentStudents++;
-                                    break;
-                                case AttendanceStatus.Absent:
-                                    absentStudents++;
-                                    break;
-                                case AttendanceStatus.Late:
-                                    lateStudents++;
-                                    break;
-                            }
-                        }
-                        else
-                        {
-                            // Агар дар журнал қайд набошад, ғоиб ҳисоб мешавад
-                            absentStudents++;
-                        }
-                    }
-                }
+                presentStudentsQuery = presentStudentsQuery.Where(je => je.Student.CenterId == effectiveCenterId.Value);
             }
+            
+            var presentStudents = await presentStudentsQuery
+                .Select(je => je.StudentId)
+                .Distinct()
+                .CountAsync();
+
+            // Донишҷӯёне ки дар рӯзи мушаххас ғоибанд
+            var absentStudentsQuery = _db.JournalEntries
+                .Where(je => je.EntryDate.Date == date.Date &&
+                           je.AttendanceStatus == AttendanceStatus.Absent &&
+                           !je.IsDeleted);
+            
+            if (effectiveCenterId.HasValue)
+            {
+                absentStudentsQuery = absentStudentsQuery.Where(je => je.Student.CenterId == effectiveCenterId.Value);
+            }
+            
+            var absentStudents = await absentStudentsQuery
+                .Select(je => je.StudentId)
+                .Distinct()
+                .CountAsync();
+
+            // Донишҷӯёне ки дар рӯзи мушаххас дер омадаанд
+            var lateStudentsQuery = _db.JournalEntries
+                .Where(je => je.EntryDate.Date == date.Date &&
+                           je.AttendanceStatus == AttendanceStatus.Late &&
+                           !je.IsDeleted);
+            
+            if (effectiveCenterId.HasValue)
+            {
+                lateStudentsQuery = lateStudentsQuery.Where(je => je.Student.CenterId == effectiveCenterId.Value);
+            }
+            
+            var lateStudents = await lateStudentsQuery
+                .Select(je => je.StudentId)
+                .Distinct()
+                .CountAsync();
 
             var attendanceRate = studentsWithPaidLessons > 0 
                 ? Math.Round((double)(presentStudents + lateStudents) / studentsWithPaidLessons * 100, 2) 
@@ -132,8 +101,8 @@ public class AttendanceStatisticsService(DataContext db, IHttpContextAccessor ht
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Error getting daily attendance summary for date {Date}", date);
-            return new Response<DailyAttendanceSummaryDto>(System.Net.HttpStatusCode.InternalServerError, "Хатогии дохилӣ");
+            Log.Error(ex, "Error getting daily attendance summary for date {Date}. Error: {Error}", date, ex.Message);
+            return new Response<DailyAttendanceSummaryDto>(System.Net.HttpStatusCode.InternalServerError, $"Хатогии дохилӣ: {ex.Message}");
         }
     }
 
