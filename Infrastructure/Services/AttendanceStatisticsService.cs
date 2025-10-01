@@ -103,7 +103,12 @@ public class AttendanceStatisticsService(DataContext db, IHttpContextAccessor ht
                 AttendanceRate = attendanceRate
             };
 
-            return new Response<DailyAttendanceSummaryDto>(result);
+            return new Response<DailyAttendanceSummaryDto>
+            {
+                Data = result,
+                StatusCode = 200,
+                Message = "Омори иштироки рӯзона бо муваффақият гирифта шуд"
+            };
         }
         catch (Exception ex)
         {
@@ -221,7 +226,12 @@ public class AttendanceStatisticsService(DataContext db, IHttpContextAccessor ht
                 }
             }
 
-            return new Response<List<AbsentStudentDto>>(absentStudents);
+            return new Response<List<AbsentStudentDto>>
+            {
+                Data = absentStudents,
+                StatusCode = 200,
+                Message = $"Рӯйхати {absentStudents.Count} донишҷӯи ғоиб бо муваффақият гирифта шуд"
+            };
         }
         catch (Exception ex)
         {
@@ -287,7 +297,12 @@ public class AttendanceStatisticsService(DataContext db, IHttpContextAccessor ht
                 TotalAbsentDays = totalAbsentDays
             };
 
-            return new Response<MonthlyAttendanceStatisticsDto>(result);
+            return new Response<MonthlyAttendanceStatisticsDto>
+            {
+                Data = result,
+                StatusCode = 200,
+                Message = $"Омори иштироки моҳи {month}/{year} бо муваффақият гирифта шуд"
+            };
         }
         catch (Exception ex)
         {
@@ -318,7 +333,12 @@ public class AttendanceStatisticsService(DataContext db, IHttpContextAccessor ht
                 }
             }
 
-            return new Response<List<DailyAttendanceSummaryDto>>(dailySummaries);
+            return new Response<List<DailyAttendanceSummaryDto>>
+            {
+                Data = dailySummaries,
+                StatusCode = 200,
+                Message = $"Омори иштироки ҳафта аз {startDate:dd.MM.yyyy} то {endDate:dd.MM.yyyy} бо муваффақият гирифта шуд"
+            };
         }
         catch (Exception ex)
         {
@@ -386,7 +406,12 @@ public class AttendanceStatisticsService(DataContext db, IHttpContextAccessor ht
                     : 0;
             }
 
-            return new Response<List<StudentAttendanceStatisticsDto>>(students);
+            return new Response<List<StudentAttendanceStatisticsDto>>
+            {
+                Data = students,
+                StatusCode = 200,
+                Message = $"Омори иштироки гуруҳи {groupId} барои {date:dd.MM.yyyy} бо муваффақият гирифта шуд"
+            };
         }
         catch (Exception ex)
         {
@@ -487,7 +512,12 @@ public class AttendanceStatisticsService(DataContext db, IHttpContextAccessor ht
                 }
             }
 
-            return new Response<List<StudentAttendanceStatisticsDto>>(presentStudents);
+            return new Response<List<StudentAttendanceStatisticsDto>>
+            {
+                Data = presentStudents,
+                StatusCode = 200,
+                Message = $"Рӯйхати {presentStudents.Count} донишҷӯи ҳозир бо муваффақият гирифта шуд"
+            };
         }
         catch (Exception ex)
         {

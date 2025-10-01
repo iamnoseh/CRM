@@ -29,7 +29,12 @@ public class AttendanceStatisticsController(IAttendanceStatisticsService attenda
         catch (Exception ex)
         {
             Log.Error(ex, "Error in GetDailyAttendanceSummary");
-            return StatusCode(500, new Response<DailyAttendanceSummaryDto>(System.Net.HttpStatusCode.InternalServerError, "Хатогии дохилӣ"));
+            return StatusCode(500, new Response<DailyAttendanceSummaryDto>
+            {
+                StatusCode = 500,
+                Message = "Хатогии дохилӣ дар сервер",
+                Data = default
+            });
         }
     }
 
@@ -47,7 +52,12 @@ public class AttendanceStatisticsController(IAttendanceStatisticsService attenda
         catch (Exception ex)
         {
             Log.Error(ex, "Error in GetAbsentStudents");
-            return StatusCode(500, new Response<List<AbsentStudentDto>>(System.Net.HttpStatusCode.InternalServerError, "Хатогии дохилӣ"));
+            return StatusCode(500, new Response<List<AbsentStudentDto>>
+            {
+                StatusCode = 500,
+                Message = "Хатогии дохилӣ дар сервер",
+                Data = default
+            });
         }
     }
 
@@ -69,7 +79,12 @@ public class AttendanceStatisticsController(IAttendanceStatisticsService attenda
         catch (Exception ex)
         {
             Log.Error(ex, "Error in GetMonthlyAttendanceStatistics");
-            return StatusCode(500, new Response<MonthlyAttendanceStatisticsDto>(System.Net.HttpStatusCode.InternalServerError, "Хатогии дохилӣ"));
+            return StatusCode(500, new Response<MonthlyAttendanceStatisticsDto>
+            {
+                StatusCode = 500,
+                Message = "Хатогии дохилӣ дар сервер",
+                Data = default
+            });
         }
     }
 
@@ -91,7 +106,12 @@ public class AttendanceStatisticsController(IAttendanceStatisticsService attenda
         catch (Exception ex)
         {
             Log.Error(ex, "Error in GetWeeklyAttendanceSummary");
-            return StatusCode(500, new Response<List<DailyAttendanceSummaryDto>>(System.Net.HttpStatusCode.InternalServerError, "Хатогии дохилӣ"));
+            return StatusCode(500, new Response<List<DailyAttendanceSummaryDto>>
+            {
+                StatusCode = 500,
+                Message = "Хатогии дохилӣ дар сервер",
+                Data = default
+            });
         }
     }
 
@@ -109,7 +129,12 @@ public class AttendanceStatisticsController(IAttendanceStatisticsService attenda
         catch (Exception ex)
         {
             Log.Error(ex, "Error in GetGroupAttendanceForDate");
-            return StatusCode(500, new Response<List<StudentAttendanceStatisticsDto>>(System.Net.HttpStatusCode.InternalServerError, "Хатогии дохилӣ"));
+            return StatusCode(500, new Response<List<StudentAttendanceStatisticsDto>>
+            {
+                StatusCode = 500,
+                Message = "Хатогии дохилӣ дар сервер",
+                Data = default
+            });
         }
     }
 
@@ -127,7 +152,12 @@ public class AttendanceStatisticsController(IAttendanceStatisticsService attenda
         catch (Exception ex)
         {
             Log.Error(ex, "Error in GetStudentsWithPaidLessonsButAbsent");
-            return StatusCode(500, new Response<List<AbsentStudentDto>>(System.Net.HttpStatusCode.InternalServerError, "Хатогии дохилӣ"));
+            return StatusCode(500, new Response<List<AbsentStudentDto>>
+            {
+                StatusCode = 500,
+                Message = "Хатогии дохилӣ дар сервер",
+                Data = default
+            });
         }
     }
 
@@ -145,7 +175,12 @@ public class AttendanceStatisticsController(IAttendanceStatisticsService attenda
         catch (Exception ex)
         {
             Log.Error(ex, "Error in GetStudentsWithPaidLessonsAndPresent");
-            return StatusCode(500, new Response<List<StudentAttendanceStatisticsDto>>(System.Net.HttpStatusCode.InternalServerError, "Хатогии дохилӣ"));
+            return StatusCode(500, new Response<List<StudentAttendanceStatisticsDto>>
+            {
+                StatusCode = 500,
+                Message = "Хатогии дохилӣ дар сервер",
+                Data = default
+            });
         }
     }
 
