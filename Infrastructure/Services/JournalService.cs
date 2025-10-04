@@ -211,6 +211,8 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
                         {
                             Id = e.Id,
                             DayOfWeek = e.DayOfWeek,
+                            DayName = GetDayNameInTajik(e.DayOfWeek),
+                            DayShortName = GetDayShortNameInTajik(e.DayOfWeek),
                             LessonNumber = e.LessonNumber,
                             LessonType = e.LessonType,
                             Grade = e.Grade ?? 0,
@@ -305,6 +307,8 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
                         {
                             Id = e.Id,
                             DayOfWeek = e.DayOfWeek,
+                            DayName = GetDayNameInTajik(e.DayOfWeek),
+                            DayShortName = GetDayShortNameInTajik(e.DayOfWeek),
                             LessonNumber = e.LessonNumber,
                             LessonType = e.LessonType,
                             Grade = e.Grade ?? 0,
@@ -408,6 +412,8 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
                         {
                             Id = e.Id,
                             DayOfWeek = e.DayOfWeek,
+                            DayName = GetDayNameInTajik(e.DayOfWeek),
+                            DayShortName = GetDayShortNameInTajik(e.DayOfWeek),
                             LessonNumber = e.LessonNumber,
                             LessonType = e.LessonType,
                             Grade = e.Grade ?? 0,

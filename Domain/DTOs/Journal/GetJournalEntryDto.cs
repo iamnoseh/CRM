@@ -6,6 +6,8 @@ public class GetJournalEntryDto
 {
     public int Id { get; set; }
     public int DayOfWeek { get; set; }
+    public string DayName { get; set; } = string.Empty;
+    public string DayShortName { get; set; } = string.Empty;
     public int LessonNumber { get; set; } 
     public LessonType LessonType { get; set; } = LessonType.Regular;
     public decimal Grade { get; set; } = 0;

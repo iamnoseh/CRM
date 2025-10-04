@@ -39,10 +39,13 @@ public class WeeklyJournalSchedulerService(
     private static DateTimeOffset CalculateNextRunTime(DateTimeOffset currentTime)
     {
         var local = currentTime.ToDushanbeTime();
-        var target = new TimeSpan(0, 5, 0);
+        var target = new TimeSpan(0, 5, 0); // 05:00 AM Dushanbe time
         var candidate = new DateTimeOffset(local.Date.Add(target), local.Offset);
+        
+        // Агар вақти ҷорӣ аз вақти мақсад калонтар бошад, ба рӯзи навбатӣ гузарем
         if (local >= candidate)
             candidate = candidate.AddDays(1);
+            
         return candidate;
     }
 
@@ -93,29 +96,38 @@ public class WeeklyJournalSchedulerService(
                     continue;
                 }
 
-                if (latestJournal.WeekNumber < group.TotalWeeks && DateTimeOffset.UtcNow > latestJournal.WeekEndDate)
+                // Санҷидани ки ҳафтаи навбатӣ лозим аст
+                if (latestJournal.WeekNumber < group.TotalWeeks)
                 {
-                    var nextWeek = latestJournal.WeekNumber + 1;
-                    var existsNext = await context.Journals
-                        .AnyAsync(j => j.GroupId == group.Id && j.WeekNumber == nextWeek && !j.IsDeleted, ct);
-                    if (!existsNext)
+                    // Ҳисобкунии вақти анҷоми ҳафтаи ҷорӣ дар timezone-и Душанбе
+                    var weekEndTimeLocal = latestJournal.WeekEndDate.ToDushanbeTime();
+                    var currentTimeLocal = DateTimeOffset.UtcNow.ToDushanbeTime();
+                    
+                    // Агар вақти ҷорӣ аз вақти анҷоми ҳафта калонтар бошад, ҳафтаи навбатӣ лозим аст
+                    if (currentTimeLocal > weekEndTimeLocal)
                     {
-                        var res = await journalService.GenerateWeeklyJournalAsync(group.Id, nextWeek);
-                        var ok = res.StatusCode >= 200 && res.StatusCode < 300;
-                        if (ok)
+                        var nextWeek = latestJournal.WeekNumber + 1;
+                        var existsNext = await context.Journals
+                            .AnyAsync(j => j.GroupId == group.Id && j.WeekNumber == nextWeek && !j.IsDeleted, ct);
+                        if (!existsNext)
                         {
-                            result.SuccessCount++;
-                            result.Messages.Add($"Created week {nextWeek} for group {group.Id}");
+                            var res = await journalService.GenerateWeeklyJournalAsync(group.Id, nextWeek);
+                            var ok = res.StatusCode >= 200 && res.StatusCode < 300;
+                            if (ok)
+                            {
+                                result.SuccessCount++;
+                                result.Messages.Add($"Created week {nextWeek} for group {group.Id}");
+                            }
+                            else
+                            {
+                                result.FailedCount++;
+                                result.FailedItems.Add(group.Id.ToString());
+                                result.Messages.Add($"Failed to create week {nextWeek} for group {group.Name}: {res.Message}");
+                            }
+                            logger.LogInformation(
+                                "Автосоздана следующая неделя {week} для группы {GroupName}: статус {status}", nextWeek,
+                                group.Name, res.StatusCode);
                         }
-                        else
-                        {
-                            result.FailedCount++;
-                            result.FailedItems.Add(group.Id.ToString());
-                            result.Messages.Add($"Failed to create week {nextWeek} for group {group.Name}: {res.Message}");
-                        }
-                        logger.LogInformation(
-                            "Автосоздана следующая неделя {week} для группы {GroupName}: статус {status}", nextWeek,
-                            group.Name, res.StatusCode);
                     }
                 }
             }
