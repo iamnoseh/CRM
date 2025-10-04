@@ -759,7 +759,7 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
             4 => 4, // Thursday -> Panjshanbe
             5 => 5, // Friday -> Juma
             6 => 6, // Saturday -> Shanbe
-            _ => throw new ArgumentOutOfRangeException(nameof(dotNetDayOfWeek), "Рӯзи ҳафта бояд аз 1 то 7 бошад")
+            _ => throw new ArgumentOutOfRangeException(nameof(dotNetDayOfWeek), "Рӯзи ҳафта бояд аз 0 то 6 бошад")
         };
     }
     
