@@ -307,8 +307,8 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
                         {
                             Id = e.Id,
                             DayOfWeek = e.DayOfWeek,
-                            DayName = GetDayNameInTajik(e.DayOfWeek),
-                            DayShortName = GetDayShortNameInTajik(e.DayOfWeek),
+                            DayName = string.Empty,
+                            DayShortName = string.Empty,
                             LessonNumber = e.LessonNumber,
                             LessonType = e.LessonType,
                             Grade = e.Grade ?? 0,
@@ -412,8 +412,8 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
                         {
                             Id = e.Id,
                             DayOfWeek = e.DayOfWeek,
-                            DayName = GetDayNameInTajik(e.DayOfWeek),
-                            DayShortName = GetDayShortNameInTajik(e.DayOfWeek),
+                            DayName = string.Empty,
+                            DayShortName = string.Empty,
                             LessonNumber = e.LessonNumber,
                             LessonType = e.LessonType,
                             Grade = e.Grade ?? 0,
@@ -760,6 +760,36 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
             5 => 5, // Friday -> Juma
             6 => 6, // Saturday -> Shanbe
             _ => throw new ArgumentOutOfRangeException(nameof(dotNetDayOfWeek), "Рӯзи ҳафта бояд аз 0 то 6 бошад")
+        };
+    }
+
+    private static string GetDayNameInTajik(int crmDayOfWeek)
+    {
+        return crmDayOfWeek switch
+        {
+            1 => "Душанбе",
+            2 => "Сешанбе", 
+            3 => "Чоршанбе",
+            4 => "Панҷшанбе",
+            5 => "Ҷумъа",
+            6 => "Шанбе",
+            7 => "Якшанбе",
+            _ => "Номаълум"
+        };
+    }
+
+    private static string GetDayShortNameInTajik(int crmDayOfWeek)
+    {
+        return crmDayOfWeek switch
+        {
+            1 => "Ду",
+            2 => "Се", 
+            3 => "Чо",
+            4 => "Па",
+            5 => "Ҷу",
+            6 => "Ша",
+            7 => "Як",
+            _ => "Н"
         };
     }
     
