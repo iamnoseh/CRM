@@ -28,7 +28,22 @@ namespace Infrastructure.Services.EmailService
         emailMessage.From.Add(new MailboxAddress(configuration["EmailConfiguration:DisplayName"], emailConfiguration.From));
         emailMessage.To.AddRange(message.To);
         emailMessage.Subject = message.Subject;
-        emailMessage.Body = new TextPart(format) { Text = message.Content };
+
+        var bodyBuilder = new BodyBuilder { HtmlBody = message.Content };
+
+        if (message.AttachmentsPaths != null && message.AttachmentsPaths.Any())
+        {
+            foreach (var attachmentPath in message.AttachmentsPaths)
+            {
+                if (File.Exists(attachmentPath))
+                {
+                    bodyBuilder.Attachments.Add(attachmentPath);
+                }
+            }
+        }
+
+        emailMessage.Body = bodyBuilder.ToMessageBody();
+
         return emailMessage;
     }
 

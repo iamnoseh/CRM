@@ -5,5 +5,5 @@ namespace Infrastructure.Services.EmailService;
 
 public interface IEmailService
 {
-    Task SendEmail(EmailMessageDto model,TextFormat format);
+    Task SendEmail(EmailMessageDto model, TextFormat format);
 }

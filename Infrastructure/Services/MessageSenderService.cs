@@ -52,12 +52,13 @@ public class MessageSenderService(
                 }
 
                 var emailMessage = sendMessageDto.MessageContent;
+                List<string>? attachments = null;
                 if (!string.IsNullOrEmpty(attachmentPath))
                 {
-                    emailMessage += $"<br><br>Замима: <a href='{attachmentPath}'>Барои кушодани замима инҷоро клик кунед</a>";
+                    attachments = new List<string> { Path.Combine(webHostEnvironment.WebRootPath, attachmentPath.TrimStart('/')) };
                 }
 
-                var emailDto = new EmailMessageDto(new[] { student.Email }, "Kavsar Academy", emailMessage);
+                var emailDto = new EmailMessageDto(new[] { student.Email }, "Kavsar Academy", emailMessage, attachments);
                 await emailService.SendEmail(emailDto, TextFormat.Html);
             }
             else if (sendMessageDto.MessageType == MessageType.SMS)

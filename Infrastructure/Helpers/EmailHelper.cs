@@ -22,7 +22,7 @@ public static class EmailHelper
             gradientStart, gradientEnd, userType);
 
         await emailService.SendEmail(
-            new EmailMessageDto(new[] { email }, subject, message),
+            new EmailMessageDto(new[] { email }, subject, message, attachmentsPaths: null),
             TextFormat.Html);
     }
 
@@ -53,7 +53,7 @@ public static class EmailHelper
             </div>";
 
         await emailService.SendEmail(
-            new EmailMessageDto(new[] { email }, subject, message),
+            new EmailMessageDto(new[] { email }, subject, message, attachmentsPaths: null),
             TextFormat.Html);
     }
 
@@ -81,7 +81,7 @@ public static class EmailHelper
             </div>";
 
         await emailService.SendEmail(
-            new EmailMessageDto(new[] { email }, subject, message),
+            new EmailMessageDto(new[] { email }, subject, message, attachmentsPaths: null),
             TextFormat.Html);
     }
 
