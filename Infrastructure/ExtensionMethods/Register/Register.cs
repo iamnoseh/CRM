@@ -199,6 +199,7 @@ public static class Register
          services.AddScoped<IOsonSmsService, OsonSmsService>();
          services.AddScoped<IDiscountService, DiscountService>();
          services.AddScoped<IPaymentService, PaymentService>();
+         services.AddScoped<IMessageSenderService, MessageSenderService>();
          services.AddScoped<ILeadService>(sp => 
             new LeadService(
                 sp.GetRequiredService<DataContext>(),
