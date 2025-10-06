@@ -33,7 +33,7 @@ public class Student : BaseEntity
     public Center? Center { get; set; }
     public int UserId { get; set; }
     public User? User { get; set; }
-    // Navigation properties
+
     public List<StudentGroup> StudentGroups { get; set; } = new();
     public List<Payment> Payments { get; set; } = new();
     public List<JournalEntry> JournalEntries { get; set; } = new();
