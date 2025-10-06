@@ -24,6 +24,7 @@ public class Student : BaseEntity
     public Gender Gender { get; set; }
     public ActiveStatus ActiveStatus { get; set; }
     public PaymentStatus PaymentStatus { get; set; }
+    public decimal Discount { get; set; } = 0;
     public string? ProfileImage { get; set; }
     public decimal TotalPaid { get; set; } = 0;
     public DateTime? LastPaymentDate { get; set; }
