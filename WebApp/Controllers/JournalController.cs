@@ -53,6 +53,7 @@ public class JournalController(IJournalService journalService) : ControllerBase
     [Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor,Student")]
     public async Task<Response<List<int>>> GetGroupWeekNumbers(int groupId) =>
         await journalService.GetGroupWeekNumbersAsync(groupId);
+    
 }
 
 

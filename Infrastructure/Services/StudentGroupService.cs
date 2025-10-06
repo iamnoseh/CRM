@@ -23,8 +23,6 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
             var group = await context.Groups.FirstOrDefaultAsync(g => g.Id == request.GroupId && !g.IsDeleted);
             if (group == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Группа не найдена");
-
-            // Find any existing link (even if previously soft-deleted) to support reactivation
             var existingStudentGroup = await context.StudentGroups
                 .FirstOrDefaultAsync(sg => sg.StudentId == request.StudentId && 
                                           sg.GroupId == request.GroupId);
@@ -34,7 +32,6 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                 if (existingStudentGroup.IsActive && !existingStudentGroup.IsDeleted)
                     return new Response<string>(HttpStatusCode.BadRequest, "Студент уже назначен в эту группу");
 
-                // Reactivate and un-delete if needed
                 existingStudentGroup.IsActive = true;
                 existingStudentGroup.IsDeleted = false;
                 existingStudentGroup.LeaveDate = null;
@@ -44,7 +41,6 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                 var updateResult = await context.SaveChangesAsync();
                 if (updateResult > 0)
                 {
-                    // Backfill current week's journal entries for this student
                     _ = await journalService.BackfillCurrentWeekForStudentAsync(request.GroupId, request.StudentId);
                     return new Response<string>(HttpStatusCode.OK, "Членство студента в группе переактивировано");
                 }
@@ -209,7 +205,8 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                     FullName = studentGroup.Student.FullName,
                     PhoneNumber = studentGroup.Student.PhoneNumber,
                     JoinedDate = studentGroup.JoinDate,  
-                    PaymentStatus = studentGroup.Student.PaymentStatus
+                    PaymentStatus = studentGroup.Student.PaymentStatus,
+                    Discount = studentGroup.Student.Discount
                 },
                 IsActive = studentGroup.IsActive,
                 JoinDate = studentGroup.JoinDate,
@@ -246,7 +243,8 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                         FullName = sg.Student.FullName,
                         PhoneNumber = sg.Student.PhoneNumber,
                         JoinedDate = sg.JoinDate,
-                        PaymentStatus = sg.Student.PaymentStatus
+                        PaymentStatus = sg.Student.PaymentStatus,
+                        Discount = sg.Student.Discount
                     },
                     IsActive = sg.IsActive,
                     JoinDate = sg.JoinDate,
@@ -328,6 +326,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                         PhoneNumber = sg.Student.PhoneNumber,
                         JoinedDate = sg.JoinDate,
                         PaymentStatus = sg.Student.PaymentStatus,
+                        Discount = sg.Student.Discount
                     },
                     IsActive = sg.IsActive,
                     JoinDate = sg.JoinDate,
@@ -380,7 +379,8 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                         FullName = sg.Student.FullName,
                         PhoneNumber = sg.Student.PhoneNumber,
                         JoinedDate = sg.JoinDate,
-                        PaymentStatus = sg.Student.PaymentStatus
+                        PaymentStatus = sg.Student.PaymentStatus,
+                        Discount = sg.Student.Discount
                     },
                     IsActive = sg.IsActive,
                     JoinDate = sg.JoinDate,
@@ -427,7 +427,8 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                         FullName = sg.Student.FullName,
                         PhoneNumber = sg.Student.PhoneNumber,
                         JoinedDate = sg.JoinDate,
-                        PaymentStatus = sg.Student.PaymentStatus
+                        PaymentStatus = sg.Student.PaymentStatus,
+                        Discount = sg.Student.Discount
                     },
                     IsActive = sg.IsActive,
                     JoinDate = sg.JoinDate,
@@ -628,7 +629,8 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                         FullName = sg.Student.FullName,
                         PhoneNumber = sg.Student.PhoneNumber,
                         JoinedDate = sg.JoinDate,
-                        PaymentStatus = sg.Student.PaymentStatus
+                        PaymentStatus = sg.Student.PaymentStatus,
+                        Discount = sg.Student.Discount
                     },
                     IsActive = sg.IsActive,
                     JoinDate = sg.JoinDate,
@@ -677,7 +679,8 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                         FullName = sg.Student.FullName,
                         PhoneNumber = sg.Student.PhoneNumber,
                         JoinedDate = sg.JoinDate,
-                        PaymentStatus = sg.Student.PaymentStatus
+                        PaymentStatus = sg.Student.PaymentStatus,
+                        Discount = sg.Student.Discount
                     },
                     IsActive = sg.IsActive,
                     JoinDate = sg.JoinDate,

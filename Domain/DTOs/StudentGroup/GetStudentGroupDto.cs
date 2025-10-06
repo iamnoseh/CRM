@@ -22,4 +22,5 @@ public class StudentDTO
     public string PhoneNumber { get; set; } = string.Empty;
     public DateTime JoinedDate { get; set; } 
     public PaymentStatus PaymentStatus { get; set; }
+    public decimal Discount { get; set; }
 }
