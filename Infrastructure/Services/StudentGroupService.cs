@@ -1,4 +1,5 @@
 using System.Net;
+using Domain.DTOs.Discounts;
 using Domain.DTOs.StudentGroup;
 using Domain.Entities;
 using Domain.Filters;
@@ -206,7 +207,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                     PhoneNumber = studentGroup.Student.PhoneNumber,
                     JoinedDate = studentGroup.JoinDate,  
                     PaymentStatus = studentGroup.Student.PaymentStatus,
-                    Discount = studentGroup.Student.Discount
+                    Discount = new GetStudentGroupDiscountDto { DiscountAmount = studentGroup.Student.Discount, StudentId = studentGroup.Student.Id, GroupId = studentGroup.GroupId }
                 },
                 IsActive = studentGroup.IsActive,
                 JoinDate = studentGroup.JoinDate,
@@ -244,7 +245,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                         PhoneNumber = sg.Student.PhoneNumber,
                         JoinedDate = sg.JoinDate,
                         PaymentStatus = sg.Student.PaymentStatus,
-                        Discount = sg.Student.Discount
+                        Discount = new GetStudentGroupDiscountDto { DiscountAmount = sg.Student.Discount, StudentId = sg.Student.Id, GroupId = sg.GroupId }
                     },
                     IsActive = sg.IsActive,
                     JoinDate = sg.JoinDate,
@@ -326,7 +327,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                         PhoneNumber = sg.Student.PhoneNumber,
                         JoinedDate = sg.JoinDate,
                         PaymentStatus = sg.Student.PaymentStatus,
-                        Discount = sg.Student.Discount
+                        Discount = new GetStudentGroupDiscountDto { DiscountAmount = sg.Student.Discount, StudentId = sg.Student.Id, GroupId = sg.GroupId }
                     },
                     IsActive = sg.IsActive,
                     JoinDate = sg.JoinDate,
@@ -380,7 +381,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                         PhoneNumber = sg.Student.PhoneNumber,
                         JoinedDate = sg.JoinDate,
                         PaymentStatus = sg.Student.PaymentStatus,
-                        Discount = sg.Student.Discount
+                        Discount = new GetStudentGroupDiscountDto { DiscountAmount = sg.Student.Discount, StudentId = sg.Student.Id, GroupId = sg.GroupId }
                     },
                     IsActive = sg.IsActive,
                     JoinDate = sg.JoinDate,
@@ -428,7 +429,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                         PhoneNumber = sg.Student.PhoneNumber,
                         JoinedDate = sg.JoinDate,
                         PaymentStatus = sg.Student.PaymentStatus,
-                        Discount = sg.Student.Discount
+                        Discount = new GetStudentGroupDiscountDto { DiscountAmount = sg.Student.Discount, StudentId = sg.Student.Id, GroupId = sg.GroupId }
                     },
                     IsActive = sg.IsActive,
                     JoinDate = sg.JoinDate,
@@ -630,7 +631,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                         PhoneNumber = sg.Student.PhoneNumber,
                         JoinedDate = sg.JoinDate,
                         PaymentStatus = sg.Student.PaymentStatus,
-                        Discount = sg.Student.Discount
+                        Discount = new GetStudentGroupDiscountDto { DiscountAmount = sg.Student.Discount, StudentId = sg.Student.Id, GroupId = sg.GroupId }
                     },
                     IsActive = sg.IsActive,
                     JoinDate = sg.JoinDate,
@@ -680,7 +681,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                         PhoneNumber = sg.Student.PhoneNumber,
                         JoinedDate = sg.JoinDate,
                         PaymentStatus = sg.Student.PaymentStatus,
-                        Discount = sg.Student.Discount
+                        Discount = new GetStudentGroupDiscountDto { DiscountAmount = sg.Student.Discount, StudentId = sg.Student.Id, GroupId = sg.GroupId }
                     },
                     IsActive = sg.IsActive,
                     JoinDate = sg.JoinDate,

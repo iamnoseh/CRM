@@ -436,12 +436,12 @@ public class ScheduleService : IScheduleService
                 conflictDto.Conflicts = conflicts.Select(c => new ConflictDetail
                 {
                     ScheduleId = c.Id,
-                    ClassroomName = c.Classroom.Name,
+                    ClassroomName = c.Classroom?.Name ?? "Номи синфхона маълум нест",
                     GroupName = c.Group?.Name,
                     StartTime = c.StartTime,
                     EndTime = c.EndTime,
                     DayOfWeek = c.DayOfWeek,
-                    Message = $"Вақти дарс бо {c.Group?.Name ?? "дарси дигар"} дар синфхонаи {c.Classroom.Name} мутобиқат дорад"
+                    Message = $"Вақти дарс бо {c.Group?.Name ?? "дарси дигар"} дар синфхонаи {c.Classroom?.Name ?? "синфхонаи дигар"} мутобиқат дорад"
                 }).ToList();
             }
 

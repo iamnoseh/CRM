@@ -1,3 +1,4 @@
+using Domain.DTOs.Discounts;
 using Domain.Enums;
 
 namespace Domain.DTOs.StudentGroup;
@@ -22,5 +23,5 @@ public class StudentDTO
     public string PhoneNumber { get; set; } = string.Empty;
     public DateTime JoinedDate { get; set; } 
     public PaymentStatus PaymentStatus { get; set; }
-    public decimal Discount { get; set; }
+    public GetStudentGroupDiscountDto Discount { get; set; } = new();
 }

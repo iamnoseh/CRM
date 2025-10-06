@@ -377,7 +377,7 @@ public class MentorService(
                 return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound, "Гурӯҳ ёфт нашуд");
 
             var mentorIds = await context.MentorGroups
-                .Where(mg => mg.GroupId == groupId && (bool)mg.IsActive && !mg.IsDeleted)
+                .Where(mg => mg.GroupId == groupId && mg.IsActive == true && !mg.IsDeleted)
                 .Select(mg => mg.MentorId)
                 .ToListAsync();
 
