@@ -193,6 +193,9 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
             if (studentGroup == null)
                 return new Response<GetStudentGroupDto>(HttpStatusCode.NotFound, "Членство студента в группе не найдено");
             
+            var studentGroupDiscount = await context.StudentGroupDiscounts
+                .FirstOrDefaultAsync(sd => sd.StudentId == studentGroup.StudentId && sd.GroupId == studentGroup.GroupId);
+
             var dto = new GetStudentGroupDto
             {
                 Id = studentGroup.Id,
@@ -207,7 +210,13 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                     PhoneNumber = studentGroup.Student.PhoneNumber,
                     JoinedDate = studentGroup.JoinDate,  
                     PaymentStatus = studentGroup.Student.PaymentStatus,
-                    Discount = new GetStudentGroupDiscountDto { DiscountAmount = studentGroup.Student.Discount, StudentId = studentGroup.Student.Id, GroupId = studentGroup.GroupId }
+                    Discount = studentGroupDiscount != null ? new GetStudentGroupDiscountDto 
+                    {
+                        Id = studentGroupDiscount.Id,
+                        StudentId = studentGroupDiscount.StudentId,
+                        GroupId = studentGroupDiscount.GroupId,
+                        DiscountAmount = studentGroupDiscount.DiscountAmount
+                    } : new GetStudentGroupDiscountDto()
                 },
                 IsActive = studentGroup.IsActive,
                 JoinDate = studentGroup.JoinDate,
@@ -245,7 +254,15 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                         PhoneNumber = sg.Student.PhoneNumber,
                         JoinedDate = sg.JoinDate,
                         PaymentStatus = sg.Student.PaymentStatus,
-                        Discount = new GetStudentGroupDiscountDto { DiscountAmount = sg.Student.Discount, StudentId = sg.Student.Id, GroupId = sg.GroupId }
+                        Discount = context.StudentGroupDiscounts
+                                            .Where(sgd => sgd.StudentId == sg.Student.Id && sgd.GroupId == sg.GroupId)
+                                            .Select(sgd => new GetStudentGroupDiscountDto 
+                                            { 
+                                                Id = sgd.Id, 
+                                                StudentId = sgd.StudentId, 
+                                                GroupId = sgd.GroupId, 
+                                                DiscountAmount = sgd.DiscountAmount 
+                                            }).FirstOrDefault() ?? new GetStudentGroupDiscountDto()
                     },
                     IsActive = sg.IsActive,
                     JoinDate = sg.JoinDate,
@@ -327,7 +344,15 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                         PhoneNumber = sg.Student.PhoneNumber,
                         JoinedDate = sg.JoinDate,
                         PaymentStatus = sg.Student.PaymentStatus,
-                        Discount = new GetStudentGroupDiscountDto { DiscountAmount = sg.Student.Discount, StudentId = sg.Student.Id, GroupId = sg.GroupId }
+                        Discount = context.StudentGroupDiscounts
+                                            .Where(sgd => sgd.StudentId == sg.Student.Id && sgd.GroupId == sg.GroupId)
+                                            .Select(sgd => new GetStudentGroupDiscountDto 
+                                            { 
+                                                Id = sgd.Id, 
+                                                StudentId = sgd.StudentId, 
+                                                GroupId = sgd.GroupId, 
+                                                DiscountAmount = sgd.DiscountAmount 
+                                            }).FirstOrDefault() ?? new GetStudentGroupDiscountDto()
                     },
                     IsActive = sg.IsActive,
                     JoinDate = sg.JoinDate,
@@ -381,7 +406,15 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                         PhoneNumber = sg.Student.PhoneNumber,
                         JoinedDate = sg.JoinDate,
                         PaymentStatus = sg.Student.PaymentStatus,
-                        Discount = new GetStudentGroupDiscountDto { DiscountAmount = sg.Student.Discount, StudentId = sg.Student.Id, GroupId = sg.GroupId }
+                        Discount = context.StudentGroupDiscounts
+                                            .Where(sgd => sgd.StudentId == sg.Student.Id && sgd.GroupId == sg.GroupId)
+                                            .Select(sgd => new GetStudentGroupDiscountDto 
+                                            { 
+                                                Id = sgd.Id, 
+                                                StudentId = sgd.StudentId, 
+                                                GroupId = sgd.GroupId, 
+                                                DiscountAmount = sgd.DiscountAmount 
+                                            }).FirstOrDefault() ?? new GetStudentGroupDiscountDto()
                     },
                     IsActive = sg.IsActive,
                     JoinDate = sg.JoinDate,
@@ -429,7 +462,15 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                         PhoneNumber = sg.Student.PhoneNumber,
                         JoinedDate = sg.JoinDate,
                         PaymentStatus = sg.Student.PaymentStatus,
-                        Discount = new GetStudentGroupDiscountDto { DiscountAmount = sg.Student.Discount, StudentId = sg.Student.Id, GroupId = sg.GroupId }
+                        Discount = context.StudentGroupDiscounts
+                                            .Where(sgd => sgd.StudentId == sg.Student.Id && sgd.GroupId == sg.GroupId)
+                                            .Select(sgd => new GetStudentGroupDiscountDto 
+                                            { 
+                                                Id = sgd.Id, 
+                                                StudentId = sgd.StudentId, 
+                                                GroupId = sgd.GroupId, 
+                                                DiscountAmount = sgd.DiscountAmount 
+                                            }).FirstOrDefault() ?? new GetStudentGroupDiscountDto()
                     },
                     IsActive = sg.IsActive,
                     JoinDate = sg.JoinDate,
@@ -631,7 +672,15 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                         PhoneNumber = sg.Student.PhoneNumber,
                         JoinedDate = sg.JoinDate,
                         PaymentStatus = sg.Student.PaymentStatus,
-                        Discount = new GetStudentGroupDiscountDto { DiscountAmount = sg.Student.Discount, StudentId = sg.Student.Id, GroupId = sg.GroupId }
+                        Discount = context.StudentGroupDiscounts
+                                            .Where(sgd => sgd.StudentId == sg.Student.Id && sgd.GroupId == sg.GroupId)
+                                            .Select(sgd => new GetStudentGroupDiscountDto 
+                                            { 
+                                                Id = sgd.Id, 
+                                                StudentId = sgd.StudentId, 
+                                                GroupId = sgd.GroupId, 
+                                                DiscountAmount = sgd.DiscountAmount 
+                                            }).FirstOrDefault() ?? new GetStudentGroupDiscountDto()
                     },
                     IsActive = sg.IsActive,
                     JoinDate = sg.JoinDate,
@@ -681,7 +730,15 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                         PhoneNumber = sg.Student.PhoneNumber,
                         JoinedDate = sg.JoinDate,
                         PaymentStatus = sg.Student.PaymentStatus,
-                        Discount = new GetStudentGroupDiscountDto { DiscountAmount = sg.Student.Discount, StudentId = sg.Student.Id, GroupId = sg.GroupId }
+                        Discount = context.StudentGroupDiscounts
+                                            .Where(sgd => sgd.StudentId == sg.Student.Id && sgd.GroupId == sg.GroupId)
+                                            .Select(sgd => new GetStudentGroupDiscountDto 
+                                            { 
+                                                Id = sgd.Id, 
+                                                StudentId = sgd.StudentId, 
+                                                GroupId = sgd.GroupId, 
+                                                DiscountAmount = sgd.DiscountAmount 
+                                            }).FirstOrDefault() ?? new GetStudentGroupDiscountDto()
                     },
                     IsActive = sg.IsActive,
                     JoinDate = sg.JoinDate,
