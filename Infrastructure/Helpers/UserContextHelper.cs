@@ -16,4 +16,13 @@ public static class UserContextHelper
             return centerId;
         return null;
     }
+
+    public static int? GetCurrentUserMentorId(IHttpContextAccessor httpContextAccessor)
+    {
+        var user = httpContextAccessor.HttpContext?.User;
+        var mentorIdClaim = user?.Claims.FirstOrDefault(c => c.Type == "MentorId")?.Value;
+        if (int.TryParse(mentorIdClaim, out int mentorId))
+            return mentorId;
+        return null;
+    }
 } 
