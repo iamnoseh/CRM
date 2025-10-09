@@ -18,6 +18,7 @@ public class StudentFilter : BaseFilter
     public DateTime? JoinedDateTo { get; set; }
     public int? CenterId { get; set; }
     public bool? IsActive { get; set; }
+    public int? MentorId { get; set; }
 }
 
 public class StudentFilterForSelect : BaseFilter
