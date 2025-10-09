@@ -337,9 +337,19 @@ public class StudentService(
 
     public async Task<PaginationResponse<List<GetStudentDto>>> GetStudentsPagination(StudentFilter filter)
     {
-        var studentsQuery = context.Students.Where(s => !s.IsDeleted).AsQueryable();
+        var studentsQuery = context.Students
+            .Where(s => !s.IsDeleted)
+            .Include(s => s.StudentGroups)
+                .ThenInclude(sg => sg.Group)
+            .AsQueryable();
         studentsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
             studentsQuery, httpContextAccessor, s => s.CenterId);
+
+        var mentorId = UserContextHelper.GetCurrentUserMentorId(httpContextAccessor);
+        if (mentorId != null)
+        {
+            studentsQuery = studentsQuery.Where(s => s.StudentGroups.Any(sg => sg.Group.MentorId == mentorId.Value));
+        }
 
         if (!string.IsNullOrEmpty(filter.FullName))
             studentsQuery = studentsQuery.Where(s => s.FullName.ToLower().Contains(filter.FullName.ToLower()));
