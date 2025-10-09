@@ -751,13 +751,13 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
     {
         return dotNetDayOfWeek switch
         {
-            0 => 6, // Якшанбе (DotNet Sunday) -> CRM Saturday (so display +1 makes it Sunday)
-            1 => 7, // Душанбе (DotNet Monday) -> CRM Sunday (so display +1 makes it Monday)
-            2 => 1, // Сешанбе (DotNet Tuesday) -> CRM Monday (so display +1 makes it Tuesday)
-            3 => 2, // Чоршанбе (DotNet Wednesday) -> CRM Tuesday (so display +1 makes it Wednesday)
-            4 => 3, // Панҷшанбе (DotNet Thursday) -> CRM Wednesday (so display +1 makes it Thursday)
-            5 => 4, // Ҷумъа (DotNet Friday) -> CRM Thursday (so display +1 makes it Friday)
-            6 => 5, // Шанбе (DotNet Saturday) -> CRM Friday (so display +1 makes it Saturday)
+            0 => 7, // Якшанбе (DotNet Sunday) -> CRM Sunday
+            1 => 1, // Душанбе (DotNet Monday) -> CRM Monday
+            2 => 2, // Сешанбе (DotNet Tuesday) -> CRM Tuesday
+            3 => 3, // Чоршанбе (DotNet Wednesday) -> CRM Wednesday
+            4 => 4, // Панҷшанбе (DotNet Thursday) -> CRM Thursday
+            5 => 5, // Ҷумъа (DotNet Friday) -> CRM Friday
+            6 => 6, // Шанбе (DotNet Saturday) -> CRM Saturday
             _ => throw new ArgumentOutOfRangeException(nameof(dotNetDayOfWeek), "Рӯзи ҳафта бояд аз 0 то 6 бошад")
         };
     }
