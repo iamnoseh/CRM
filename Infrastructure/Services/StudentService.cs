@@ -523,6 +523,11 @@ public class StudentService(
                 query = query.Where(s => s.StudentGroups.Any(sg => sg.GroupId == filter.GroupId.Value && !sg.IsDeleted));
             }
 
+            if (filter.MentorId.HasValue)
+            {
+                query = query.Where(s => s.StudentGroups.Any(sg => sg.Group.MentorId == filter.MentorId.Value && !sg.IsDeleted));
+            }
+
             if (filter.CourseId.HasValue)
             {
                 query = query.Where(s => s.StudentGroups.Any(sg => sg.Group!.CourseId == filter.CourseId.Value && !sg.IsDeleted));
