@@ -105,7 +105,7 @@ public class MessageSenderService(
                                                                      "document");
             if (uploadResult.StatusCode != (int)HttpStatusCode.OK)
             {
-                return new Response<bool>(false, $"Хатогӣ ҳангоми боркунии замима: {uploadResult.Message}");
+                return new Response<bool>(HttpStatusCode.BadRequest, $"Хатогӣ ҳангоми боркунии замима: {uploadResult.Message}");
             }
             attachmentPath = uploadResult.Data;
         }
