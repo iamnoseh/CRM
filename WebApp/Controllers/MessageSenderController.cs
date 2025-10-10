@@ -20,6 +20,9 @@ public class MessageSenderController(IMessageSenderService messageSenderService)
     }
 
     [HttpPost("send-sms-to-number")]
+    [Consumes("application/x-www-form-urlencoded")]
+    [ProducesResponseType(typeof(Response<Domain.DTOs.OsonSms.OsonSmsSendResponseDto>), 200)]
+    [ProducesResponseType(typeof(Response<Domain.DTOs.OsonSms.OsonSmsSendResponseDto>), 400)]
     public async Task<IActionResult> SendSmsToNumber([FromForm] string phoneNumber, [FromForm] string message)
     {
         var response = await messageSenderService.SendSmsToNumberAsync(phoneNumber, message);
@@ -31,6 +34,9 @@ public class MessageSenderController(IMessageSenderService messageSenderService)
     }
 
     [HttpPost("send-email-to-address")]
+    [Consumes("multipart/form-data")]
+    [ProducesResponseType(typeof(Response<bool>), 200)]
+    [ProducesResponseType(typeof(Response<bool>), 400)]
     public async Task<IActionResult> SendEmailToAddress([FromForm] string emailAddress, [FromForm] string subject, [FromForm] string messageContent, [FromForm] Microsoft.AspNetCore.Http.IFormFile? attachment)
     {
         var response = await messageSenderService.SendEmailToAddressAsync(emailAddress, subject, messageContent, attachment);
