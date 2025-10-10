@@ -18,4 +18,26 @@ public class MessageSenderController(IMessageSenderService messageSenderService)
         }
         return StatusCode((int)response.StatusCode, response);
     }
+
+    [HttpPost("send-sms-to-number")]
+    public async Task<IActionResult> SendSmsToNumber([FromForm] string phoneNumber, [FromForm] string message)
+    {
+        var response = await messageSenderService.SendSmsToNumberAsync(phoneNumber, message);
+        if (response.StatusCode == (int)System.Net.HttpStatusCode.OK)
+        {
+            return Ok(response);
+        }
+        return StatusCode((int)response.StatusCode, response);
+    }
+
+    [HttpPost("send-email-to-address")]
+    public async Task<IActionResult> SendEmailToAddress([FromForm] string emailAddress, [FromForm] string subject, [FromForm] string messageContent, [FromForm] Microsoft.AspNetCore.Http.IFormFile? attachment)
+    {
+        var response = await messageSenderService.SendEmailToAddressAsync(emailAddress, subject, messageContent, attachment);
+        if (response.StatusCode == (int)System.Net.HttpStatusCode.OK)
+        {
+            return Ok(response);
+        }
+        return StatusCode((int)response.StatusCode, response);
+    }
 }
