@@ -88,4 +88,36 @@ public class MessageSenderService(
         })
         { Message = "Паём бо муваффақият ирсол шуд." };
     }
+
+    public async Task<Response<Domain.DTOs.OsonSms.OsonSmsSendResponseDto>> SendSmsToNumberAsync(string phoneNumber, string message)
+    {
+        return await osonSmsService.SendSmsAsync(phoneNumber, message);
+    }
+
+    public async Task<Response<bool>> SendEmailToAddressAsync(string emailAddress, string subject, string messageContent, Microsoft.AspNetCore.Http.IFormFile? attachment)
+    {
+        var attachmentPath = (string?)null;
+        if (attachment != null)
+        {
+            var uploadResult = await FileUploadHelper.UploadFileAsync(attachment, 
+                                                                     webHostEnvironment.WebRootPath, 
+                                                                     "messages", 
+                                                                     "document");
+            if (uploadResult.StatusCode != (int)HttpStatusCode.OK)
+            {
+                return new Response<bool>(false, $"Хатогӣ ҳангоми боркунии замима: {uploadResult.Message}");
+            }
+            attachmentPath = uploadResult.Data;
+        }
+
+        List<string>? attachments = null;
+        if (!string.IsNullOrEmpty(attachmentPath))
+        {
+            attachments = new List<string> { Path.Combine(webHostEnvironment.WebRootPath, attachmentPath.TrimStart('/')) };
+        }
+
+        var emailDto = new EmailMessageDto(new[] { emailAddress }, subject, messageContent, attachments);
+        await emailService.SendEmail(emailDto, TextFormat.Html);
+        return new Response<bool>(true) { Message = "Почтаи электронӣ бо муваффақият ирсол шуд." };
+    }
 }
