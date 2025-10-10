@@ -345,11 +345,11 @@ public class StudentService(
         studentsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
             studentsQuery, httpContextAccessor, s => s.CenterId);
 
-        var mentorId = UserContextHelper.GetCurrentUserMentorId(httpContextAccessor);
-        if (mentorId != null)
-        {
-            studentsQuery = studentsQuery.Where(s => s.StudentGroups.Any(sg => sg.Group.MentorId == mentorId.Value));
-        }
+        // var mentorId = UserContextHelper.GetCurrentUserMentorId(httpContextAccessor);
+        // if (mentorId != null)
+        // {
+        //     studentsQuery = studentsQuery.Where(s => s.StudentGroups.Any(sg => sg.Group.MentorId == mentorId.Value));
+        // }
 
         if (!string.IsNullOrEmpty(filter.FullName))
             studentsQuery = studentsQuery.Where(s => s.FullName.ToLower().Contains(filter.FullName.ToLower()));
@@ -362,6 +362,17 @@ public class StudentService(
 
         if (filter.CenterId.HasValue)
             studentsQuery = studentsQuery.Where(s => s.CenterId == filter.CenterId.Value);
+
+        var currentMentorId = UserContextHelper.GetCurrentUserMentorId(httpContextAccessor);
+
+        if (filter.MentorId.HasValue)
+        {
+            studentsQuery = studentsQuery.Where(s => s.StudentGroups.Any(sg => sg.Group.MentorId == filter.MentorId.Value && !sg.IsDeleted));
+        }
+        else if (currentMentorId.HasValue)
+        {
+            studentsQuery = studentsQuery.Where(s => s.StudentGroups.Any(sg => sg.Group.MentorId == currentMentorId.Value && !sg.IsDeleted));
+        }
 
         if (filter.Active.HasValue)
             studentsQuery = studentsQuery.Where(s => s.ActiveStatus == filter.Active.Value);
