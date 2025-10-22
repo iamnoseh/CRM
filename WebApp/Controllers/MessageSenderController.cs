@@ -33,7 +33,7 @@ public class MessageSenderController(IMessageSenderService messageSenderService)
     [HttpPost("send-email-to-address")]
     public async Task<IActionResult> SendEmailToAddress([FromForm] SendEmailToAddressDto request)
     {
-        var response = await messageSenderService.SendEmailToAddressAsync(request.EmailAddress, request.Subject, request.MessageContent, request.Attachment);
+        var response = await messageSenderService.SendEmailToAddressAsync(request);
         if (response.StatusCode == (int)System.Net.HttpStatusCode.OK)
         {
             return Ok(response);
