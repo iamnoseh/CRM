@@ -94,18 +94,18 @@ public class MessageSenderService(
         return await osonSmsService.SendSmsAsync(phoneNumber, message);
     }
 
-    public async Task<Response<bool>> SendEmailToAddressAsync(string emailAddress, string subject, string messageContent, Microsoft.AspNetCore.Http.IFormFile? attachment)
+    public async Task<Response<bool>> SendEmailToAddressAsync(SendEmailToAddressDto request)
     {
         var attachmentPath = (string?)null;
-        if (attachment != null)
+        if (request.Attachment != null)
         {
-            var uploadResult = await FileUploadHelper.UploadFileAsync(attachment, 
+            var uploadResult = await FileUploadHelper.UploadFileAsync(request.Attachment, 
                                                                      webHostEnvironment.WebRootPath, 
                                                                      "messages", 
                                                                      "document");
             if (uploadResult.StatusCode != (int)HttpStatusCode.OK)
             {
-                return new Response<bool>(false, $"Хатогӣ ҳангоми боркунии замима: {uploadResult.Message}");
+                return new Response<bool>(HttpStatusCode.BadRequest, $"Хатогӣ ҳангоми боркунии замима: {uploadResult.Message}");
             }
             attachmentPath = uploadResult.Data;
         }
@@ -116,7 +116,7 @@ public class MessageSenderService(
             attachments = new List<string> { Path.Combine(webHostEnvironment.WebRootPath, attachmentPath.TrimStart('/')) };
         }
 
-        var emailDto = new EmailMessageDto(new[] { emailAddress }, subject, messageContent, attachments);
+        var emailDto = new EmailMessageDto(new[] { request.EmailAddress }, request.Subject, request.MessageContent, attachments);
         await emailService.SendEmail(emailDto, TextFormat.Html);
         return new Response<bool>(true) { Message = "Почтаи электронӣ бо муваффақият ирсол шуд." };
     }

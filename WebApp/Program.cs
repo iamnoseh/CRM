@@ -65,7 +65,7 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
 {
     DashboardTitle = "Kavsar Academy - Background Jobs",
     StatsPollingInterval = 5000,
-    AppPath = "/swagger"
+    AppPath = "/docs-secure"
 });
 
 using var scope = app.Services.CreateScope();
@@ -79,7 +79,8 @@ if (enableSwagger)
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Kavsar Academy v1");
+        c.SwaggerEndpoint("/docs-secure/v1/swagger.json", "Kavsar Academy v1");
+        c.RoutePrefix = "docs-secure";
         c.AddThemes(app);
     });
 }
