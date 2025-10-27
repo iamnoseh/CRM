@@ -76,7 +76,10 @@ hangfireTaskService.StartAllBackgroundTasks();
 
 if (enableSwagger)
 {
-    app.UseSwagger();
+    app.UseSwagger(c =>
+    {
+        c.RouteTemplate = "docs-secure/{documentName}/swagger.json";
+    });
     app.UseSwaggerUI(c =>
     {
         c.SwaggerEndpoint("/docs-secure/v1/swagger.json", "Kavsar Academy v1");
