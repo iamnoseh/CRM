@@ -9,7 +9,7 @@ using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Serilog
+
 builder.Host.UseSerilog((context, services, configuration) =>
 {
     configuration
@@ -21,7 +21,6 @@ var uploadPath = builder.Configuration.GetValue<string>("UploadPath") ?? "wwwroo
 var migrationsEnabled = builder.Configuration.GetValue<bool>("Features:ApplyMigrationsOnStartup", true);
 var enableSwagger = builder.Configuration.GetValue<bool>("Swagger:Enabled", false);
 
-// Services
 builder.Services.AddRegisterService(builder.Configuration);
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddIdentityServices(builder.Configuration);

@@ -8,6 +8,9 @@ public class StudentGroup : BaseEntity
     public Group? Group { get; set; }
     
     public bool IsActive { get; set; } = true;
+    public bool IsLeft { get; set; } = false;
+    public string? LeftReason { get; set; }
+    public DateTime? LeftDate { get; set; }
     public DateTime JoinDate { get; set; } = DateTime.UtcNow;
     public DateTime? LeaveDate { get; set; }
 }
