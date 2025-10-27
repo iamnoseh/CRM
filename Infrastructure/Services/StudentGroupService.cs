@@ -30,11 +30,14 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
             
             if (existingStudentGroup != null)
             {
-                if (existingStudentGroup.IsActive && !existingStudentGroup.IsDeleted)
+                if (existingStudentGroup.IsActive && !existingStudentGroup.IsDeleted && !existingStudentGroup.IsLeft)
                     return new Response<string>(HttpStatusCode.BadRequest, "Студент уже назначен в эту группу");
 
                 existingStudentGroup.IsActive = true;
                 existingStudentGroup.IsDeleted = false;
+                existingStudentGroup.IsLeft = false;
+                existingStudentGroup.LeftReason = null;
+                existingStudentGroup.LeftDate = null;
                 existingStudentGroup.LeaveDate = null;
                 existingStudentGroup.UpdatedAt = DateTimeOffset.UtcNow;
                 context.StudentGroups.Update(existingStudentGroup);
@@ -219,6 +222,9 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                     } : new GetStudentGroupDiscountDto()
                 },
                 IsActive = studentGroup.IsActive,
+                IsLeft = studentGroup.IsLeft,
+                LeftReason = studentGroup.LeftReason,
+                LeftDate = studentGroup.LeftDate,
                 JoinDate = studentGroup.JoinDate,
                 LeaveDate = studentGroup.LeaveDate
             };
@@ -265,6 +271,9 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                                             }).FirstOrDefault() ?? new GetStudentGroupDiscountDto()
                     },
                     IsActive = sg.IsActive,
+                    IsLeft = sg.IsLeft,
+                    LeftReason = sg.LeftReason,
+                    LeftDate = sg.LeftDate,
                     JoinDate = sg.JoinDate,
                     LeaveDate = sg.LeaveDate
                 })
@@ -355,6 +364,9 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                                             }).FirstOrDefault() ?? new GetStudentGroupDiscountDto()
                     },
                     IsActive = sg.IsActive,
+                    IsLeft = sg.IsLeft,
+                    LeftReason = sg.LeftReason,
+                    LeftDate = sg.LeftDate,
                     JoinDate = sg.JoinDate,
                     LeaveDate = sg.LeaveDate
                 })
@@ -417,6 +429,9 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                                             }).FirstOrDefault() ?? new GetStudentGroupDiscountDto()
                     },
                     IsActive = sg.IsActive,
+                    IsLeft = sg.IsLeft,
+                    LeftReason = sg.LeftReason,
+                    LeftDate = sg.LeftDate,
                     JoinDate = sg.JoinDate,
                     LeaveDate = sg.LeaveDate
                 })
@@ -473,6 +488,9 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                                             }).FirstOrDefault() ?? new GetStudentGroupDiscountDto()
                     },
                     IsActive = sg.IsActive,
+                    IsLeft = sg.IsLeft,
+                    LeftReason = sg.LeftReason,
+                    LeftDate = sg.LeftDate,
                     JoinDate = sg.JoinDate,
                     LeaveDate = sg.LeaveDate
                 })
@@ -683,6 +701,9 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                                             }).FirstOrDefault() ?? new GetStudentGroupDiscountDto()
                     },
                     IsActive = sg.IsActive,
+                    IsLeft = sg.IsLeft,
+                    LeftReason = sg.LeftReason,
+                    LeftDate = sg.LeftDate,
                     JoinDate = sg.JoinDate,
                     LeaveDate = sg.LeaveDate
                 })
@@ -741,6 +762,9 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                                             }).FirstOrDefault() ?? new GetStudentGroupDiscountDto()
                     },
                     IsActive = sg.IsActive,
+                    IsLeft = sg.IsLeft,
+                    LeftReason = sg.LeftReason,
+                    LeftDate = sg.LeftDate,
                     JoinDate = sg.JoinDate,
                     LeaveDate = sg.LeaveDate
                 })
@@ -877,6 +901,172 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
         catch (Exception ex)
         {
             return new Response<int>(HttpStatusCode.InternalServerError, ex.Message);
+        }
+    }
+    #endregion
+
+    #region LeftStudentFromGroup
+    public async Task<Response<string>> LeftStudentFromGroup(int studentId, int groupId, string leftReason)
+    {
+        try
+        {
+            var studentGroup = await context.StudentGroups
+                .FirstOrDefaultAsync(sg => sg.StudentId == studentId && 
+                                         sg.GroupId == groupId && 
+                                         !sg.IsDeleted);
+            
+            if (studentGroup == null)
+                return new Response<string>(HttpStatusCode.NotFound, "Членство студента в группе не найдено");
+
+            if (studentGroup.IsLeft)
+                return new Response<string>(HttpStatusCode.BadRequest, "Студент уже покинул эту группу");
+
+            studentGroup.IsLeft = true;
+            studentGroup.LeftReason = leftReason;
+            studentGroup.LeftDate = DateTime.UtcNow;
+            studentGroup.IsActive = false;
+            studentGroup.LeaveDate = DateTime.UtcNow;
+            studentGroup.UpdatedAt = DateTimeOffset.UtcNow;
+            
+            context.StudentGroups.Update(studentGroup);
+            var result = await context.SaveChangesAsync();
+
+            if (result > 0)
+            {
+                _ = await journalService.RemoveFutureEntriesForStudentAsync(groupId, studentId);
+                return new Response<string>(HttpStatusCode.OK, "Студент успешно покинул группу");
+            }
+            return new Response<string>(HttpStatusCode.InternalServerError, "Не удалось удалить студента из группы");
+        }
+        catch (Exception ex)
+        {
+            return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
+        }
+    }
+    #endregion
+
+    #region ReverseLeftStudentFromGroup
+    public async Task<Response<string>> ReverseLeftStudentFromGroup(int studentId, int groupId)
+    {
+        try
+        {
+            var studentGroup = await context.StudentGroups
+                .FirstOrDefaultAsync(sg => sg.StudentId == studentId && 
+                                         sg.GroupId == groupId && 
+                                         sg.IsLeft && 
+                                         !sg.IsDeleted);
+            
+            if (studentGroup == null)
+                return new Response<string>(HttpStatusCode.NotFound, "Членство студента в группе не найдено или студент не покидал группу");
+
+            studentGroup.IsLeft = false;
+            studentGroup.LeftReason = null;
+            studentGroup.LeftDate = null;
+            studentGroup.IsActive = true; // Re-activate student upon reversal
+            studentGroup.LeaveDate = null;
+            studentGroup.UpdatedAt = DateTimeOffset.UtcNow;
+            
+            context.StudentGroups.Update(studentGroup);
+            var result = await context.SaveChangesAsync();
+
+            if (result > 0)
+            {
+                _ = await journalService.BackfillCurrentWeekForStudentAsync(groupId, studentId); 
+                return new Response<string>(HttpStatusCode.OK, "Студент успешно возвращен в группу");
+            }
+            return new Response<string>(HttpStatusCode.InternalServerError, "Не удалось вернуть студента в группу");
+        }
+        catch (Exception ex)
+        {
+            return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
+        }
+    }
+    #endregion
+
+    #region TransferStudentGroup
+    public async Task<Response<string>> TransferStudentGroup(int studentId, int sourceGroupId, int targetGroupId)
+    {
+        try
+        {
+            if (sourceGroupId == targetGroupId)
+                return new Response<string>(HttpStatusCode.BadRequest, "Группа-источник и группа-цель не могут быть одинаковыми");
+
+            var student = await context.Students.FirstOrDefaultAsync(s => s.Id == studentId && !s.IsDeleted);
+            if (student == null)
+                return new Response<string>(HttpStatusCode.NotFound, "Студент не найден");
+
+            var sourceGroup = await context.Groups.FirstOrDefaultAsync(g => g.Id == sourceGroupId && !g.IsDeleted);
+            if (sourceGroup == null)
+                return new Response<string>(HttpStatusCode.NotFound, "Исходная группа не найдена");
+
+            var targetGroup = await context.Groups.FirstOrDefaultAsync(g => g.Id == targetGroupId && !g.IsDeleted);
+            if (targetGroup == null)
+                return new Response<string>(HttpStatusCode.NotFound, "Целевая группа не найдена");
+
+            var studentInSourceGroup = await context.StudentGroups
+                .FirstOrDefaultAsync(sg => sg.StudentId == studentId && 
+                                         sg.GroupId == sourceGroupId && 
+                                         sg.IsActive && 
+                                         !sg.IsDeleted);
+            
+            if (studentInSourceGroup == null)
+                return new Response<string>(HttpStatusCode.BadRequest, "Студент не является активным членом исходной группы");
+
+            // Deactivate from source group
+            studentInSourceGroup.IsActive = false;
+            studentInSourceGroup.LeaveDate = DateTime.UtcNow;
+            studentInSourceGroup.UpdatedAt = DateTimeOffset.UtcNow;
+            context.StudentGroups.Update(studentInSourceGroup);
+
+            // Check if student already exists in target group (even if inactive/deleted/left)
+            var studentInTargetGroup = await context.StudentGroups
+                .FirstOrDefaultAsync(sg => sg.StudentId == studentId && 
+                                         sg.GroupId == targetGroupId);
+
+            if (studentInTargetGroup != null)
+            {
+                // Reactivate if already exists
+                if (studentInTargetGroup.IsActive && !studentInTargetGroup.IsDeleted && !studentInTargetGroup.IsLeft)
+                    return new Response<string>(HttpStatusCode.BadRequest, "Студент уже активен в целевой группе");
+
+                studentInTargetGroup.IsActive = true;
+                studentInTargetGroup.IsDeleted = false;
+                studentInTargetGroup.IsLeft = false;
+                studentInTargetGroup.LeftReason = null;
+                studentInTargetGroup.LeftDate = null;
+                studentInTargetGroup.LeaveDate = null;
+                studentInTargetGroup.JoinDate = DateTime.UtcNow; // Update join date to reflect transfer
+                studentInTargetGroup.UpdatedAt = DateTimeOffset.UtcNow;
+                context.StudentGroups.Update(studentInTargetGroup);
+            }
+            else
+            {
+                // Create new entry if not exists
+                var newStudentGroup = new StudentGroup
+                {
+                    StudentId = studentId,
+                    GroupId = targetGroupId,
+                    IsActive = true,
+                    JoinDate = DateTime.UtcNow,
+                    CreatedAt = DateTimeOffset.UtcNow,
+                    UpdatedAt = DateTimeOffset.UtcNow
+                };
+                await context.StudentGroups.AddAsync(newStudentGroup);
+            }
+
+            var result = await context.SaveChangesAsync();
+
+            if (result > 0)
+            {
+                _ = await journalService.RemoveFutureEntriesForStudentAsync(sourceGroupId, studentId);
+                _ = await journalService.BackfillCurrentWeekForStudentAsync(targetGroupId, studentId);
+                return new Response<string>(HttpStatusCode.OK, "Студент успешно переведен в новую группу");
+            }
+            return new Response<string>(HttpStatusCode.InternalServerError, "Не удалось перевести студента в новую группу");
+        }
+        catch (Exception ex)
+        {
+            return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
     #endregion

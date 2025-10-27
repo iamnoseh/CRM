@@ -99,4 +99,27 @@ public class StudentGroupController(IStudentGroupService studentGroupService) : 
         return StatusCode(result.StatusCode, result);
     }
     
+    [HttpPut("left-student-from-group/{studentId}/{groupId}")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
+    public async Task<ActionResult<Response<string>>> LeftStudentFromGroup(int studentId, int groupId, [FromQuery] string leftReason)
+    {
+        var result = await studentGroupService.LeftStudentFromGroup(studentId, groupId, leftReason);
+        return StatusCode(result.StatusCode, result);
+    }
+    
+    [HttpPut("reverse-left-student-from-group/{studentId}/{groupId}")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
+    public async Task<ActionResult<Response<string>>> ReverseLeftStudentFromGroup(int studentId, int groupId)
+    {
+        var result = await studentGroupService.ReverseLeftStudentFromGroup(studentId, groupId);
+        return StatusCode(result.StatusCode, result);
+    }
+    
+    [HttpPut("transfer-student-group/{studentId}/{sourceGroupId}/{targetGroupId}")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
+    public async Task<ActionResult<Response<string>>> TransferStudentGroup(int studentId, int sourceGroupId, int targetGroupId)
+    {
+        var result = await studentGroupService.TransferStudentGroup(studentId, sourceGroupId, targetGroupId);
+        return StatusCode(result.StatusCode, result);
+    }
 }

@@ -10,6 +10,9 @@ public class GetStudentGroupDto
     public string? GroupName { get; set; } = string.Empty;
     public StudentDTO student { get; set; } = new();
     public bool IsActive { get; set; }
+    public bool IsLeft { get; set; }
+    public string? LeftReason { get; set; }
+    public DateTime? LeftDate { get; set; }
     public DateTime JoinDate { get; set; }
     public DateTime? LeaveDate { get; set; }
 }
