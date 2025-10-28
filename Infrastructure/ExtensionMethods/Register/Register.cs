@@ -133,7 +133,8 @@ public static class Register
                 sp.GetRequiredService<DataContext>(),
                 sp.GetRequiredService<UserManager<User>>(),
                 sp.GetRequiredService<IHttpContextAccessor>(),
-                sp.GetRequiredService<IWebHostEnvironment>()
+                sp.GetRequiredService<IWebHostEnvironment>(),
+                sp.GetRequiredService<RoleManager<IdentityRole<int>>>()
             ));
             
         services.AddScoped<IMentorService>(st => 
@@ -336,7 +337,7 @@ public static class Register
             var seedService = services.GetRequiredService<SeedData>();
             await seedService.SeedAllData();
         }
-        catch (Exception ex)
+        catch (Exception _)
         {
             // 
         }
