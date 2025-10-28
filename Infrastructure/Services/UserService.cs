@@ -404,4 +404,43 @@ public class UserService(DataContext context, UserManager<User> userManager,
         }
     }
     #endregion
+
+    public async Task<Response<string>> ChangeEmailAsync(int userId, string newEmail)
+    {
+        try
+        {
+            var user = await userManager.FindByIdAsync(userId.ToString());
+            if (user == null)
+            {
+                return new Response<string>(HttpStatusCode.NotFound, "Корбар ёфт нашуд");
+            }
+
+            var existingUserWithEmail = await userManager.FindByEmailAsync(newEmail);
+            if (existingUserWithEmail != null && existingUserWithEmail.Id != user.Id)
+            {
+                return new Response<string>(HttpStatusCode.BadRequest, "Ин почтаи электронӣ аллакай истифода шудааст");
+            }
+
+            var setUserNameResult = await userManager.SetUserNameAsync(user, newEmail);
+            if (!setUserNameResult.Succeeded)
+            {
+                return new Response<string>(HttpStatusCode.InternalServerError, IdentityHelper.FormatIdentityErrors(setUserNameResult));
+            }
+            
+            var setEmailResult = await userManager.SetEmailAsync(user, newEmail);
+            if (!setEmailResult.Succeeded)
+            {
+                return new Response<string>(HttpStatusCode.InternalServerError, IdentityHelper.FormatIdentityErrors(setEmailResult));
+            }
+
+            user.UpdatedAt = DateTime.UtcNow;
+            await context.SaveChangesAsync();
+
+            return new Response<string>(HttpStatusCode.OK, "Почтаи электронӣ бо муваффақият иваз карда шуд");
+        }
+        catch (Exception ex)
+        {
+            return new Response<string>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми ивазкунии почтаи электронӣ: {ex.Message}");
+        }
+    }
 }
