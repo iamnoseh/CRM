@@ -15,7 +15,7 @@ using Microsoft.AspNetCore.Hosting;
 namespace Infrastructure.Services;
 
 public class UserService(DataContext context, UserManager<User> userManager,
-    IHttpContextAccessor httpContextAccessor, IWebHostEnvironment webHostEnvironment) : IUserService
+    IHttpContextAccessor httpContextAccessor, IWebHostEnvironment webHostEnvironment, RoleManager<IdentityRole<int>> roleManager) : IUserService
 {
     #region GetUsersPagination
     
@@ -206,8 +206,8 @@ public class UserService(DataContext context, UserManager<User> userManager,
             var query = context.Users
                 .Where(u => !u.IsDeleted && 
                            (u.FullName.Contains(searchTerm) || 
-                            u.Email.Contains(searchTerm) || 
-                            (u.PhoneNumber != null && u.PhoneNumber.Contains(searchTerm))));
+                           (u.Email != null && u.Email.Contains(searchTerm)) || 
+                           (u.PhoneNumber != null && u.PhoneNumber.Contains(searchTerm))));
             query = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(query, httpContextAccessor, u => u.CenterId);
             var users = await query.Take(20) 
                 .ToListAsync();
@@ -320,6 +320,13 @@ public class UserService(DataContext context, UserManager<User> userManager,
                     (u.Birthday.Month > today.Month && u.Birthday.Month < end.Month)
                 )
             );
+        
+        var studentRoleId = await roleManager.FindByNameAsync("Student");
+        if (studentRoleId != null)
+        {
+            query = query.Where(u => !context.UserRoles.Any(ur => ur.UserId == u.Id && ur.RoleId.ToString() == studentRoleId.Id.ToString()));
+        }
+
         query = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(query, httpContextAccessor, u => u.CenterId);
         var users = await query.OrderBy(u => u.Birthday.Month)
             .ThenBy(u => u.Birthday.Day)
