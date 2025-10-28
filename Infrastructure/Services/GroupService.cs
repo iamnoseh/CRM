@@ -275,6 +275,13 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
             group.LessonEndTime = request.LessonEndTime;
             group.Status = request.Status;
             
+            var startDate = request.StartDate.Value;
+            var endDate = request.EndDate.Value;
+
+            group.DurationMonth = (int)Math.Ceiling((endDate - startDate).TotalDays / 30.0);
+            group.LessonInWeek = request.ParsedLessonDays?.Count ?? 0;
+            group.TotalWeeks = (int)Math.Ceiling((endDate - startDate).TotalDays / 7.0);
+
             if (request.DurationMonth.HasValue)
                 group.DurationMonth = request.DurationMonth.Value;
                 
