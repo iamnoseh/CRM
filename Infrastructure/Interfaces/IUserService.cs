@@ -18,4 +18,5 @@ public interface IUserService
     Task<PaginationResponse<List<GetUserDto>>> GetUpcomingBirthdaysAsync(int page, int pageSize);
 
     Task<Response<string>> UpdateProfilePictureAsync(UpdateProfilePictureDto updateProfilePictureDto);
+    Task<Response<string>> ChangeEmailAsync(int userId, string newEmail);
 }

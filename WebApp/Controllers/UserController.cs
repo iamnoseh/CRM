@@ -5,6 +5,7 @@ using Domain.Responses;
 using Infrastructure.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Net;
 
 namespace WebApp.Controllers;
 
@@ -65,6 +66,20 @@ public class UserController(IUserService service) : ControllerBase
     public async Task<ActionResult<Response<string>>> UpdateProfilePicture([FromForm] UpdateProfilePictureDto updateProfilePictureDto)
     {
         var result = await service.UpdateProfilePictureAsync(updateProfilePictureDto);
+        return StatusCode(result.StatusCode, result);
+    }
+
+    [HttpPut("change-email")]
+    [Authorize]
+    public async Task<ActionResult<Response<string>>> ChangeEmail([FromBody] ChangeEmailDto request)
+    {
+        var userIdRaw = User.FindFirst("UserId")?.Value;
+        if (string.IsNullOrEmpty(userIdRaw) || !int.TryParse(userIdRaw, out int userId))
+        {
+            return Unauthorized(new Response<string>(HttpStatusCode.Unauthorized, "Корбар аутентификатӣ нашудааст"));
+        }
+
+        var result = await service.ChangeEmailAsync(userId, request.NewEmail);
         return StatusCode(result.StatusCode, result);
     }
 }
