@@ -414,6 +414,9 @@ public class DataContext(DbContextOptions<DataContext> options)
         modelBuilder.Entity<Payment>()
             .HasIndex(p => p.PaymentDate);
 
+        modelBuilder.Entity<Payment>()
+            .HasIndex(p => p.ReceiptNumber);
+
         // StudentGroupDiscount indexes and unique constraint (one active per Student-Group)
         modelBuilder.Entity<StudentGroupDiscount>()
             .HasIndex(sgd => sgd.StudentId);

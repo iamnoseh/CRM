@@ -1,7 +1,11 @@
 using Infrastructure.Interfaces;
+using Infrastructure.Data;
+using Domain.Entities;
+using Domain.Enums;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.BackgroundTasks;
 
@@ -39,12 +43,54 @@ public class MonthlyFinanceAggregatorService(ILogger<MonthlyFinanceAggregatorSer
     public async Task RunAsync(CancellationToken ct)
     {
         using var scope = serviceProvider.CreateScope();
-        var financeService = scope.ServiceProvider.GetRequiredService<IFinanceService>();
-        var centersService = scope.ServiceProvider.GetRequiredService<IGroupService>();
+        var db = scope.ServiceProvider.GetRequiredService<DataContext>();
         try
         {
-            // TODO: Реализовать получение списка центров и кеширование сводок при необходимости
-            await Task.CompletedTask;
+            var now = DateTimeOffset.UtcNow;
+            var period = now.AddMonths(-1);
+            var year = period.Year;
+            var month = period.Month;
+
+            var centers = await db.Centers.AsNoTracking().Select(c => new { c.Id }).ToListAsync(ct);
+            foreach (var c in centers)
+            {
+                var income = await db.Payments.AsNoTracking()
+                    .Where(p => p.CenterId == c.Id && p.Year == year && p.Month == month && (p.Status == PaymentStatus.Completed || p.Status == PaymentStatus.Paid))
+                    .SumAsync(p => (decimal?)p.Amount, ct) ?? 0m;
+
+                var expense = await db.Expenses.AsNoTracking()
+                    .Where(e => e.CenterId == c.Id && e.Year == year && e.Month == month && !e.IsDeleted)
+                    .SumAsync(e => (decimal?)e.Amount, ct) ?? 0m;
+
+                var existing = await db.MonthlyFinancialSummaries.FirstOrDefaultAsync(m => m.CenterId == c.Id && m.Year == year && m.Month == month, ct);
+                if (existing is null)
+                {
+                    db.MonthlyFinancialSummaries.Add(new MonthlyFinancialSummary
+                    {
+                        CenterId = c.Id,
+                        Year = year,
+                        Month = month,
+                        TotalIncome = income,
+                        TotalExpense = expense,
+                        NetProfit = income - expense,
+                        GeneratedDate = DateTimeOffset.UtcNow,
+                        IsClosed = false,
+                        CreatedAt = DateTimeOffset.UtcNow,
+                        UpdatedAt = DateTimeOffset.UtcNow
+                    });
+                }
+                else
+                {
+                    existing.TotalIncome = income;
+                    existing.TotalExpense = expense;
+                    existing.NetProfit = income - expense;
+                    existing.GeneratedDate = DateTimeOffset.UtcNow;
+                    existing.UpdatedAt = DateTimeOffset.UtcNow;
+                }
+            }
+
+            await db.SaveChangesAsync(ct);
+            logger.LogInformation("Monthly finance aggregation completed for {Year}-{Month}", year, month);
         }
         catch (Exception ex)
         {

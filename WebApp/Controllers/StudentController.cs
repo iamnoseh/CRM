@@ -6,6 +6,7 @@ using Infrastructure.Interfaces;
 using Infrastructure.Services.ExportToExel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Domain.DTOs.Payments;
 
 
 namespace WebApp.Controllers;
@@ -151,4 +152,14 @@ public class StudentController (IStudentService service) : ControllerBase
         var fileName = $"student_analytics_{scope}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.xlsx";
         return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
     }
+
+    [HttpGet("{studentId}/payments")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Student")]
+    public async Task<PaginationResponse<List<GetPaymentDto>>> GetStudentPayments(
+        int studentId,
+        [FromQuery] int? month,
+        [FromQuery] int? year,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20)
+        => await service.GetStudentPaymentsAsync(studentId, month, year, pageNumber, pageSize);
 }

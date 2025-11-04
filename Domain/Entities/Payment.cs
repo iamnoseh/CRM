@@ -8,6 +8,7 @@ public class Payment : BaseEntity
     public Student Student { get; set; }
     public int? GroupId { get; set; }
     public Group? Group { get; set; }
+    public string? ReceiptNumber { get; set; }
     public decimal OriginalAmount { get; set; }
     public decimal DiscountAmount { get; set; }
     public decimal Amount { get; set; }

@@ -1,4 +1,5 @@
 using Domain.DTOs.Student;
+using Domain.DTOs.Payments;
 
 using Domain.Filters;
 using Domain.Responses;
@@ -19,4 +20,5 @@ public interface IStudentService
     Task<Response<byte[]>> GetStudentDocument(int studentId);
     Task<Response<string>> UpdateStudentPaymentStatusAsync(UpdateStudentPaymentStatusDto dto);
     Task<PaginationResponse<List<GetSimpleDto>>>  GetSimpleStudents(StudentFilter filter);
+    Task<PaginationResponse<List<GetPaymentDto>>> GetStudentPaymentsAsync(int studentId, int? month, int? year, int pageNumber, int pageSize);
 }

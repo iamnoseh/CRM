@@ -42,6 +42,11 @@ public class ExpenseService(DataContext dbContext, IHttpContextAccessor httpCont
             var month = dto.Month ?? dto.ExpenseDate.Month;
             var year = dto.Year ?? dto.ExpenseDate.Year;
 
+            // Block if month is closed
+            var financeService = new FinanceService(_dbContext, _httpContextAccessor);
+            if (await financeService.IsMonthClosedAsync(effectiveCenterId, year, month))
+                return new Response<GetExpenseDto>(HttpStatusCode.BadRequest, "Ин моҳ баста шудааст, эҷоди хароҷот манъ аст");
+
             var entity = new Expense
             {
                 CenterId = effectiveCenterId,
@@ -91,6 +96,11 @@ public class ExpenseService(DataContext dbContext, IHttpContextAccessor httpCont
                     return new Response<GetExpenseDto>(System.Net.HttpStatusCode.NotFound, "Преподаватель не найден в этом центре");
             }
 
+            // Prevent update if closed
+            var isClosed = await new FinanceService(_dbContext, _httpContextAccessor).IsMonthClosedAsync(entity.CenterId, entity.Year, entity.Month);
+            if (isClosed)
+                return new Response<GetExpenseDto>(HttpStatusCode.BadRequest, "Ин моҳ баста шудааст, тағйир манъ аст");
+
             entity.Amount = dto.Amount;
             entity.ExpenseDate = dto.ExpenseDate;
             entity.Category = dto.Category;
@@ -123,6 +133,11 @@ public class ExpenseService(DataContext dbContext, IHttpContextAccessor httpCont
             var entity = await _dbContext.Expenses.FirstOrDefaultAsync(e => e.Id == id && !e.IsDeleted && (userCenterId == null || e.CenterId == userCenterId.Value));
             if (entity is null)
                 return new Response<bool>(System.Net.HttpStatusCode.NotFound, "Расход не найден");
+
+            // Prevent delete if closed
+            var isClosed = await new FinanceService(_dbContext, _httpContextAccessor).IsMonthClosedAsync(entity.CenterId, entity.Year, entity.Month);
+            if (isClosed)
+                return new Response<bool>(HttpStatusCode.BadRequest, "Ин моҳ баста шудааст, несткунӣ манъ аст");
 
             entity.IsDeleted = true;
             entity.UpdatedAt = DateTimeOffset.UtcNow;

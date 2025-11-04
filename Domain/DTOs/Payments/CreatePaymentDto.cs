@@ -19,8 +19,16 @@ public class CreatePaymentDto
     [Range(2000, 3000)]
     public int Year { get; set; }
 
+    // Optional: pay several consecutive months at once (default 1)
+    [Range(1, 12)]
+    public int? MonthsCount { get; set; }
+
     [Required]
     public PaymentMethod PaymentMethod { get; set; }
+
+    // Optional for partial payments. If omitted, full payable amount will be charged.
+    [Range(0.01, double.MaxValue)]
+    public decimal? Amount { get; set; }
 
     public string? TransactionId { get; set; }
 

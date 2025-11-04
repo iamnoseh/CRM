@@ -461,9 +461,11 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
             var centerId4 = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
             if (centerId4 != null)
             {
-                if (entry.Journal?.Group?.Course?.CenterId != centerId4)
+                var entryCenterId = entry.Journal?.Group?.Course?.CenterId;
+                if (entryCenterId.HasValue && entryCenterId.Value != centerId4.Value)
                 {
-                    var hasAssignmentAccess = await HasGroupAccessAsync(entry.Journal!.GroupId);
+                    var groupIdForAccess = entry.Journal?.GroupId;
+                    var hasAssignmentAccess = groupIdForAccess.HasValue && await HasGroupAccessAsync(groupIdForAccess.Value);
                     if (!hasAssignmentAccess)
                         return new Response<string>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
                 }

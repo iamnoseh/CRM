@@ -1,5 +1,6 @@
 using System.Net;
 using Domain.DTOs.Student;
+using Domain.DTOs.Payments;
 using Domain.Entities;
 using Domain.Enums;
 using Domain.Filters;
@@ -577,6 +578,56 @@ public class StudentService(
         catch 
         {
             return new PaginationResponse<List<GetSimpleDto>>(HttpStatusCode.InternalServerError,"Something went wrong");
+        }
+    }
+
+    public async Task<PaginationResponse<List<GetPaymentDto>>> GetStudentPaymentsAsync(int studentId, int? month, int? year, int pageNumber, int pageSize)
+    {
+        try
+        {
+            var studentsQuery = context.Students.Where(s => !s.IsDeleted && s.Id == studentId);
+            studentsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(studentsQuery, httpContextAccessor, s => s.CenterId);
+            var student = await studentsQuery.Select(s => new { s.Id, s.CenterId }).FirstOrDefaultAsync();
+            if (student == null)
+                return new PaginationResponse<List<GetPaymentDto>>(HttpStatusCode.NotFound, "Student not found");
+
+            var payments = context.Payments.AsNoTracking().Where(p => !p.IsDeleted && p.StudentId == studentId);
+            payments = payments.Where(p => p.CenterId == student.CenterId);
+            if (month.HasValue)
+                payments = payments.Where(p => p.Month == month.Value);
+            if (year.HasValue)
+                payments = payments.Where(p => p.Year == year.Value);
+
+            var total = await payments.CountAsync();
+            var list = await payments
+                .OrderByDescending(p => p.PaymentDate)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .Select(p => new GetPaymentDto
+                {
+                    Id = p.Id,
+                    StudentId = p.StudentId,
+                    GroupId = p.GroupId,
+                    ReceiptNumber = p.ReceiptNumber,
+                    OriginalAmount = p.OriginalAmount,
+                    DiscountAmount = p.DiscountAmount,
+                    Amount = p.Amount,
+                    PaymentMethod = p.PaymentMethod,
+                    TransactionId = p.TransactionId,
+                    Description = p.Description,
+                    Status = p.Status,
+                    PaymentDate = p.PaymentDate,
+                    CenterId = p.CenterId,
+                    Month = p.Month,
+                    Year = p.Year
+                })
+                .ToListAsync();
+
+            return new PaginationResponse<List<GetPaymentDto>>(list, total, pageNumber, pageSize);
+        }
+        catch (Exception ex)
+        {
+            return new PaginationResponse<List<GetPaymentDto>>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
 }

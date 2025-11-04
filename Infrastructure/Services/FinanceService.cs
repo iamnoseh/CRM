@@ -1,4 +1,5 @@
 using Domain.DTOs.Statistics;
+using Domain.DTOs.Finance;
 using Domain.Entities;
 using Domain.Enums;
 using Domain.Responses;
@@ -255,6 +256,140 @@ public class FinanceService(DataContext dbContext, IHttpContextAccessor httpCont
             Log.Error(ex, "Ошибка при формировании начисления зарплат для центра {CenterId} {Year}-{Month}", centerId, year, month);
             return new Response<int>(System.Net.HttpStatusCode.InternalServerError, "Не удалось сформировать начисление зарплат");
         }
+    }
+
+    public async Task<Response<List<DebtDto>>> GetDebtsAsync(int centerId, int year, int month, int? studentId)
+    {
+        try
+        {
+            var userCenterId = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
+            var effectiveCenterId = userCenterId ?? centerId;
+
+            var studentGroups = _db.StudentGroups
+                .AsNoTracking()
+                .Where(sg => !sg.IsDeleted)
+                .Join(_db.Groups.AsNoTracking(), sg => sg.GroupId, g => g.Id, (sg, g) => new { sg, g })
+                .Join(_db.Courses.AsNoTracking(), x => x.g.CourseId, c => c.Id, (x, c) => new { x.sg, x.g, c })
+                .Where(x => x.c.CenterId == effectiveCenterId);
+
+            if (studentId.HasValue)
+                studentGroups = studentGroups.Where(x => x.sg.StudentId == studentId.Value);
+
+            var discounts = _db.StudentGroupDiscounts.AsNoTracking().ToList();
+
+            var list = await studentGroups
+                .Select(x => new
+                {
+                    x.sg.StudentId,
+                    x.sg.GroupId,
+                    x.g.Name,
+                    x.c.Price
+                })
+                .ToListAsync();
+
+            var studentNames = await _db.Students.AsNoTracking()
+                .Where(s => list.Select(i => i.StudentId).Contains(s.Id))
+                .Select(s => new { s.Id, s.FullName })
+                .ToListAsync();
+
+            var payments = await _db.Payments.AsNoTracking()
+                .Where(p => p.CenterId == effectiveCenterId && p.Year == year && p.Month == month && (p.Status == PaymentStatus.Completed || p.Status == PaymentStatus.Paid))
+                .GroupBy(p => new { p.StudentId, p.GroupId })
+                .Select(g => new { g.Key.StudentId, g.Key.GroupId, Amount = g.Sum(p => p.Amount) })
+                .ToListAsync();
+
+            var result = new List<DebtDto>();
+            foreach (var item in list)
+            {
+                var discount = discounts.FirstOrDefault(d => d.StudentId == item.StudentId && d.GroupId == item.GroupId)?.DiscountAmount ?? 0m;
+                var expected = item.Price - discount;
+                if (expected < 0) expected = 0;
+                var paid = payments.FirstOrDefault(p => p.StudentId == item.StudentId && p.GroupId == item.GroupId)?.Amount ?? 0m;
+                var balance = expected - paid;
+                if (balance <= 0) continue;
+                var st = studentNames.FirstOrDefault(s => s.Id == item.StudentId);
+                result.Add(new DebtDto
+                {
+                    StudentId = item.StudentId,
+                    StudentName = st?.FullName,
+                    GroupId = item.GroupId,
+                    GroupName = item.Name,
+                    OriginalAmount = item.Price,
+                    DiscountAmount = discount,
+                    PaidAmount = paid,
+                    Balance = balance,
+                    Month = month,
+                    Year = year
+                });
+            }
+
+            return new Response<List<DebtDto>>(result);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Хатогӣ дар ҳисобкунии қарздорон барои марказ {CenterId} {Year}-{Month}", centerId, year, month);
+            return new Response<List<DebtDto>>(System.Net.HttpStatusCode.InternalServerError, "Ҳисобкунии қарздорон ноком шуд");
+        }
+    }
+
+    public async Task<Response<bool>> SetMonthClosedAsync(int centerId, int year, int month, bool isClosed)
+    {
+        try
+        {
+            var centerExists = await _db.Centers.AnyAsync(c => c.Id == centerId);
+            if (!centerExists)
+                return new Response<bool>(System.Net.HttpStatusCode.NotFound, "Марказ ёфт нашуд");
+
+            var summary = await _db.MonthlyFinancialSummaries
+                .FirstOrDefaultAsync(m => m.CenterId == centerId && m.Year == year && m.Month == month);
+            if (summary is null)
+            {
+                // Ensure we have values even if not aggregated yet
+                var income = await _db.Payments.AsNoTracking()
+                    .Where(p => p.CenterId == centerId && p.Year == year && p.Month == month && (p.Status == PaymentStatus.Completed || p.Status == PaymentStatus.Paid))
+                    .SumAsync(p => (decimal?)p.Amount) ?? 0m;
+                var expense = await _db.Expenses.AsNoTracking()
+                    .Where(e => e.CenterId == centerId && e.Year == year && e.Month == month && !e.IsDeleted)
+                    .SumAsync(e => (decimal?)e.Amount) ?? 0m;
+                summary = new MonthlyFinancialSummary
+                {
+                    CenterId = centerId,
+                    Year = year,
+                    Month = month,
+                    TotalIncome = income,
+                    TotalExpense = expense,
+                    NetProfit = income - expense,
+                    GeneratedDate = DateTimeOffset.UtcNow,
+                    IsClosed = isClosed,
+                    CreatedAt = DateTimeOffset.UtcNow,
+                    UpdatedAt = DateTimeOffset.UtcNow
+                };
+                _db.MonthlyFinancialSummaries.Add(summary);
+            }
+            else
+            {
+                summary.IsClosed = isClosed;
+                summary.UpdatedAt = DateTimeOffset.UtcNow;
+            }
+
+            await _db.SaveChangesAsync();
+            return new Response<bool>(true);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Хатогӣ ҳангоми бастан/кушодани моҳ {Year}-{Month} барои марказ {CenterId}", year, month, centerId);
+            return new Response<bool>(System.Net.HttpStatusCode.InternalServerError, "Амалиёт ноком шуд");
+        }
+    }
+
+    public async Task<bool> IsMonthClosedAsync(int centerId, int year, int month, CancellationToken ct = default)
+    {
+        var closed = await _db.MonthlyFinancialSummaries
+            .AsNoTracking()
+            .Where(m => m.CenterId == centerId && m.Year == year && m.Month == month)
+            .Select(m => (bool?)m.IsClosed)
+            .FirstOrDefaultAsync(ct);
+        return closed ?? false;
     }
 }
 

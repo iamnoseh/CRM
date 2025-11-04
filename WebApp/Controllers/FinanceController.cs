@@ -1,4 +1,5 @@
 using Domain.DTOs.Statistics;
+using Domain.DTOs.Finance;
 using Domain.Responses;
 using Infrastructure.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -61,6 +62,30 @@ public class FinanceController(IFinanceService financeService) : ControllerBase
         [FromQuery] int month)
     {
         var response = await financeService.GenerateMentorPayrollAsync(centerId, year, month);
+        return StatusCode(response.StatusCode, response);
+    }
+
+    [HttpGet("centers/{centerId}/debts")]
+    [Authorize(Roles = "Manager,SuperAdmin")]
+    public async Task<ActionResult<Response<List<DebtDto>>>> GetDebts(
+        int centerId,
+        [FromQuery] int year,
+        [FromQuery] int month,
+        [FromQuery] int? studentId)
+    {
+        var response = await financeService.GetDebtsAsync(centerId, year, month, studentId);
+        return StatusCode(response.StatusCode, response);
+    }
+
+    [HttpPost("centers/{centerId}/close-month")]
+    [Authorize(Roles = "Manager,SuperAdmin")]
+    public async Task<ActionResult<Response<bool>>> CloseMonth(
+        int centerId,
+        [FromQuery] int year,
+        [FromQuery] int month,
+        [FromQuery] bool isClosed = true)
+    {
+        var response = await financeService.SetMonthClosedAsync(centerId, year, month, isClosed);
         return StatusCode(response.StatusCode, response);
     }
 }
