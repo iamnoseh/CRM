@@ -117,6 +117,38 @@ namespace Infrastructure.Services;
         return new PaginationResponse<List<AccountListItemDto>>(items, total, pageNumber <= 0 ? 1 : pageNumber, pageSize <= 0 ? 10 : pageSize);
     }
 
+    public async Task<Response<MyWalletDto>> GetMyWalletAsync(int limit = 10)
+    {
+        try
+        {
+            var user = httpContextAccessor.HttpContext?.User;
+            var idStr = user?.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(idStr, out var userId))
+                return new Response<MyWalletDto>(HttpStatusCode.Unauthorized, "Корбар муайян нашуд");
+
+            var student = await db.Students.FirstOrDefaultAsync(s => s.UserId == userId && !s.IsDeleted);
+            if (student == null)
+                return new Response<MyWalletDto>(HttpStatusCode.NotFound, "Профили донишҷӯ ёфт нашуд");
+
+            var accountResp = await GetByStudentIdAsync(student.Id);
+            if (accountResp.Data == null)
+                return new Response<MyWalletDto>((HttpStatusCode)accountResp.StatusCode, accountResp.Message ?? "Ҳисоб ёфт нашуд");
+
+            var logsResp = await GetLastLogsAsync(student.Id, limit <= 0 ? 10 : limit);
+            var dto = new MyWalletDto
+            {
+                Account = accountResp.Data,
+                LastLogs = logsResp.Data ?? new List<GetAccountLogDto>()
+            };
+            return new Response<MyWalletDto>(dto);
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Error(ex, "GetMyWalletAsync failure");
+            return new Response<MyWalletDto>(HttpStatusCode.InternalServerError, "Хатои дохилӣ");
+        }
+    }
+
     public async Task<Response<GetStudentAccountDto>> TopUpAsync(TopUpDto dto)
     {
         try

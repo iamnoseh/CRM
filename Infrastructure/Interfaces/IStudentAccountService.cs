@@ -10,6 +10,7 @@ public interface IStudentAccountService
     Task<Response<int>> RunMonthlyChargeAsync(int month, int year);
     Task<Response<List<GetAccountLogDto>>> GetLastLogsAsync(int studentId, int limit = 10);
     Task<PaginationResponse<List<AccountListItemDto>>> GetAccountsAsync(string? search, int pageNumber, int pageSize);
+    Task<Response<MyWalletDto>> GetMyWalletAsync(int limit = 10);
 }
 
 

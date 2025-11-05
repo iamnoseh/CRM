@@ -17,6 +17,14 @@ public class StudentAccountsController(IStudentAccountService service) : Control
         var res = await service.GetAccountsAsync(search, pageNumber, pageSize);
         return StatusCode(res.StatusCode, res);
     }
+
+    [HttpGet("me")]
+    [Authorize(Roles = "Student")]
+    public async Task<ActionResult<Response<Domain.DTOs.Finance.MyWalletDto>>> GetMyWallet([FromQuery] int limit = 10)
+    {
+        var res = await service.GetMyWalletAsync(limit);
+        return StatusCode(res.StatusCode, res);
+    }
     [HttpGet("student/{studentId}")]
     [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<ActionResult<Response<GetStudentAccountDto>>> GetByStudent(int studentId)
