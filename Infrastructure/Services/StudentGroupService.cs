@@ -1,6 +1,7 @@
 using System.Net;
 using Domain.DTOs.Discounts;
 using Domain.DTOs.StudentGroup;
+using Domain.Enums;
 using Domain.Entities;
 using Domain.Filters;
 using Domain.Responses;
@@ -199,6 +200,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
             var studentGroupDiscount = await context.StudentGroupDiscounts
                 .FirstOrDefaultAsync(sd => sd.StudentId == studentGroup.StudentId && sd.GroupId == studentGroup.GroupId);
 
+            var now = DateTime.UtcNow;
             var dto = new GetStudentGroupDto
             {
                 Id = studentGroup.Id,
@@ -212,7 +214,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                     FullName = studentGroup.Student.FullName,
                     PhoneNumber = studentGroup.Student.PhoneNumber,
                     JoinedDate = studentGroup.JoinDate,  
-                    PaymentStatus = studentGroup.Student.PaymentStatus,
+                    PaymentStatus = await context.Payments.AnyAsync(p => !p.IsDeleted && p.StudentId == studentGroup.StudentId && p.GroupId == studentGroup.GroupId && p.Year == now.Year && p.Month == now.Month && (p.Status == PaymentStatus.Completed || p.Status == PaymentStatus.Paid)) ? PaymentStatus.Completed : PaymentStatus.Pending,
                     Discount = studentGroupDiscount != null ? new GetStudentGroupDiscountDto 
                     {
                         Id = studentGroupDiscount.Id,
@@ -243,6 +245,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
     {
         try
         {
+            var now1 = DateTime.UtcNow;
             var studentGroups = await context.StudentGroups
                 .Include(sg => sg.Student)
                 .Include(sg => sg.Group)
@@ -259,7 +262,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                         FullName = sg.Student.FullName,
                         PhoneNumber = sg.Student.PhoneNumber,
                         JoinedDate = sg.JoinDate,
-                        PaymentStatus = sg.Student.PaymentStatus,
+                        PaymentStatus = context.Payments.Any(p => !p.IsDeleted && p.StudentId == sg.StudentId && p.GroupId == sg.GroupId && p.Year == now1.Year && p.Month == now1.Month && (p.Status == PaymentStatus.Completed || p.Status == PaymentStatus.Paid)) ? PaymentStatus.Completed : PaymentStatus.Pending,
                         Discount = context.StudentGroupDiscounts
                                             .Where(sgd => sgd.StudentId == sg.Student.Id && sgd.GroupId == sg.GroupId)
                                             .Select(sgd => new GetStudentGroupDiscountDto 
@@ -335,6 +338,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
 
             var totalCount = await query.CountAsync();
 
+            var now2 = DateTime.UtcNow;
             var studentGroups = await query
                 .OrderByDescending(sg => sg.JoinDate)
                 .Skip((filter.PageNumber - 1) * filter.PageSize)
@@ -352,7 +356,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                         FullName = sg.Student.FullName,
                         PhoneNumber = sg.Student.PhoneNumber,
                         JoinedDate = sg.JoinDate,
-                        PaymentStatus = sg.Student.PaymentStatus,
+                        PaymentStatus = context.Payments.Any(p => !p.IsDeleted && p.StudentId == sg.StudentId && p.GroupId == sg.GroupId && p.Year == now2.Year && p.Month == now2.Month && (p.Status == PaymentStatus.Completed || p.Status == PaymentStatus.Paid)) ? PaymentStatus.Completed : PaymentStatus.Pending,
                         Discount = context.StudentGroupDiscounts
                                             .Where(sgd => sgd.StudentId == sg.Student.Id && sgd.GroupId == sg.GroupId)
                                             .Select(sgd => new GetStudentGroupDiscountDto 
@@ -400,6 +404,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
             if (student == null)
                 return new Response<List<GetStudentGroupDto>>(HttpStatusCode.NotFound, "Студент не найден");
 
+            var now2 = DateTime.UtcNow;
             var studentGroups = await context.StudentGroups
                 .Include(sg => sg.Group)
                 .Include(sg => sg.Student)
@@ -417,7 +422,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                         FullName = sg.Student.FullName,
                         PhoneNumber = sg.Student.PhoneNumber,
                         JoinedDate = sg.JoinDate,
-                        PaymentStatus = sg.Student.PaymentStatus,
+                        PaymentStatus = context.Payments.Any(p => !p.IsDeleted && p.StudentId == sg.StudentId && p.GroupId == sg.GroupId && p.Year == now2.Year && p.Month == now2.Month && (p.Status == PaymentStatus.Completed || p.Status == PaymentStatus.Paid)) ? PaymentStatus.Completed : PaymentStatus.Pending,
                         Discount = context.StudentGroupDiscounts
                                             .Where(sgd => sgd.StudentId == sg.Student.Id && sgd.GroupId == sg.GroupId)
                                             .Select(sgd => new GetStudentGroupDiscountDto 
@@ -460,6 +465,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
             if (group == null)
                 return new Response<List<GetStudentGroupDto>>(HttpStatusCode.NotFound, "Группа не найдена");
 
+            var now3 = DateTime.UtcNow;
             var studentGroups = await context.StudentGroups
                 .Include(sg => sg.Student)
                 .Where(sg => sg.GroupId == groupId && !sg.IsDeleted)
@@ -476,7 +482,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                         FullName = sg.Student.FullName,
                         PhoneNumber = sg.Student.PhoneNumber,
                         JoinedDate = sg.JoinDate,
-                        PaymentStatus = sg.Student.PaymentStatus,
+                        PaymentStatus = context.Payments.Any(p => !p.IsDeleted && p.StudentId == sg.StudentId && p.GroupId == sg.GroupId && p.Year == now3.Year && p.Month == now3.Month && (p.Status == PaymentStatus.Completed || p.Status == PaymentStatus.Paid)) ? PaymentStatus.Completed : PaymentStatus.Pending,
                         Discount = context.StudentGroupDiscounts
                                             .Where(sgd => sgd.StudentId == sg.Student.Id && sgd.GroupId == sg.GroupId)
                                             .Select(sgd => new GetStudentGroupDiscountDto 
@@ -671,6 +677,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
             if (group == null)
                 return new Response<List<GetStudentGroupDto>>(HttpStatusCode.NotFound, "Группа не найдена");
 
+            var now4 = DateTime.UtcNow;
             var activeStudents = await context.StudentGroups
                 .Include(sg => sg.Student)
                 .Where(sg => sg.GroupId == groupId && 
@@ -689,7 +696,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                         FullName = sg.Student.FullName,
                         PhoneNumber = sg.Student.PhoneNumber,
                         JoinedDate = sg.JoinDate,
-                        PaymentStatus = sg.Student.PaymentStatus,
+                        PaymentStatus = context.Payments.Any(p => !p.IsDeleted && p.StudentId == sg.StudentId && p.GroupId == sg.GroupId && p.Year == now4.Year && p.Month == now4.Month && (p.Status == PaymentStatus.Completed || p.Status == PaymentStatus.Paid)) ? PaymentStatus.Completed : PaymentStatus.Pending,
                         Discount = context.StudentGroupDiscounts
                                             .Where(sgd => sgd.StudentId == sg.Student.Id && sgd.GroupId == sg.GroupId)
                                             .Select(sgd => new GetStudentGroupDiscountDto 
@@ -732,6 +739,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
             if (group == null)
                 return new Response<List<GetStudentGroupDto>>(HttpStatusCode.NotFound, "Группа не найдена");
 
+            var now5 = DateTime.UtcNow;
             var inactiveStudents = await context.StudentGroups
                 .Include(sg => sg.Student)
                 .Where(sg => sg.GroupId == groupId && 
@@ -750,7 +758,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                         FullName = sg.Student.FullName,
                         PhoneNumber = sg.Student.PhoneNumber,
                         JoinedDate = sg.JoinDate,
-                        PaymentStatus = sg.Student.PaymentStatus,
+                        PaymentStatus = context.Payments.Any(p => !p.IsDeleted && p.StudentId == sg.StudentId && p.GroupId == sg.GroupId && p.Year == now5.Year && p.Month == now5.Month && (p.Status == PaymentStatus.Completed || p.Status == PaymentStatus.Paid)) ? PaymentStatus.Completed : PaymentStatus.Pending,
                         Discount = context.StudentGroupDiscounts
                                             .Where(sgd => sgd.StudentId == sg.Student.Id && sgd.GroupId == sg.GroupId)
                                             .Select(sgd => new GetStudentGroupDiscountDto 

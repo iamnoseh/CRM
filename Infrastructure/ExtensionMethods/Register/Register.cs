@@ -41,6 +41,7 @@ public static class Register
         services.AddScoped<Infrastructure.BackgroundTasks.GroupExpirationService>();
         services.AddScoped<Infrastructure.BackgroundTasks.StudentStatusUpdaterService>();
         services.AddScoped<Infrastructure.BackgroundTasks.WeeklyJournalSchedulerService>();
+        services.AddScoped<Infrastructure.BackgroundTasks.WalletBackfillService>();
     
         services.AddScoped<IEmailService>(sp =>
             new EmailService(
@@ -336,6 +337,10 @@ public static class Register
             await context.Database.MigrateAsync();
             var seedService = services.GetRequiredService<SeedData>();
             await seedService.SeedAllData();
+
+            // Backfill wallets for legacy students on startup
+            var walletBackfill = services.GetRequiredService<Infrastructure.BackgroundTasks.WalletBackfillService>();
+            await walletBackfill.EnsureWalletsForAllStudentsAsync();
         }
         catch (Exception _)
         {

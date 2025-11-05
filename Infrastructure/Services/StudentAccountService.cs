@@ -158,8 +158,6 @@ namespace Infrastructure.Services;
                 .ToDictionaryAsync(a => a.StudentId, a => a);
 
             var successCount = 0;
-            var studentHasInsufficient = new Dictionary<int, bool>();
-            var studentHasAnySuccess = new HashSet<int>();
 
             foreach (var sg in studentGroups)
             {
@@ -221,7 +219,6 @@ namespace Infrastructure.Services;
                     db.Payments.Add(payment);
 
                     successCount++;
-                    studentHasAnySuccess.Add(sg.StudentId);
 
                     // SMS notify about successful charge
                     try
@@ -241,19 +238,6 @@ namespace Infrastructure.Services;
                 {
                     // notify low balance
                     await NotifyInsufficientAsync(sg.StudentId, account, amountToCharge, date, sg.Group.Name);
-                    studentHasInsufficient[sg.StudentId] = true;
-                }
-            }
-
-            // Update Student.PaymentStatus per student
-            if (studentHasInsufficient.Count > 0 || studentHasAnySuccess.Count > 0)
-            {
-                var affectedIds = studentHasInsufficient.Keys.Union(studentHasAnySuccess).ToList();
-                var affectedStudents = await db.Students.Where(s => affectedIds.Contains(s.Id) && !s.IsDeleted).ToListAsync();
-                foreach (var s in affectedStudents)
-                {
-                    s.PaymentStatus = studentHasInsufficient.ContainsKey(s.Id) ? PaymentStatus.Pending : PaymentStatus.Completed;
-                    s.UpdatedAt = DateTime.UtcNow;
                 }
             }
 
@@ -432,17 +416,6 @@ namespace Infrastructure.Services;
                 anyInsufficient = true;
                 await NotifyInsufficientAsync(sg.StudentId, account, amountToCharge, new DateTime(year, month, 1), sg.Group.Name);
             }
-        }
-
-        // Update payment status
-        var student = await db.Students.FirstOrDefaultAsync(s => s.Id == studentId && !s.IsDeleted);
-        if (student != null)
-        {
-            if (anyInsufficient)
-                student.PaymentStatus = PaymentStatus.Pending;
-            else if (anySuccess)
-                student.PaymentStatus = PaymentStatus.Completed;
-            student.UpdatedAt = DateTime.UtcNow;
         }
 
         await db.SaveChangesAsync();

@@ -68,11 +68,7 @@ public class StudentService(
                 return new Response<string>((HttpStatusCode)userResult.StatusCode, userResult.Message);
 
             var (user, password, username) = userResult.Data;
-            if (user.PaymentStatus != PaymentStatus.Completed)
-            {
-                user.PaymentStatus = PaymentStatus.Completed;
-                await userManager.UpdateAsync(user);
-            }
+            // Do not mark user as Completed by default; leave as is or Pending
             
             if (!string.IsNullOrEmpty(createStudentDto.Email))
             {
@@ -107,7 +103,7 @@ public class StudentService(
                 ProfileImage = profileImagePath,
                 Document = documentPath,
                 ActiveStatus = Domain.Enums.ActiveStatus.Active,
-                PaymentStatus = Domain.Enums.PaymentStatus.Completed
+                PaymentStatus = Domain.Enums.PaymentStatus.Pending
             };
 
             await context.Students.AddAsync(student);
@@ -132,7 +128,7 @@ public class StudentService(
 
             if (!string.IsNullOrWhiteSpace(student.PhoneNumber))
             {
-                var sms = $"Салом, {student.FullName}!\nКоди ҳамёни шумо: {walletCode}.\nЛутфан барои пур кардани ҳисоб аз ин код истифода баред.";
+                var sms = $"Салом, {student.FullName}!\nКоди ҳамёни шумо: {walletCode}.\nИн кодро ҳангоми пур кардани ҳисоб ҳатман ба админ пешниҳод кунед. Лутфан рамзро нигоҳ доред ва гум накунед.";
                 await osonSmsService.SendSmsAsync(student.PhoneNumber, sms);
             }
 
