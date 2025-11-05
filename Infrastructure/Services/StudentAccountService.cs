@@ -9,6 +9,8 @@ using Microsoft.EntityFrameworkCore;
 using Serilog;
 using Microsoft.AspNetCore.Http;
 using System.Security.Claims;
+using Domain.Filters;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace Infrastructure.Services;
 
@@ -86,6 +88,33 @@ namespace Infrastructure.Services;
             Log.Error(ex, "Гирифтани амалиётҳои охирин ноком шуд барои донишҷӯ: {FullName}", fullName ?? "номаълум");
             return new Response<List<GetAccountLogDto>>(HttpStatusCode.InternalServerError, "Хатои дохилӣ ҳангоми боркунии амалиётҳо");
         }
+    }
+
+    public async Task<PaginationResponse<List<AccountListItemDto>>> GetAccountsAsync(string? search, int pageNumber, int pageSize)
+    {
+        var query = db.StudentAccounts.AsNoTracking()
+            .Include(a => a.Student)
+            .Where(a => !a.IsDeleted && a.Student != null);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            query = query.Where(a => EF.Functions.ILike(a.Student!.FullName, $"%{search.Trim()}%"));
+        }
+
+        var total = await query.CountAsync();
+        var items = await query
+            .OrderBy(a => a.Student!.FullName)
+            .Skip((pageNumber <= 1 ? 0 : (pageNumber - 1) * (pageSize <= 0 ? 10 : pageSize)))
+            .Take(pageSize <= 0 ? 10 : pageSize)
+            .Select(a => new AccountListItemDto
+            {
+                StudentId = a.StudentId,
+                FullName = a.Student!.FullName,
+                AccountCode = a.AccountCode
+            })
+            .ToListAsync();
+
+        return new PaginationResponse<List<AccountListItemDto>>(items, total, pageNumber <= 0 ? 1 : pageNumber, pageSize <= 0 ? 10 : pageSize);
     }
 
     public async Task<Response<GetStudentAccountDto>> TopUpAsync(TopUpDto dto)

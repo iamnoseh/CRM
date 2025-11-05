@@ -10,6 +10,13 @@ namespace WebApp.Controllers;
 [Route("api/[controller]")]
 public class StudentAccountsController(IStudentAccountService service) : ControllerBase
 {
+    [HttpGet]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
+    public async Task<ActionResult<PaginationResponse<List<AccountListItemDto>>>> List([FromQuery] string? search, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+    {
+        var res = await service.GetAccountsAsync(search, pageNumber, pageSize);
+        return StatusCode(res.StatusCode, res);
+    }
     [HttpGet("student/{studentId}")]
     [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<ActionResult<Response<GetStudentAccountDto>>> GetByStudent(int studentId)
