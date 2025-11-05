@@ -119,14 +119,16 @@ namespace Infrastructure.Services;
             db.AccountLogs.Add(log);
             await db.SaveChangesAsync();
 
-            // Send SMS notification to student about top-up
-            var student = await db.Students.FirstOrDefaultAsync(s => s.Id == account.StudentId && !s.IsDeleted);
-            if (student != null && !string.IsNullOrWhiteSpace(student.PhoneNumber))
+            try
             {
-                var amountText = dto.Amount.ToString("0.##");
-                var smsText = $"Салом, {student.FullName}!\nҲисоби шумо ба маблағи {amountText} сомонӣ пур шуд. Ташаккур барои ҳамкорӣ бо мо.";
-                try { await messageSenderService.SendSmsToNumberAsync(student.PhoneNumber, smsText); } catch { /* ignore sms errors */ }
+                var student = await db.Students.FirstOrDefaultAsync(s => s.Id == account.StudentId && !s.IsDeleted);
+                if (student != null && !string.IsNullOrWhiteSpace(student.PhoneNumber))
+                {
+                    var smsText = $"Салом, {student.FullName}! Ҳисоби шумо ба маблағи {dto.Amount:0.##} сомонӣ пур шуд. Тавозуни ҷорӣ: {account.Balance:0.##} сомонӣ. Ташаккур барои ҳамкорӣ бо мо.";
+                    await messageSenderService.SendSmsToNumberAsync(student.PhoneNumber, smsText);
+                }
             }
+            catch { /* ignore sms errors */ }
 
             Log.Information("TopUp: AccountId={AccountId} Amount={Amount}", account.Id, dto.Amount);
             return new Response<GetStudentAccountDto>(Map(account)) { Message = "Баланс муваффақона пур шуд" };
