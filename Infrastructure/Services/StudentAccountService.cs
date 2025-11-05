@@ -127,6 +127,8 @@ namespace Infrastructure.Services;
                     var smsText = $"Салом, {student.FullName}! Ҳисоби шумо ба маблағи {dto.Amount:0.##} сомонӣ пур шуд. Тавозуни ҷорӣ: {account.Balance:0.##} сомонӣ. Ташаккур барои ҳамкорӣ бо мо.";
                     await messageSenderService.SendSmsToNumberAsync(student.PhoneNumber, smsText);
                 }
+                // After top-up, try to settle any pending charges for current month automatically
+                await RetryPendingForStudentAsync(account.StudentId);
             }
             catch { /* ignore sms errors */ }
 
@@ -156,6 +158,8 @@ namespace Infrastructure.Services;
                 .ToDictionaryAsync(a => a.StudentId, a => a);
 
             var successCount = 0;
+            var studentHasInsufficient = new Dictionary<int, bool>();
+            var studentHasAnySuccess = new HashSet<int>();
 
             foreach (var sg in studentGroups)
             {
@@ -217,11 +221,39 @@ namespace Infrastructure.Services;
                     db.Payments.Add(payment);
 
                     successCount++;
+                    studentHasAnySuccess.Add(sg.StudentId);
+
+                    // SMS notify about successful charge
+                    try
+                    {
+                        var studentPhone = sg.Student?.PhoneNumber;
+                        var studentName = sg.Student?.FullName ?? "донишҷӯ";
+                        var groupName = sg.Group.Name;
+                        if (!string.IsNullOrWhiteSpace(studentPhone))
+                        {
+                            var sms = $"Салом, {studentName}! Аз ҳисоби шумо барои гурӯҳи {groupName} {amountToCharge:0.##} сомонӣ гирифта шуд. Тавозуни боқимонда: {account.Balance:0.##} сомонӣ.";
+                            await messageSenderService.SendSmsToNumberAsync(studentPhone, sms);
+                        }
+                    }
+                    catch { }
                 }
                 else
                 {
                     // notify low balance
                     await NotifyInsufficientAsync(sg.StudentId, account, amountToCharge, date);
+                    studentHasInsufficient[sg.StudentId] = true;
+                }
+            }
+
+            // Update Student.PaymentStatus per student
+            if (studentHasInsufficient.Count > 0 || studentHasAnySuccess.Count > 0)
+            {
+                var affectedIds = studentHasInsufficient.Keys.Union(studentHasAnySuccess).ToList();
+                var affectedStudents = await db.Students.Where(s => affectedIds.Contains(s.Id) && !s.IsDeleted).ToListAsync();
+                foreach (var s in affectedStudents)
+                {
+                    s.PaymentStatus = studentHasInsufficient.ContainsKey(s.Id) ? PaymentStatus.Pending : PaymentStatus.Completed;
+                    s.UpdatedAt = DateTime.UtcNow;
                 }
             }
 
@@ -312,6 +344,107 @@ namespace Infrastructure.Services;
             "Adjustment" => "Ислоҳ",
             _ => type
         };
+    }
+
+    private async Task RetryPendingForStudentAsync(int studentId)
+    {
+        var now = DateTime.UtcNow;
+        var month = now.Month;
+        var year = now.Year;
+
+        var account = await db.StudentAccounts.FirstOrDefaultAsync(a => a.StudentId == studentId && a.IsActive && !a.IsDeleted);
+        if (account == null) return;
+
+        var sgs = await db.StudentGroups
+            .Include(sg => sg.Student)
+            .Include(sg => sg.Group).ThenInclude(g => g.Course)
+            .Where(sg => sg.StudentId == studentId && sg.IsActive && !sg.IsDeleted)
+            .ToListAsync();
+
+        var anyInsufficient = false;
+        var anySuccess = false;
+
+        foreach (var sg in sgs)
+        {
+            // skip if payment already exists for month
+            var alreadyPaid = await db.Payments.AnyAsync(p => !p.IsDeleted && p.StudentId == sg.StudentId && p.GroupId == sg.GroupId && p.Month == month && p.Year == year);
+            if (alreadyPaid) continue;
+
+            var preview = await discountService.PreviewAsync(sg.StudentId, sg.GroupId, month, year);
+            if (preview.StatusCode != (int)HttpStatusCode.OK || preview.Data == null) continue;
+
+            var amountToCharge = preview.Data.PayableAmount;
+            if (amountToCharge <= 0) continue;
+
+            if (account.Balance >= amountToCharge)
+            {
+                account.Balance -= amountToCharge;
+                account.UpdatedAt = DateTimeOffset.UtcNow;
+
+                db.AccountLogs.Add(new AccountLog
+                {
+                    AccountId = account.Id,
+                    Amount = -amountToCharge,
+                    Type = "MonthlyCharge",
+                    Note = $"{month:00}.{year} GroupId={sg.GroupId}",
+                    PerformedByUserId = null,
+                    PerformedByName = "Система",
+                    CreatedAt = DateTimeOffset.UtcNow,
+                    UpdatedAt = DateTimeOffset.UtcNow
+                });
+
+                db.Payments.Add(new Payment
+                {
+                    StudentId = sg.StudentId,
+                    GroupId = sg.GroupId,
+                    OriginalAmount = preview.Data.OriginalAmount,
+                    DiscountAmount = preview.Data.DiscountAmount,
+                    Amount = amountToCharge,
+                    PaymentMethod = PaymentMethod.Other,
+                    TransactionId = null,
+                    Description = "Пардохт аз ҳисоби донишҷӯ",
+                    Status = PaymentStatus.Completed,
+                    PaymentDate = DateTime.UtcNow,
+                    CenterId = sg.Group.Course.CenterId,
+                    Month = month,
+                    Year = year,
+                    CreatedAt = DateTimeOffset.UtcNow,
+                    UpdatedAt = DateTimeOffset.UtcNow
+                });
+
+                anySuccess = true;
+
+                try
+                {
+                    var studentPhone = sg.Student?.PhoneNumber;
+                    var studentName = sg.Student?.FullName ?? "донишҷӯ";
+                    var groupName = sg.Group.Name;
+                    if (!string.IsNullOrWhiteSpace(studentPhone))
+                    {
+                        var sms = $"Салом, {studentName}! Аз ҳисоби шумо барои гурӯҳи {groupName} {amountToCharge:0.##} сомонӣ гирифта шуд. Тавозуни боқимонда: {account.Balance:0.##} сомонӣ.";
+                        await messageSenderService.SendSmsToNumberAsync(studentPhone, sms);
+                    }
+                }
+                catch { }
+            }
+            else
+            {
+                anyInsufficient = true;
+            }
+        }
+
+        // Update payment status
+        var student = await db.Students.FirstOrDefaultAsync(s => s.Id == studentId && !s.IsDeleted);
+        if (student != null)
+        {
+            if (anyInsufficient)
+                student.PaymentStatus = PaymentStatus.Pending;
+            else if (anySuccess)
+                student.PaymentStatus = PaymentStatus.Completed;
+            student.UpdatedAt = DateTime.UtcNow;
+        }
+
+        await db.SaveChangesAsync();
     }
 }
 
