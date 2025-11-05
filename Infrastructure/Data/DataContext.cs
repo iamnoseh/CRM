@@ -24,6 +24,8 @@ public class DataContext(DbContextOptions<DataContext> options)
     public DbSet<JournalEntry> JournalEntries { get; set; }
     public DbSet<Expense> Expenses { get; set; }
     public DbSet<MonthlyFinancialSummary> MonthlyFinancialSummaries { get; set; }
+    public DbSet<StudentAccount> StudentAccounts { get; set; }
+    public DbSet<AccountLog> AccountLogs { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -183,6 +185,20 @@ public class DataContext(DbContextOptions<DataContext> options)
             .WithMany(c => c.Payments)
             .HasForeignKey(p => p.CenterId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        // StudentAccount vs Student
+        modelBuilder.Entity<StudentAccount>()
+            .HasOne(sa => sa.Student)
+            .WithMany()
+            .HasForeignKey(sa => sa.StudentId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // AccountLog vs Account
+        modelBuilder.Entity<AccountLog>()
+            .HasOne(al => al.Account)
+            .WithMany()
+            .HasForeignKey(al => al.AccountId)
+            .OnDelete(DeleteBehavior.Cascade);
         
         // Expense vs Center
         modelBuilder.Entity<Expense>()
@@ -322,6 +338,11 @@ public class DataContext(DbContextOptions<DataContext> options)
             .Property(e => e.Amount)
             .HasPrecision(18, 2);
 
+        // StudentAccount precision
+        modelBuilder.Entity<StudentAccount>()
+            .Property(a => a.Balance)
+            .HasPrecision(18, 2);
+
         // MonthlyFinancialSummary precision
         modelBuilder.Entity<MonthlyFinancialSummary>()
             .Property(m => m.TotalIncome)
@@ -416,6 +437,18 @@ public class DataContext(DbContextOptions<DataContext> options)
 
         modelBuilder.Entity<Payment>()
             .HasIndex(p => p.ReceiptNumber);
+
+        // StudentAccount indexes
+        modelBuilder.Entity<StudentAccount>()
+            .HasIndex(a => a.StudentId);
+
+        modelBuilder.Entity<StudentAccount>()
+            .HasIndex(a => a.AccountCode)
+            .IsUnique();
+
+        // AccountLog indexes
+        modelBuilder.Entity<AccountLog>()
+            .HasIndex(l => l.AccountId);
 
         // StudentGroupDiscount indexes and unique constraint (one active per Student-Group)
         modelBuilder.Entity<StudentGroupDiscount>()

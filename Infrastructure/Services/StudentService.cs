@@ -113,13 +113,45 @@ public class StudentService(
             await context.Students.AddAsync(student);
             var res = await context.SaveChangesAsync();
 
-            return res > 0
-                ? new Response<string>(HttpStatusCode.Created, "Student Created Successfully. Login details sent via Email and/or SMS.")
-                : new Response<string>(HttpStatusCode.BadRequest, "Student Creation Failed");
+            if (res <= 0)
+                return new Response<string>(HttpStatusCode.BadRequest, "Student Creation Failed");
+
+            // Auto-create wallet with 0 balance and send code via SMS
+            var walletCode = await GenerateUniqueWalletCodeAsync();
+            var account = new StudentAccount
+            {
+                StudentId = student.Id,
+                AccountCode = walletCode,
+                Balance = 0,
+                IsActive = true,
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow
+            };
+            await context.StudentAccounts.AddAsync(account);
+            await context.SaveChangesAsync();
+
+            if (!string.IsNullOrWhiteSpace(student.PhoneNumber))
+            {
+                var sms = $"Салом, {student.FullName}!\nКоди ҳамёни шумо: {walletCode}.\nЛутфан барои пур кардани ҳисоб аз ин код истифода баред.";
+                await osonSmsService.SendSmsAsync(student.PhoneNumber, sms);
+            }
+
+            return new Response<string>(HttpStatusCode.Created, "Student Created Successfully. Wallet created and code sent via SMS.");
         }
         catch (Exception ex)
         {
             return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
+        }
+    }
+
+    private async Task<string> GenerateUniqueWalletCodeAsync()
+    {
+        var rnd = new Random();
+        while (true)
+        {
+            var code = rnd.Next(0, 999999).ToString("D6");
+            var exists = await context.StudentAccounts.AnyAsync(a => a.AccountCode == code);
+            if (!exists) return code;
         }
     }
 

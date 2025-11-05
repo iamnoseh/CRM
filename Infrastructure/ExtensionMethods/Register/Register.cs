@@ -202,6 +202,7 @@ public static class Register
          services.AddScoped<IDiscountService, DiscountService>();
          services.AddScoped<IPaymentService, PaymentService>();
          services.AddScoped<IMessageSenderService, MessageSenderService>();
+         services.AddScoped<IStudentAccountService, StudentAccountService>();
          services.AddScoped<ILeadService>(sp => 
             new LeadService(
                 sp.GetRequiredService<DataContext>(),

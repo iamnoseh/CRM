@@ -1,0 +1,14 @@
+using Domain.DTOs.Finance;
+using Domain.Responses;
+
+namespace Infrastructure.Interfaces;
+
+public interface IStudentAccountService
+{
+    Task<Response<GetStudentAccountDto>> GetByStudentIdAsync(int studentId);
+    Task<Response<GetStudentAccountDto>> TopUpAsync(TopUpDto dto);
+    Task<Response<int>> RunMonthlyChargeAsync(int month, int year);
+    Task<Response<List<GetAccountLogDto>>> GetLastLogsAsync(int studentId, int limit = 10);
+}
+
+
