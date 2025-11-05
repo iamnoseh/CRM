@@ -240,7 +240,7 @@ namespace Infrastructure.Services;
                 else
                 {
                     // notify low balance
-                    await NotifyInsufficientAsync(sg.StudentId, account, amountToCharge, date);
+                    await NotifyInsufficientAsync(sg.StudentId, account, amountToCharge, date, sg.Group.Name);
                     studentHasInsufficient[sg.StudentId] = true;
                 }
             }
@@ -278,7 +278,7 @@ namespace Infrastructure.Services;
         }
     }
 
-    private async Task NotifyInsufficientAsync(int studentId, StudentAccount account, decimal required, DateTime dueDate)
+    private async Task NotifyInsufficientAsync(int studentId, StudentAccount account, decimal required, DateTime dueDate, string groupName)
     {
         try
         {
@@ -286,7 +286,7 @@ namespace Infrastructure.Services;
             if (student == null) return;
 
             var missing = required - account.Balance;
-            var sms = $"Баланс нокифоя. Лозим: {required:0.##}, камбуд: {missing:0.##}. Код: {account.AccountCode}";
+            var sms = $"Салом, {student.FullName}! Барои пардохти моҳонаи гурӯҳи {groupName} маблағи ҳисобатон нокифоя аст. Камбуд: {missing:0.##} сомонӣ. Лутфан бо коди ҳамён {account.AccountCode} ба админ муроҷиат карда ҳисоби худро пур кунед.";
             if (!string.IsNullOrWhiteSpace(student.PhoneNumber))
             {
                 await messageSenderService.SendSmsToNumberAsync(student.PhoneNumber, sms);
@@ -297,8 +297,8 @@ namespace Infrastructure.Services;
                 await messageSenderService.SendEmailToAddressAsync(new Domain.DTOs.MessageSender.SendEmailToAddressDto
                 {
                     EmailAddress = student.Email,
-                    Subject = "Норасоии баланс",
-                    MessageContent = $"<p>Салом, {student.FullName}.</p><p>Барои пардохти моҳонаи {dueDate:MM.yyyy} баланс нокифоя аст.</p><p>Маблағи лозим: {required:0.##}. Код: <b>{account.AccountCode}</b>.</p>"
+                    Subject = "Норасоии маблағ барои пардохти моҳона",
+                    MessageContent = $"<p>Салом, {student.FullName}.</p><p>Барои пардохти моҳонаи гурӯҳи <b>{groupName}</b> дар {dueDate:MM.yyyy} маблағи ҳисобатон нокифоя аст.</p><p>Камбуд: <b>{missing:0.##}</b> сомонӣ.</p><p>Лутфан бо коди ҳамён <b>{account.AccountCode}</b> ба админ муроҷиат намуда, ҳисоби худро пур кунед.</p>"
                 });
             }
         }
@@ -430,6 +430,7 @@ namespace Infrastructure.Services;
             else
             {
                 anyInsufficient = true;
+                await NotifyInsufficientAsync(sg.StudentId, account, amountToCharge, new DateTime(year, month, 1), sg.Group.Name);
             }
         }
 
