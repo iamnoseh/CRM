@@ -188,7 +188,6 @@ namespace Infrastructure.Services;
                     var smsText = $"Салом, {student.FullName}! Ҳисоби шумо ба маблағи {dto.Amount:0.##} сомонӣ пур шуд. Тавозуни ҷорӣ: {account.Balance:0.##} сомонӣ. Ташаккур барои ҳамкорӣ бо мо.";
                     await messageSenderService.SendSmsToNumberAsync(student.PhoneNumber, smsText);
                 }
-                // After top-up, try to settle any pending charges for current month automatically
                 await RetryPendingForStudentAsync(account.StudentId);
             }
             catch { /* ignore sms errors */ }

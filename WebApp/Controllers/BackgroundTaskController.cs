@@ -89,20 +89,26 @@ public class BackgroundTaskController(
             new { 
                 Name = "group-expiration", 
                 Description = "Проверка истечения групп", 
-                Schedule = "Каждый час",
+                Schedule = "Каждый день в 00:00",
                 Service = "GroupExpirationService"
             },
             new { 
                 Name = "student-status", 
                 Description = "Обновление статуса студентов", 
-                Schedule = "Каждый день в 6:00",
+                Schedule = "Каждый день в 00:10",
                 Service = "StudentStatusUpdaterService"
             },
             new { 
                 Name = "weekly-journal", 
                 Description = "Планирование еженедельных журналов", 
-                Schedule = "Каждый день в 7:00",
+                Schedule = "Каждый день в 00:30",
                 Service = "WeeklyJournalSchedulerService"
+            },
+            new {
+                Name = "monthly-finance",
+                Description = "Ежемесячная финансовая агрегация",
+                Schedule = "Каждый месяц 1-го числа в 00:05 UTC",
+                Service = "MonthlyFinanceAggregatorService"
             }
         };
 

@@ -11,7 +11,8 @@ public class HangfireBackgroundTaskService(
     IRecurringJobManager recurringJobManager,
     GroupExpirationService groupExpirationService,
     StudentStatusUpdaterService studentStatusUpdaterService,
-    WeeklyJournalSchedulerService weeklyJournalSchedulerService)
+    WeeklyJournalSchedulerService weeklyJournalSchedulerService,
+    MonthlyFinanceAggregatorService monthlyFinanceAggregatorService)
 {
     public void StartAllBackgroundTasks()
     {
@@ -20,19 +21,25 @@ public class HangfireBackgroundTaskService(
             recurringJobManager.AddOrUpdate(
                 "group-expiration-check",
                 () => groupExpirationService.Run(),
-                Cron.Hourly);
+                Cron.Daily(0, 0));
 
             recurringJobManager.AddOrUpdate(
                 "student-status-update",
                 () => studentStatusUpdaterService.Run(),
-                Cron.Daily(6, 0));
+                Cron.Daily(0, 10));
 
           recurringJobManager.AddOrUpdate(
                 "weekly-journal-schedule",
                 () => weeklyJournalSchedulerService.ProcessActiveGroupsAsync(CancellationToken.None),
-                Cron.Daily(7, 0));
+                Cron.Daily(0, 30));
 
             // Monthly payroll generation on the 1st day at 06:10 UTC for previous month per center can be triggered via FinanceController endpoint or separate job if center list known.
+
+            // Monthly finance aggregation on the 1st day at 00:05 UTC
+            recurringJobManager.AddOrUpdate(
+                "monthly-finance-aggregation",
+                () => monthlyFinanceAggregatorService.RunAsync(CancellationToken.None),
+                "5 0 1 * *");
 
             logger.LogInformation("Все background tasks успешно запущены как Hangfire recurring jobs");
         }
@@ -50,6 +57,7 @@ public class HangfireBackgroundTaskService(
             recurringJobManager.RemoveIfExists("group-expiration-check");
             recurringJobManager.RemoveIfExists("student-status-update");
             recurringJobManager.RemoveIfExists("weekly-journal-schedule");
+            recurringJobManager.RemoveIfExists("monthly-finance-aggregation");
 
             logger.LogInformation("Все background tasks успешно остановлены");
         }
@@ -77,6 +85,10 @@ public class HangfireBackgroundTaskService(
                 case "weekly-journal":
                     recurringJobManager.Trigger("weekly-journal-schedule");
                     logger.LogInformation("Background task 'weekly-journal' запущен немедленно");
+                    break;
+                case "monthly-finance":
+                    recurringJobManager.Trigger("monthly-finance-aggregation");
+                    logger.LogInformation("Background task 'monthly-finance' запущен немедленно");
                     break;
                 default:
                     logger.LogWarning("Неизвестный background task: {TaskName}", taskName);
