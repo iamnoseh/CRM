@@ -11,7 +11,7 @@ using Serilog;
 
 namespace Infrastructure.Services;
 
-public class DiscountService(DataContext db, IHttpContextAccessor httpContextAccessor) : IDiscountService
+public class DiscountService(DataContext db, IHttpContextAccessor httpContextAccessor, IStudentAccountService studentAccountService) : IDiscountService
 {
     public async Task<Response<string>> AssignDiscountAsync(CreateStudentGroupDiscountDto dto)
     {
@@ -82,6 +82,9 @@ public class DiscountService(DataContext db, IHttpContextAccessor httpContextAcc
                     db.Payments.Update(payment);
 
                     await db.SaveChangesAsync();
+
+                    // recalc student's aggregate payment status for current month
+                    await studentAccountService.RecalculateStudentPaymentStatusCurrentAsync(dto.StudentId);
                 }
                 Log.Information("Тахфиф навсозӣ шуд | DiscountId={Id} Discount={Discount}", existingActive.Id, existingActive.DiscountAmount);
                 return new Response<string>(HttpStatusCode.OK, "Тахфиф навсозӣ шуд");
@@ -139,6 +142,9 @@ public class DiscountService(DataContext db, IHttpContextAccessor httpContextAcc
                 db.Payments.Update(paymentAssign);
 
                 await db.SaveChangesAsync();
+
+                // recalc student's aggregate payment status for current month
+                await studentAccountService.RecalculateStudentPaymentStatusCurrentAsync(dto.StudentId);
             }
             Log.Information("Тахфиф таъин карда шуд | DiscountId={Id} StudentId={StudentId} GroupId={GroupId} Discount={Discount}", entity.Id, entity.StudentId, entity.GroupId, entity.DiscountAmount);
             return new Response<string>(HttpStatusCode.Created, "Тахфиф таъин карда шуд");

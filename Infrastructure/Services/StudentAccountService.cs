@@ -278,11 +278,10 @@ namespace Infrastructure.Services;
                     };
                     db.Payments.Add(payment);
 
-                    // sync student's main payment status and stats
+                    // sync student's stats (status will be recalculated later)
                     var studentToUpdate = await db.Students.FirstOrDefaultAsync(s => s.Id == sg.StudentId && !s.IsDeleted);
                     if (studentToUpdate != null)
                     {
-                        studentToUpdate.PaymentStatus = PaymentStatus.Completed;
                         studentToUpdate.LastPaymentDate = DateTime.UtcNow;
                         studentToUpdate.TotalPaid += amountToCharge;
                         studentToUpdate.UpdatedAt = DateTimeOffset.UtcNow;
@@ -313,6 +312,8 @@ namespace Infrastructure.Services;
             }
 
             await db.SaveChangesAsync();
+
+            // Optionally we could recalc per student here if needed
             return new Response<int>(successCount) { Message = $"Дебет муваффақ шуд барои {successCount} донишҷӯ" };
         }
         catch (Exception ex)
@@ -362,15 +363,8 @@ namespace Infrastructure.Services;
             var amountToCharge = preview.Data.PayableAmount;
             if (amountToCharge <= 0)
             {
-                // nothing to charge, just mark student paid
-                var student = await db.Students.FirstOrDefaultAsync(s => s.Id == studentId && !s.IsDeleted);
-                if (student != null)
-                {
-                    student.PaymentStatus = PaymentStatus.Completed;
-                    student.UpdatedAt = DateTimeOffset.UtcNow;
-                    db.Students.Update(student);
-                    await db.SaveChangesAsync();
-                }
+                // nothing to charge, just recalc aggregate status
+                await RecalculateStudentPaymentStatusAsync(studentId, month, year);
                 Log.Information("ChargeForGroupAsync: zero payable, marked student paid | StudentId={StudentId}", studentId);
                 return new Response<string>("Маблағи пардохт 0 аст (бо тахфиф)");
             }
@@ -421,11 +415,10 @@ namespace Infrastructure.Services;
             };
             db.Payments.Add(payment);
 
-            // sync student stats
+            // sync student stats (status will be recalculated)
             var studentToUpdate = await db.Students.FirstOrDefaultAsync(s => s.Id == studentId && !s.IsDeleted);
             if (studentToUpdate != null)
             {
-                studentToUpdate.PaymentStatus = PaymentStatus.Completed;
                 studentToUpdate.LastPaymentDate = DateTime.UtcNow;
                 studentToUpdate.TotalPaid += amountToCharge;
                 studentToUpdate.UpdatedAt = DateTimeOffset.UtcNow;
@@ -433,6 +426,9 @@ namespace Infrastructure.Services;
             }
 
             await db.SaveChangesAsync();
+
+            // recalc aggregate paid status for current period
+            await RecalculateStudentPaymentStatusAsync(studentId, month, year);
 
             try
             {
@@ -454,6 +450,63 @@ namespace Infrastructure.Services;
         {
             Log.Error(ex, "ChargeForGroupAsync failed StudentId={StudentId} GroupId={GroupId} {Month}.{Year}", studentId, groupId, month, year);
             return new Response<string>(HttpStatusCode.InternalServerError, "Хатои дохилӣ дар пардохти гурӯҳ");
+        }
+    }
+
+    public async Task<Response<string>> RecalculateStudentPaymentStatusCurrentAsync(int studentId)
+    {
+        var now = DateTime.UtcNow;
+        return await RecalculateStudentPaymentStatusAsync(studentId, now.Month, now.Year);
+    }
+
+    public async Task<Response<string>> RecalculateStudentPaymentStatusAsync(int studentId, int month, int year)
+    {
+        try
+        {
+            var student = await db.Students.FirstOrDefaultAsync(s => s.Id == studentId && !s.IsDeleted);
+            if (student == null)
+                return new Response<string>(HttpStatusCode.NotFound, "Донишҷӯ ёфт нашуд");
+
+            var activeGroupIds = await db.StudentGroups
+                .Where(sg => sg.StudentId == studentId && sg.IsActive && !sg.IsDeleted)
+                .Select(sg => sg.GroupId)
+                .ToListAsync();
+
+            bool isPaid;
+            if (activeGroupIds.Count == 0)
+            {
+                isPaid = true; // no active groups means nothing to pay
+            }
+            else
+            {
+                isPaid = true;
+                foreach (var gid in activeGroupIds)
+                {
+                    var hasPayment = await db.Payments.AnyAsync(p => !p.IsDeleted && p.StudentId == studentId && p.GroupId == gid && p.Month == month && p.Year == year && (p.Status == PaymentStatus.Completed || p.Status == PaymentStatus.Paid));
+                    if (!hasPayment)
+                    {
+                        var preview = await discountService.PreviewAsync(studentId, gid, month, year);
+                        var net = preview.Data?.PayableAmount ?? decimal.MaxValue;
+                        if (net > 0)
+                        {
+                            isPaid = false;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            student.PaymentStatus = isPaid ? PaymentStatus.Completed : PaymentStatus.Pending;
+            student.UpdatedAt = DateTimeOffset.UtcNow;
+            db.Students.Update(student);
+            await db.SaveChangesAsync();
+
+            return new Response<string>("Ҳолати пардохти донишҷӯ аз рӯи ҳамаи гурӯҳҳо навсозӣ шуд");
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "RecalculateStudentPaymentStatusAsync failed StudentId={StudentId} {Month}.{Year}", studentId, month, year);
+            return new Response<string>(HttpStatusCode.InternalServerError, "Хатои дохилӣ дар ҳисобкунии ҳолати пардохт");
         }
     }
 
@@ -602,11 +655,10 @@ namespace Infrastructure.Services;
                     UpdatedAt = DateTimeOffset.UtcNow
                 });
 
-                // sync student's main payment status and stats
+                // sync student's stats (status will be recalculated)
                 var studentToUpdate2 = await db.Students.FirstOrDefaultAsync(s => s.Id == sg.StudentId && !s.IsDeleted);
                 if (studentToUpdate2 != null)
                 {
-                    studentToUpdate2.PaymentStatus = PaymentStatus.Completed;
                     studentToUpdate2.LastPaymentDate = DateTime.UtcNow;
                     studentToUpdate2.TotalPaid += amountToCharge;
                     studentToUpdate2.UpdatedAt = DateTimeOffset.UtcNow;
@@ -636,6 +688,7 @@ namespace Infrastructure.Services;
         }
 
         await db.SaveChangesAsync();
+        await RecalculateStudentPaymentStatusAsync(studentId, month, year);
     }
 }
 

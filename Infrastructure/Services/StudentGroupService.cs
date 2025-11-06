@@ -80,6 +80,8 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                 // attempt immediate monthly charge for the new group
                 var now = DateTime.UtcNow;
                 _ = await studentAccountService.ChargeForGroupAsync(request.StudentId, request.GroupId, now.Month, now.Year);
+                // recalc status regardless of charge result (insufficient => Pending)
+                _ = await studentAccountService.RecalculateStudentPaymentStatusAsync(request.StudentId, now.Month, now.Year);
                 return new Response<string>(HttpStatusCode.Created, "Студент успешно добавлен в группу");
             }
             return new Response<string>(HttpStatusCode.InternalServerError, "Не удалось добавить студента в группу");

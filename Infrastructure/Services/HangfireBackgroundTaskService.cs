@@ -12,7 +12,8 @@ public class HangfireBackgroundTaskService(
     GroupExpirationService groupExpirationService,
     StudentStatusUpdaterService studentStatusUpdaterService,
     WeeklyJournalSchedulerService weeklyJournalSchedulerService,
-    MonthlyFinanceAggregatorService monthlyFinanceAggregatorService)
+    MonthlyFinanceAggregatorService monthlyFinanceAggregatorService,
+    DailyAutoChargeService dailyAutoChargeService)
 {
     public void StartAllBackgroundTasks()
     {
@@ -32,6 +33,12 @@ public class HangfireBackgroundTaskService(
                 "weekly-journal-schedule",
                 () => weeklyJournalSchedulerService.ProcessActiveGroupsAsync(CancellationToken.None),
                 Cron.Daily(0, 30));
+
+            // Daily auto charge at 08:00 Dushanbe time ~= 03:00 UTC
+            recurringJobManager.AddOrUpdate(
+                "daily-auto-charge",
+                () => dailyAutoChargeService.Run(),
+                Cron.Daily(3, 0));
 
             // Monthly payroll generation on the 1st day at 06:10 UTC for previous month per center can be triggered via FinanceController endpoint or separate job if center list known.
 
@@ -58,6 +65,7 @@ public class HangfireBackgroundTaskService(
             recurringJobManager.RemoveIfExists("student-status-update");
             recurringJobManager.RemoveIfExists("weekly-journal-schedule");
             recurringJobManager.RemoveIfExists("monthly-finance-aggregation");
+            recurringJobManager.RemoveIfExists("daily-auto-charge");
 
             logger.LogInformation("Все background tasks успешно остановлены");
         }
@@ -89,6 +97,10 @@ public class HangfireBackgroundTaskService(
                 case "monthly-finance":
                     recurringJobManager.Trigger("monthly-finance-aggregation");
                     logger.LogInformation("Background task 'monthly-finance' запущен немедленно");
+                    break;
+                case "daily-auto-charge":
+                    recurringJobManager.Trigger("daily-auto-charge");
+                    logger.LogInformation("Background task 'daily-auto-charge' запущен немедленно");
                     break;
                 default:
                     logger.LogWarning("Неизвестный background task: {TaskName}", taskName);

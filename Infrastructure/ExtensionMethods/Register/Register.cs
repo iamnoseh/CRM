@@ -42,6 +42,7 @@ public static class Register
         services.AddScoped<Infrastructure.BackgroundTasks.StudentStatusUpdaterService>();
         services.AddScoped<Infrastructure.BackgroundTasks.WeeklyJournalSchedulerService>();
         services.AddScoped<Infrastructure.BackgroundTasks.MonthlyFinanceAggregatorService>();
+        services.AddScoped<Infrastructure.BackgroundTasks.DailyAutoChargeService>();
         services.AddScoped<Infrastructure.BackgroundTasks.WalletBackfillService>();
     
         services.AddScoped<IEmailService>(sp =>
