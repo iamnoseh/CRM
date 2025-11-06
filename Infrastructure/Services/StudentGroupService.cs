@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Services;
 
-public class StudentGroupService(DataContext context, IJournalService journalService) : IStudentGroupService
+public class StudentGroupService(DataContext context, IJournalService journalService, Infrastructure.Interfaces.IStudentAccountService studentAccountService) : IStudentGroupService
 {
     #region CreateStudentGroupAsync
     public async Task<Response<string>> CreateStudentGroupAsync(CreateStudentGroup request)
@@ -68,6 +68,9 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
             if (result > 0)
             {
                 _ = await journalService.BackfillCurrentWeekForStudentAsync(request.GroupId, request.StudentId);
+                // attempt immediate monthly charge for the new group
+                var now = DateTime.UtcNow;
+                _ = await studentAccountService.ChargeForGroupAsync(request.StudentId, request.GroupId, now.Month, now.Year);
                 return new Response<string>(HttpStatusCode.Created, "Студент успешно добавлен в группу");
             }
             return new Response<string>(HttpStatusCode.InternalServerError, "Не удалось добавить студента в группу");
@@ -566,6 +569,12 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                 if (affectedIds.Count > 0)
                 {
                     _ = await journalService.BackfillCurrentWeekForStudentsAsync(groupId, affectedIds);
+                    // charge each affected student for current month
+                    var now = DateTime.UtcNow;
+                    foreach (var sid in affectedIds)
+                    {
+                        await studentAccountService.ChargeForGroupAsync(sid, groupId, now.Month, now.Year);
+                    }
                 }
                 return new Response<string>(HttpStatusCode.Created, "Студенты успешно добавлены в группу");
             }
@@ -1068,6 +1077,9 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
             {
                 _ = await journalService.RemoveFutureEntriesForStudentAsync(sourceGroupId, studentId);
                 _ = await journalService.BackfillCurrentWeekForStudentAsync(targetGroupId, studentId);
+                // charge for target group for current month
+                var now = DateTime.UtcNow;
+                _ = await studentAccountService.ChargeForGroupAsync(studentId, targetGroupId, now.Month, now.Year);
                 return new Response<string>(HttpStatusCode.OK, "Студент успешно переведен в новую группу");
             }
             return new Response<string>(HttpStatusCode.InternalServerError, "Не удалось перевести студента в новую группу");

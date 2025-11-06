@@ -1,6 +1,7 @@
 using System.Net;
 using Domain.DTOs.Discounts;
 using Domain.Entities;
+using Domain.Enums;
 using Domain.Responses;
 using Infrastructure.Data;
 using Infrastructure.Interfaces;
@@ -33,10 +34,55 @@ public class DiscountService(DataContext db, IHttpContextAccessor httpContextAcc
             var existingActive = await db.StudentGroupDiscounts.FirstOrDefaultAsync(x => x.StudentId == dto.StudentId && x.GroupId == dto.GroupId && !x.IsDeleted);
             if (existingActive != null)
             {
+                var oldDiscount = existingActive.DiscountAmount;
                 existingActive.DiscountAmount = dto.DiscountAmount;
                 existingActive.UpdatedAt = DateTimeOffset.UtcNow;
                 db.StudentGroupDiscounts.Update(existingActive);
                 await db.SaveChangesAsync();
+
+                // If payment already exists this month, credit delta to wallet and adjust payment
+                var now = DateTime.UtcNow;
+                var payment = await db.Payments.FirstOrDefaultAsync(p => !p.IsDeleted && p.StudentId == dto.StudentId && p.GroupId == dto.GroupId && p.Year == now.Year && p.Month == now.Month && (p.Status == PaymentStatus.Completed || p.Status == PaymentStatus.Paid));
+                if (payment != null && dto.DiscountAmount > oldDiscount)
+                {
+                    var delta = dto.DiscountAmount - oldDiscount;
+                    var account = await db.StudentAccounts.FirstOrDefaultAsync(a => a.StudentId == dto.StudentId && a.IsActive && !a.IsDeleted);
+                    if (account == null)
+                    {
+                        account = new StudentAccount
+                        {
+                            StudentId = dto.StudentId,
+                            AccountCode = (await db.StudentAccounts.AnyAsync()) ? (await db.StudentAccounts.OrderByDescending(a => a.Id).Select(a => a.AccountCode).FirstOrDefaultAsync()) : Guid.NewGuid().ToString("N").Substring(0, 6),
+                            Balance = 0,
+                            IsActive = true,
+                            CreatedAt = DateTimeOffset.UtcNow,
+                            UpdatedAt = DateTimeOffset.UtcNow
+                        };
+                        db.StudentAccounts.Add(account);
+                        await db.SaveChangesAsync();
+                    }
+
+                    account.Balance += delta;
+                    account.UpdatedAt = DateTimeOffset.UtcNow;
+                    db.AccountLogs.Add(new AccountLog
+                    {
+                        AccountId = account.Id,
+                        Amount = delta,
+                        Type = "Adjustment",
+                        Note = $"Discount credit {now:MM.yyyy} GroupId={dto.GroupId}",
+                        PerformedByUserId = null,
+                        PerformedByName = "Система",
+                        CreatedAt = DateTimeOffset.UtcNow,
+                        UpdatedAt = DateTimeOffset.UtcNow
+                    });
+
+                    payment.DiscountAmount = dto.DiscountAmount;
+                    payment.Amount = Math.Max(0, payment.OriginalAmount - payment.DiscountAmount);
+                    payment.UpdatedAt = DateTimeOffset.UtcNow;
+                    db.Payments.Update(payment);
+
+                    await db.SaveChangesAsync();
+                }
                 Log.Information("Тахфиф навсозӣ шуд | DiscountId={Id} Discount={Discount}", existingActive.Id, existingActive.DiscountAmount);
                 return new Response<string>(HttpStatusCode.OK, "Тахфиф навсозӣ шуд");
             }
@@ -51,6 +97,49 @@ public class DiscountService(DataContext db, IHttpContextAccessor httpContextAcc
             };
             await db.StudentGroupDiscounts.AddAsync(entity);
             await db.SaveChangesAsync();
+
+            // If payment already exists this month, credit full discount to wallet and adjust payment
+            var nowAssign = DateTime.UtcNow;
+            var paymentAssign = await db.Payments.FirstOrDefaultAsync(p => !p.IsDeleted && p.StudentId == dto.StudentId && p.GroupId == dto.GroupId && p.Year == nowAssign.Year && p.Month == nowAssign.Month && (p.Status == PaymentStatus.Completed || p.Status == PaymentStatus.Paid));
+            if (paymentAssign != null && entity.DiscountAmount > 0)
+            {
+                var account = await db.StudentAccounts.FirstOrDefaultAsync(a => a.StudentId == dto.StudentId && a.IsActive && !a.IsDeleted);
+                if (account == null)
+                {
+                    account = new StudentAccount
+                    {
+                        StudentId = dto.StudentId,
+                        AccountCode = (await db.StudentAccounts.AnyAsync()) ? (await db.StudentAccounts.OrderByDescending(a => a.Id).Select(a => a.AccountCode).FirstOrDefaultAsync()) : Guid.NewGuid().ToString("N").Substring(0, 6),
+                        Balance = 0,
+                        IsActive = true,
+                        CreatedAt = DateTimeOffset.UtcNow,
+                        UpdatedAt = DateTimeOffset.UtcNow
+                    };
+                    db.StudentAccounts.Add(account);
+                    await db.SaveChangesAsync();
+                }
+
+                account.Balance += entity.DiscountAmount;
+                account.UpdatedAt = DateTimeOffset.UtcNow;
+                db.AccountLogs.Add(new AccountLog
+                {
+                    AccountId = account.Id,
+                    Amount = entity.DiscountAmount,
+                    Type = "Adjustment",
+                    Note = $"Discount credit {nowAssign:MM.yyyy} GroupId={dto.GroupId}",
+                    PerformedByUserId = null,
+                    PerformedByName = "Система",
+                    CreatedAt = DateTimeOffset.UtcNow,
+                    UpdatedAt = DateTimeOffset.UtcNow
+                });
+
+                paymentAssign.DiscountAmount = entity.DiscountAmount;
+                paymentAssign.Amount = Math.Max(0, paymentAssign.OriginalAmount - paymentAssign.DiscountAmount);
+                paymentAssign.UpdatedAt = DateTimeOffset.UtcNow;
+                db.Payments.Update(paymentAssign);
+
+                await db.SaveChangesAsync();
+            }
             Log.Information("Тахфиф таъин карда шуд | DiscountId={Id} StudentId={StudentId} GroupId={GroupId} Discount={Discount}", entity.Id, entity.StudentId, entity.GroupId, entity.DiscountAmount);
             return new Response<string>(HttpStatusCode.Created, "Тахфиф таъин карда шуд");
         }

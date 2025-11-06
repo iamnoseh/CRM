@@ -322,6 +322,135 @@ namespace Infrastructure.Services;
         }
     }
 
+    public async Task<Response<string>> ChargeForGroupAsync(int studentId, int groupId, int month, int year)
+    {
+        try
+        {
+            // skip if payment already exists for this month
+            var alreadyPaid = await db.Payments.AnyAsync(p => !p.IsDeleted && p.StudentId == studentId && p.GroupId == groupId && p.Month == month && p.Year == year && (p.Status == PaymentStatus.Completed || p.Status == PaymentStatus.Paid));
+            if (alreadyPaid)
+            {
+                return new Response<string>("Пардохти ин моҳ аллакай сабт шудааст");
+            }
+
+            // ensure account exists
+            var account = await db.StudentAccounts.FirstOrDefaultAsync(a => a.StudentId == studentId && a.IsActive && !a.IsDeleted);
+            if (account == null)
+            {
+                account = new StudentAccount
+                {
+                    StudentId = studentId,
+                    AccountCode = await GenerateUniqueCodeAsync(),
+                    Balance = 0,
+                    IsActive = true,
+                    CreatedAt = DateTimeOffset.UtcNow,
+                    UpdatedAt = DateTimeOffset.UtcNow
+                };
+                db.StudentAccounts.Add(account);
+                await db.SaveChangesAsync();
+            }
+
+            var preview = await discountService.PreviewAsync(studentId, groupId, month, year);
+            if (preview.StatusCode != (int)HttpStatusCode.OK || preview.Data == null)
+            {
+                return new Response<string>((HttpStatusCode)preview.StatusCode, preview.Message ?? "Preview ноком шуд");
+            }
+
+            var amountToCharge = preview.Data.PayableAmount;
+            if (amountToCharge <= 0)
+            {
+                // nothing to charge, just mark student paid
+                var student = await db.Students.FirstOrDefaultAsync(s => s.Id == studentId && !s.IsDeleted);
+                if (student != null)
+                {
+                    student.PaymentStatus = PaymentStatus.Completed;
+                    student.UpdatedAt = DateTimeOffset.UtcNow;
+                    db.Students.Update(student);
+                    await db.SaveChangesAsync();
+                }
+                return new Response<string>("Маблағи пардохт 0 аст (бо тахфиф)");
+            }
+
+            if (account.Balance < amountToCharge)
+            {
+                // insufficient funds
+                await NotifyInsufficientAsync(studentId, account, amountToCharge, new DateTime(year, month, 1), (await db.Groups.FirstOrDefaultAsync(g => g.Id == groupId))?.Name ?? "гурӯҳ");
+                return new Response<string>(HttpStatusCode.BadRequest, "Баланс нокифоя аст барои пардохти моҳона");
+            }
+
+            // debit and create payment
+            account.Balance -= amountToCharge;
+            account.UpdatedAt = DateTimeOffset.UtcNow;
+
+            db.AccountLogs.Add(new AccountLog
+            {
+                AccountId = account.Id,
+                Amount = -amountToCharge,
+                Type = "MonthlyCharge",
+                Note = $"{month:00}.{year} GroupId={groupId}",
+                PerformedByUserId = null,
+                PerformedByName = "Система",
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow
+            });
+
+            var group = await db.Groups.Include(g => g.Course).FirstOrDefaultAsync(g => g.Id == groupId);
+
+            var payment = new Payment
+            {
+                StudentId = studentId,
+                GroupId = groupId,
+                OriginalAmount = preview.Data.OriginalAmount,
+                DiscountAmount = preview.Data.DiscountAmount,
+                Amount = amountToCharge,
+                PaymentMethod = PaymentMethod.Other,
+                TransactionId = null,
+                Description = "Пардохт аз ҳисоби донишҷӯ",
+                Status = PaymentStatus.Completed,
+                PaymentDate = DateTime.UtcNow,
+                CenterId = group?.Course?.CenterId,
+                Month = month,
+                Year = year,
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow
+            };
+            db.Payments.Add(payment);
+
+            // sync student stats
+            var studentToUpdate = await db.Students.FirstOrDefaultAsync(s => s.Id == studentId && !s.IsDeleted);
+            if (studentToUpdate != null)
+            {
+                studentToUpdate.PaymentStatus = PaymentStatus.Completed;
+                studentToUpdate.LastPaymentDate = DateTime.UtcNow;
+                studentToUpdate.TotalPaid += amountToCharge;
+                studentToUpdate.UpdatedAt = DateTimeOffset.UtcNow;
+                db.Students.Update(studentToUpdate);
+            }
+
+            await db.SaveChangesAsync();
+
+            try
+            {
+                var studentPhone = (await db.Students.FirstOrDefaultAsync(s => s.Id == studentId))?.PhoneNumber;
+                var studentName = (await db.Students.FirstOrDefaultAsync(s => s.Id == studentId))?.FullName ?? "донишҷӯ";
+                var groupName = group?.Name ?? "гурӯҳ";
+                if (!string.IsNullOrWhiteSpace(studentPhone))
+                {
+                    var sms = $"Салом, {studentName}! Аз ҳисоби шумо барои гурӯҳи {groupName} {amountToCharge:0.##} сомонӣ гирифта шуд. Тавозуни боқимонда: {account.Balance:0.##} сомонӣ.";
+                    await messageSenderService.SendSmsToNumberAsync(studentPhone, sms);
+                }
+            }
+            catch { }
+
+            return new Response<string>("Пардохти моҳона барои гурӯҳ анҷом шуд");
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "ChargeForGroupAsync failed StudentId={StudentId} GroupId={GroupId} {Month}.{Year}", studentId, groupId, month, year);
+            return new Response<string>(HttpStatusCode.InternalServerError, "Хатои дохилӣ дар пардохти гурӯҳ");
+        }
+    }
+
     private async Task<string> GenerateUniqueCodeAsync()
     {
         var rnd = new Random();
