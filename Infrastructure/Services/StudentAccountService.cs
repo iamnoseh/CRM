@@ -278,6 +278,17 @@ namespace Infrastructure.Services;
                     };
                     db.Payments.Add(payment);
 
+                    // sync student's main payment status and stats
+                    var studentToUpdate = await db.Students.FirstOrDefaultAsync(s => s.Id == sg.StudentId && !s.IsDeleted);
+                    if (studentToUpdate != null)
+                    {
+                        studentToUpdate.PaymentStatus = PaymentStatus.Completed;
+                        studentToUpdate.LastPaymentDate = DateTime.UtcNow;
+                        studentToUpdate.TotalPaid += amountToCharge;
+                        studentToUpdate.UpdatedAt = DateTimeOffset.UtcNow;
+                        db.Students.Update(studentToUpdate);
+                    }
+
                     successCount++;
 
                     // SMS notify about successful charge
@@ -455,6 +466,17 @@ namespace Infrastructure.Services;
                     CreatedAt = DateTimeOffset.UtcNow,
                     UpdatedAt = DateTimeOffset.UtcNow
                 });
+
+                // sync student's main payment status and stats
+                var studentToUpdate2 = await db.Students.FirstOrDefaultAsync(s => s.Id == sg.StudentId && !s.IsDeleted);
+                if (studentToUpdate2 != null)
+                {
+                    studentToUpdate2.PaymentStatus = PaymentStatus.Completed;
+                    studentToUpdate2.LastPaymentDate = DateTime.UtcNow;
+                    studentToUpdate2.TotalPaid += amountToCharge;
+                    studentToUpdate2.UpdatedAt = DateTimeOffset.UtcNow;
+                    db.Students.Update(studentToUpdate2);
+                }
 
                 anySuccess = true;
 
