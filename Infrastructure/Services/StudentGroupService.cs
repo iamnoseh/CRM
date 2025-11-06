@@ -13,6 +13,12 @@ namespace Infrastructure.Services;
 
 public class StudentGroupService(DataContext context, IJournalService journalService, Infrastructure.Interfaces.IStudentAccountService studentAccountService) : IStudentGroupService
 {
+    private async Task<Response<string>> AfterActivateChargeAsync(int studentId, int groupId)
+    {
+        var now = DateTime.UtcNow;
+        await studentAccountService.ChargeForGroupAsync(studentId, groupId, now.Month, now.Year);
+        return new Response<string>(HttpStatusCode.OK, "Студент успешно активирован в группе");
+    }
     #region CreateStudentGroupAsync
     public async Task<Response<string>> CreateStudentGroupAsync(CreateStudentGroup request)
     {
@@ -47,6 +53,9 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                 if (updateResult > 0)
                 {
                     _ = await journalService.BackfillCurrentWeekForStudentAsync(request.GroupId, request.StudentId);
+                    // charge immediately on re-activation as well
+                    var now = DateTime.UtcNow;
+                    _ = await studentAccountService.ChargeForGroupAsync(request.StudentId, request.GroupId, now.Month, now.Year);
                     return new Response<string>(HttpStatusCode.OK, "Членство студента в группе переактивировано");
                 }
                 return new Response<string>(HttpStatusCode.InternalServerError, "Не удалось переактивировать членство студента в группе");
@@ -823,7 +832,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
             var result = await context.SaveChangesAsync();
 
             return result > 0
-                ? new Response<string>(HttpStatusCode.OK, "Студент успешно активирован в группе")
+                ? await AfterActivateChargeAsync(studentId, groupId)
                 : new Response<string>(HttpStatusCode.InternalServerError, "Не удалось активировать студента в группе");
         }
         catch (Exception ex)

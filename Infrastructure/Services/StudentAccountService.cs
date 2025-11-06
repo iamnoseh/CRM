@@ -326,10 +326,12 @@ namespace Infrastructure.Services;
     {
         try
         {
+            Log.Information("ChargeForGroupAsync start | StudentId={StudentId} GroupId={GroupId} Period={Month}.{Year}", studentId, groupId, month, year);
             // skip if payment already exists for this month
             var alreadyPaid = await db.Payments.AnyAsync(p => !p.IsDeleted && p.StudentId == studentId && p.GroupId == groupId && p.Month == month && p.Year == year && (p.Status == PaymentStatus.Completed || p.Status == PaymentStatus.Paid));
             if (alreadyPaid)
             {
+                Log.Information("ChargeForGroupAsync: already paid, skipping | StudentId={StudentId} GroupId={GroupId}", studentId, groupId);
                 return new Response<string>("Пардохти ин моҳ аллакай сабт шудааст");
             }
 
@@ -353,6 +355,7 @@ namespace Infrastructure.Services;
             var preview = await discountService.PreviewAsync(studentId, groupId, month, year);
             if (preview.StatusCode != (int)HttpStatusCode.OK || preview.Data == null)
             {
+                Log.Warning("ChargeForGroupAsync: preview failed | Status={Status} Message={Message}", preview.StatusCode, preview.Message);
                 return new Response<string>((HttpStatusCode)preview.StatusCode, preview.Message ?? "Preview ноком шуд");
             }
 
@@ -368,6 +371,7 @@ namespace Infrastructure.Services;
                     db.Students.Update(student);
                     await db.SaveChangesAsync();
                 }
+                Log.Information("ChargeForGroupAsync: zero payable, marked student paid | StudentId={StudentId}", studentId);
                 return new Response<string>("Маблағи пардохт 0 аст (бо тахфиф)");
             }
 
@@ -375,6 +379,7 @@ namespace Infrastructure.Services;
             {
                 // insufficient funds
                 await NotifyInsufficientAsync(studentId, account, amountToCharge, new DateTime(year, month, 1), (await db.Groups.FirstOrDefaultAsync(g => g.Id == groupId))?.Name ?? "гурӯҳ");
+                Log.Warning("ChargeForGroupAsync: insufficient funds | StudentId={StudentId} Balance={Balance} Required={Required}", studentId, account.Balance, amountToCharge);
                 return new Response<string>(HttpStatusCode.BadRequest, "Баланс нокифоя аст барои пардохти моҳона");
             }
 
@@ -442,6 +447,7 @@ namespace Infrastructure.Services;
             }
             catch { }
 
+            Log.Information("ChargeForGroupAsync: success | StudentId={StudentId} GroupId={GroupId} Amount={Amount}", studentId, groupId, amountToCharge);
             return new Response<string>("Пардохти моҳона барои гурӯҳ анҷом шуд");
         }
         catch (Exception ex)
