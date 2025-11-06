@@ -11,7 +11,7 @@ using Serilog;
 
 namespace Infrastructure.Services;
 
-public class DiscountService(DataContext db, IHttpContextAccessor httpContextAccessor, IStudentAccountService studentAccountService) : IDiscountService
+public class DiscountService(DataContext db, IHttpContextAccessor httpContextAccessor) : IDiscountService
 {
     public async Task<Response<string>> AssignDiscountAsync(CreateStudentGroupDiscountDto dto)
     {
@@ -84,7 +84,7 @@ public class DiscountService(DataContext db, IHttpContextAccessor httpContextAcc
                     await db.SaveChangesAsync();
 
                     // recalc student's aggregate payment status for current month
-                    await studentAccountService.RecalculateStudentPaymentStatusCurrentAsync(dto.StudentId);
+                    await RecalculateStudentPaymentStatusCurrentAsync(dto.StudentId);
                 }
                 Log.Information("Тахфиф навсозӣ шуд | DiscountId={Id} Discount={Discount}", existingActive.Id, existingActive.DiscountAmount);
                 return new Response<string>(HttpStatusCode.OK, "Тахфиф навсозӣ шуд");
@@ -144,7 +144,7 @@ public class DiscountService(DataContext db, IHttpContextAccessor httpContextAcc
                 await db.SaveChangesAsync();
 
                 // recalc student's aggregate payment status for current month
-                await studentAccountService.RecalculateStudentPaymentStatusCurrentAsync(dto.StudentId);
+                await RecalculateStudentPaymentStatusCurrentAsync(dto.StudentId);
             }
             Log.Information("Тахфиф таъин карда шуд | DiscountId={Id} StudentId={StudentId} GroupId={GroupId} Discount={Discount}", entity.Id, entity.StudentId, entity.GroupId, entity.DiscountAmount);
             return new Response<string>(HttpStatusCode.Created, "Тахфиф таъин карда шуд");
@@ -267,5 +267,58 @@ public class DiscountService(DataContext db, IHttpContextAccessor httpContextAcc
             DiscountAmount = applied,
             PayableAmount = net
         });
+    }
+
+    private async Task RecalculateStudentPaymentStatusCurrentAsync(int studentId)
+    {
+        var now = DateTime.UtcNow;
+        await RecalculateStudentPaymentStatusAsync(studentId, now.Month, now.Year);
+    }
+
+    private async Task RecalculateStudentPaymentStatusAsync(int studentId, int month, int year)
+    {
+        try
+        {
+            var student = await db.Students.FirstOrDefaultAsync(s => s.Id == studentId && !s.IsDeleted);
+            if (student == null) return;
+
+            var activeGroupIds = await db.StudentGroups
+                .Where(sg => sg.StudentId == studentId && sg.IsActive && !sg.IsDeleted)
+                .Select(sg => sg.GroupId)
+                .ToListAsync();
+
+            bool isPaid;
+            if (activeGroupIds.Count == 0)
+            {
+                isPaid = true;
+            }
+            else
+            {
+                isPaid = true;
+                foreach (var gid in activeGroupIds)
+                {
+                    var hasPayment = await db.Payments.AnyAsync(p => !p.IsDeleted && p.StudentId == studentId && p.GroupId == gid && p.Month == month && p.Year == year && (p.Status == PaymentStatus.Completed || p.Status == PaymentStatus.Paid));
+                    if (!hasPayment)
+                    {
+                        var preview = await PreviewAsync(studentId, gid, month, year);
+                        var net = preview.Data?.PayableAmount ?? decimal.MaxValue;
+                        if (net > 0)
+                        {
+                            isPaid = false;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            student.PaymentStatus = isPaid ? PaymentStatus.Completed : PaymentStatus.Pending;
+            student.UpdatedAt = DateTimeOffset.UtcNow;
+            db.Students.Update(student);
+            await db.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "RecalculateStudentPaymentStatusAsync failed in DiscountService for StudentId={StudentId}", studentId);
+        }
     }
 }
