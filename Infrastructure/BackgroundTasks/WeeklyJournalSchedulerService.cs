@@ -24,6 +24,7 @@ public class WeeklyJournalSchedulerService(
                 var nowUtc = DateTimeOffset.UtcNow;
                 var nextRun = CalculateNextRunTime(nowUtc);
                 var delay = nextRun - nowUtc;
+                if (delay < TimeSpan.Zero) delay = TimeSpan.FromSeconds(1);
                 logger.LogInformation("Следующий запуск планировщика журналов: {time}", nextRun.ToDushanbeTime());
                 await Task.Delay(delay, stoppingToken);
                 await ProcessActiveGroupsAsync(stoppingToken);

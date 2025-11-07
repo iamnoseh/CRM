@@ -41,6 +41,7 @@ public class GroupExpirationService(
                 var now = DateTimeOffset.UtcNow;
                 var nextRunTime = CalculateNextRunTime(now);
                 var delay = nextRunTime - now;
+                if (delay < TimeSpan.Zero) delay = TimeSpan.FromSeconds(1);
 
                 logger.LogInformation($"Следующая проверка истечения групп запланирована на {nextRunTime.ToDushanbeTime()} (через {delay.TotalHours:F1} часов)");
                 await Task.Delay(delay, stoppingToken);
