@@ -245,12 +245,13 @@ namespace Infrastructure.Services;
                     account.Balance -= amountToCharge;
                     account.UpdatedAt = DateTimeOffset.UtcNow;
 
+                    var groupName1 = sg.Group.Name;
                     db.AccountLogs.Add(new AccountLog
                     {
                         AccountId = account.Id,
                         Amount = -amountToCharge,
                         Type = "MonthlyCharge",
-                        Note = $"{month:00}.{year} GroupId={sg.GroupId}",
+                        Note = $"{month:00}.{year} - Пардохт барои гурӯҳ {groupName1}",
                         PerformedByUserId = null,
                         PerformedByName = "Система",
                         CreatedAt = DateTimeOffset.UtcNow,
@@ -267,7 +268,7 @@ namespace Infrastructure.Services;
                         Amount = amountToCharge,
                         PaymentMethod = PaymentMethod.Other,
                         TransactionId = null,
-                        Description = "Пардохт аз ҳисоби донишҷӯ",
+                        Description = $"Пардохт барои гурӯҳ {groupName1} (аз ҳисоби донишҷӯ)",
                         Status = PaymentStatus.Completed,
                         PaymentDate = DateTime.UtcNow,
                         CenterId = sg.Group.Course.CenterId,
@@ -381,12 +382,13 @@ namespace Infrastructure.Services;
             account.Balance -= amountToCharge;
             account.UpdatedAt = DateTimeOffset.UtcNow;
 
+            var groupName2 = group?.Name ?? $"GroupId={groupId}";
             db.AccountLogs.Add(new AccountLog
             {
                 AccountId = account.Id,
                 Amount = -amountToCharge,
                 Type = "MonthlyCharge",
-                Note = $"{month:00}.{year} GroupId={groupId}",
+                Note = $"{month:00}.{year} - Пардохт барои гурӯҳ {groupName2}",
                 PerformedByUserId = null,
                 PerformedByName = "Система",
                 CreatedAt = DateTimeOffset.UtcNow,
@@ -404,7 +406,7 @@ namespace Infrastructure.Services;
                 Amount = amountToCharge,
                 PaymentMethod = PaymentMethod.Other,
                 TransactionId = null,
-                Description = "Пардохт аз ҳисоби донишҷӯ",
+                Description = $"Пардохт барои гурӯҳ {groupName2} (аз ҳисоби донишҷӯ)",
                 Status = PaymentStatus.Completed,
                 PaymentDate = DateTime.UtcNow,
                 CenterId = group?.Course?.CenterId,
@@ -624,12 +626,13 @@ namespace Infrastructure.Services;
                 account.Balance -= amountToCharge;
                 account.UpdatedAt = DateTimeOffset.UtcNow;
 
+                var groupName3 = sg.Group.Name;
                 db.AccountLogs.Add(new AccountLog
                 {
                     AccountId = account.Id,
                     Amount = -amountToCharge,
                     Type = "MonthlyCharge",
-                    Note = $"{month:00}.{year} GroupId={sg.GroupId}",
+                    Note = $"{month:00}.{year} - Пардохт барои гурӯҳ {groupName3}",
                     PerformedByUserId = null,
                     PerformedByName = "Система",
                     CreatedAt = DateTimeOffset.UtcNow,
@@ -645,7 +648,7 @@ namespace Infrastructure.Services;
                     Amount = amountToCharge,
                     PaymentMethod = PaymentMethod.Other,
                     TransactionId = null,
-                    Description = "Пардохт аз ҳисоби донишҷӯ",
+                    Description = $"Пардохт барои гурӯҳ {groupName3} (аз ҳисоби донишҷӯ)",
                     Status = PaymentStatus.Completed,
                     PaymentDate = DateTime.UtcNow,
                     CenterId = sg.Group.Course.CenterId,
