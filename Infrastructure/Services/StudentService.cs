@@ -658,4 +658,97 @@ public class StudentService(
             return new PaginationResponse<List<GetPaymentDto>>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
+
+    public async Task<Response<List<StudentGroupOverviewDto>>> GetStudentGroupsOverviewAsync(int studentId)
+    {
+        try
+        {
+            var studentsQuery = context.Students.Where(s => !s.IsDeleted && s.Id == studentId);
+            studentsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(studentsQuery, httpContextAccessor, s => s.CenterId);
+            var student = await studentsQuery.Select(s => new { s.Id }).FirstOrDefaultAsync();
+            if (student == null)
+                return new Response<List<StudentGroupOverviewDto>>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст ё донишҷӯ ёфт нашуд");
+
+            var groupItems = await context.StudentGroups
+                .Where(sg => !sg.IsDeleted && sg.StudentId == studentId && sg.IsActive)
+                .Join(context.Groups.Where(g => !g.IsDeleted), sg => sg.GroupId, g => g.Id, (sg, g) => new { sg.GroupId, GroupName = g.Name })
+                .Distinct()
+                .ToListAsync();
+
+            if (groupItems.Count == 0)
+                return new Response<List<StudentGroupOverviewDto>>(new List<StudentGroupOverviewDto>());
+
+            var groupIds = groupItems.Select(x => x.GroupId).ToList();
+
+            var latestPaymentsByGroup = await context.Payments
+                .Where(p => !p.IsDeleted && p.StudentId == studentId && p.GroupId != null && groupIds.Contains(p.GroupId.Value))
+                .GroupBy(p => p.GroupId!.Value)
+                .Select(g => g
+                    .OrderByDescending(p => p.PaymentDate)
+                    .ThenByDescending(p => p.CreatedAt)
+                    .Select(p => new { GroupId = p.GroupId!.Value, p.Status, p.PaymentDate })
+                    .FirstOrDefault())
+                .ToListAsync();
+
+            var paymentsDict = latestPaymentsByGroup
+                .Where(x => x != null)
+                .ToDictionary(x => x!.GroupId, x => x);
+
+            var journalStats = await context.Journals
+                .Where(j => !j.IsDeleted && groupIds.Contains(j.GroupId))
+                .Join(context.JournalEntries.Where(e => !e.IsDeleted && e.StudentId == studentId),
+                    j => j.Id,
+                    e => e.JournalId,
+                    (j, e) => new { j.GroupId, Entry = e })
+                .GroupBy(x => x.GroupId)
+                .Select(g => new
+                {
+                    GroupId = g.Key,
+                    PresentCount = g.Count(x => x.Entry.AttendanceStatus == AttendanceStatus.Present),
+                    LateCount = g.Count(x => x.Entry.AttendanceStatus == AttendanceStatus.Late),
+                    AbsentCount = g.Count(x => x.Entry.AttendanceStatus == AttendanceStatus.Absent),
+                    AverageScore = g.Where(x => x.Entry.Grade != null)
+                                    .Select(x => (x.Entry.Grade ?? 0m) + (x.Entry.BonusPoints ?? 0m))
+                                    .DefaultIfEmpty(0m)
+                                    .Average()
+                })
+                .ToListAsync();
+
+            var journalDict = journalStats.ToDictionary(x => x.GroupId, x => x);
+
+            var result = new List<StudentGroupOverviewDto>();
+            foreach (var g in groupItems)
+            {
+                paymentsDict.TryGetValue(g.GroupId, out var pay);
+                var paymentStatus = pay?.Status;
+                if (paymentStatus == PaymentStatus.Paid)
+                    paymentStatus = PaymentStatus.Completed;
+
+                journalDict.TryGetValue(g.GroupId, out var stat);
+                var totalEntries = (stat?.PresentCount ?? 0) + (stat?.LateCount ?? 0) + (stat?.AbsentCount ?? 0);
+                var attendanceRate = totalEntries > 0
+                    ? Math.Round((decimal)(stat!.PresentCount) * 100m / totalEntries, 2)
+                    : 0m;
+
+                result.Add(new StudentGroupOverviewDto
+                {
+                    GroupId = g.GroupId,
+                    GroupName = g.GroupName,
+                    PaymentStatus = paymentStatus,
+                    LastPaymentDate = pay?.PaymentDate,
+                    AverageScore = Math.Round(stat?.AverageScore ?? 0m, 2),
+                    AttendanceRatePercent = attendanceRate,
+                    PresentCount = stat?.PresentCount ?? 0,
+                    LateCount = stat?.LateCount ?? 0,
+                    AbsentCount = stat?.AbsentCount ?? 0
+                });
+            }
+
+            return new Response<List<StudentGroupOverviewDto>>(result);
+        }
+        catch (Exception ex)
+        {
+            return new Response<List<StudentGroupOverviewDto>>(HttpStatusCode.InternalServerError, ex.Message);
+        }
+    }
 }

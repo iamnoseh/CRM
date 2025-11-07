@@ -140,6 +140,14 @@ public class StudentController (IStudentService service) : ControllerBase
     public async Task<Response<string>> UpdateStudentPaymentStatus([FromBody] UpdateStudentPaymentStatusDto dto)
         => await service.UpdateStudentPaymentStatusAsync(dto);
     
+    [HttpGet("{studentId}/groups-overview")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor,Student")]
+    public async Task<ActionResult<Response<List<StudentGroupOverviewDto>>>> GetStudentGroupsOverview(int studentId)
+    {
+        var res = await service.GetStudentGroupsOverviewAsync(studentId);
+        return StatusCode(res.StatusCode, res);
+    }
+    
     [HttpGet("export/analytics")]
     [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<IActionResult> ExportStudentAnalytics([FromServices] IStudentAnalyticsExportService exportService, [FromQuery] int? month, [FromQuery] int? year)

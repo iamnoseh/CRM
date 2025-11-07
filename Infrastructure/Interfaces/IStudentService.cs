@@ -21,4 +21,5 @@ public interface IStudentService
     Task<Response<string>> UpdateStudentPaymentStatusAsync(UpdateStudentPaymentStatusDto dto);
     Task<PaginationResponse<List<GetSimpleDto>>>  GetSimpleStudents(StudentFilter filter);
     Task<PaginationResponse<List<GetPaymentDto>>> GetStudentPaymentsAsync(int studentId, int? month, int? year, int pageNumber, int pageSize);
+    Task<Response<List<StudentGroupOverviewDto>>> GetStudentGroupsOverviewAsync(int studentId);
 }
