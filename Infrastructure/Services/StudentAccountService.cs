@@ -382,6 +382,7 @@ namespace Infrastructure.Services;
             account.Balance -= amountToCharge;
             account.UpdatedAt = DateTimeOffset.UtcNow;
 
+            var group = await db.Groups.Include(g => g.Course).FirstOrDefaultAsync(g => g.Id == groupId);
             var groupName2 = group?.Name ?? $"GroupId={groupId}";
             db.AccountLogs.Add(new AccountLog
             {
@@ -394,8 +395,6 @@ namespace Infrastructure.Services;
                 CreatedAt = DateTimeOffset.UtcNow,
                 UpdatedAt = DateTimeOffset.UtcNow
             });
-
-            var group = await db.Groups.Include(g => g.Course).FirstOrDefaultAsync(g => g.Id == groupId);
 
             var payment = new Payment
             {
