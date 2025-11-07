@@ -428,12 +428,6 @@ public class UserService(DataContext context, UserManager<User> userManager,
                 return new Response<string>(HttpStatusCode.BadRequest, "Ин почтаи электронӣ аллакай истифода шудааст");
             }
 
-            var setUserNameResult = await userManager.SetUserNameAsync(user, newEmail);
-            if (!setUserNameResult.Succeeded)
-            {
-                return new Response<string>(HttpStatusCode.InternalServerError, IdentityHelper.FormatIdentityErrors(setUserNameResult));
-            }
-            
             var setEmailResult = await userManager.SetEmailAsync(user, newEmail);
             if (!setEmailResult.Succeeded)
             {

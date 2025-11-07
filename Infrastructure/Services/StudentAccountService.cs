@@ -226,7 +226,7 @@ namespace Infrastructure.Services;
 
                 if (!accountsByStudent.TryGetValue(sg.StudentId, out var account))
                 {
-                    continue; // no account
+                    continue;
                 }
 
                 var preview = await discountService.PreviewAsync(sg.StudentId, sg.GroupId, month, year);
@@ -241,7 +241,6 @@ namespace Infrastructure.Services;
 
                 if (account.Balance >= amountToCharge)
                 {
-                    // debit
                     account.Balance -= amountToCharge;
                     account.UpdatedAt = DateTimeOffset.UtcNow;
 
