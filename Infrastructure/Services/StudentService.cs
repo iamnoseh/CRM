@@ -707,10 +707,8 @@ public class StudentService(
                     PresentCount = g.Count(x => x.Entry.AttendanceStatus == AttendanceStatus.Present),
                     LateCount = g.Count(x => x.Entry.AttendanceStatus == AttendanceStatus.Late),
                     AbsentCount = g.Count(x => x.Entry.AttendanceStatus == AttendanceStatus.Absent),
-                    AverageScore = g.Where(x => x.Entry.Grade != null)
-                                    .Select(x => (x.Entry.Grade ?? 0m) + (x.Entry.BonusPoints ?? 0m))
-                                    .DefaultIfEmpty(0m)
-                                    .Average()
+                    SumScore = g.Sum(x => (x.Entry.Grade ?? 0m) + (x.Entry.BonusPoints ?? 0m)),
+                    ScoredCount = g.Count(x => x.Entry.Grade != null || x.Entry.BonusPoints != null)
                 })
                 .ToListAsync();
 
@@ -729,6 +727,11 @@ public class StudentService(
                 var attendanceRate = totalEntries > 0
                     ? Math.Round((decimal)(stat!.PresentCount) * 100m / totalEntries, 2)
                     : 0m;
+                var averageScore = 0m;
+                if (stat != null && stat.ScoredCount > 0)
+                {
+                    averageScore = Math.Round(stat.SumScore / stat.ScoredCount, 2);
+                }
 
                 result.Add(new StudentGroupOverviewDto
                 {
@@ -736,7 +739,7 @@ public class StudentService(
                     GroupName = g.GroupName,
                     PaymentStatus = paymentStatus,
                     LastPaymentDate = pay?.PaymentDate,
-                    AverageScore = Math.Round(stat?.AverageScore ?? 0m, 2),
+                    AverageScore = averageScore,
                     AttendanceRatePercent = attendanceRate,
                     PresentCount = stat?.PresentCount ?? 0,
                     LateCount = stat?.LateCount ?? 0,
