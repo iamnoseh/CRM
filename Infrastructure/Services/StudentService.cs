@@ -694,9 +694,11 @@ public class StudentService(
                 .Where(x => x != null)
                 .ToDictionary(x => x!.GroupId, x => x);
 
+            var nowUtc = DateTime.UtcNow;
+
             var journalStats = await context.Journals
                 .Where(j => !j.IsDeleted && groupIds.Contains(j.GroupId))
-                .Join(context.JournalEntries.Where(e => !e.IsDeleted && e.StudentId == studentId),
+                .Join(context.JournalEntries.Where(e => !e.IsDeleted && e.StudentId == studentId && e.EntryDate <= nowUtc),
                     j => j.Id,
                     e => e.JournalId,
                     (j, e) => new { j.GroupId, Entry = e })
