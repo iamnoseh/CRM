@@ -58,25 +58,41 @@ public class DailyAutoChargeService(
     {
         try
         {
-            var now = DateTime.UtcNow;
-            var month = now.Month;
-            var year = now.Year;
+            // Current local date in Dushanbe
+            var nowUtc = DateTimeOffset.UtcNow;
+            var nowLocal = nowUtc.ToDushanbeTime();
+            var month = nowLocal.Month;
+            var year = nowLocal.Year;
+            var today = nowLocal.Day;
 
-            // Use per-group charge to ensure per-student status recalculation is executed
             using var scope = serviceProvider.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<Infrastructure.Data.DataContext>();
 
+            // Pull active links with JoinDate to compute due-day per month
             var activeLinks = db.StudentGroups
                 .Where(sg => sg.IsActive && !sg.IsDeleted)
-                .Select(sg => new { sg.StudentId, sg.GroupId })
-                .Distinct()
+                .Select(sg => new { sg.StudentId, sg.GroupId, sg.JoinDate })
                 .ToList();
 
             var total = 0;
+            var daysInMonth = DateTime.DaysInMonth(year, month);
             foreach (var link in activeLinks)
             {
                 try
                 {
+                    // Determine student's due day based on join date (Dushanbe local)
+                    var joinLocal = new DateTimeOffset(DateTime.SpecifyKind(link.JoinDate, DateTimeKind.Utc)).ToDushanbeTime();
+                    var joinDay = joinLocal.Day;
+                    var dueDayThisMonth = Math.Min(joinDay, daysInMonth);
+
+                    // First charge starts next month after join
+                    var isSameMonthAsJoin = (joinLocal.Month == month && joinLocal.Year == year);
+                    if (isSameMonthAsJoin)
+                        continue;
+
+                    if (today != dueDayThisMonth)
+                        continue;
+
                     var resp = await studentAccountService.ChargeForGroupAsync(link.StudentId, link.GroupId, month, year);
                     if (resp.StatusCode >= 200 && resp.StatusCode < 300) total++;
                 }
@@ -86,7 +102,7 @@ public class DailyAutoChargeService(
                 }
             }
 
-            logger.LogInformation("DailyAutoChargeService finished: processed {count} active student-group links", total);
+            logger.LogInformation("DailyAutoChargeService finished: processed {count} due student-group links for {month}.{year}", total, month, year);
         }
         catch (Exception ex)
         {
