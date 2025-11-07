@@ -38,7 +38,7 @@ public class CenterController(ICenterService centerService) : ControllerBase
     }
 
     [HttpGet("simple-paginated")]
-    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Student")]
     public async Task<ActionResult<PaginationResponse<List<GetCenterSimpleDto>>>> GetCentersSimplePaginated(
         [FromQuery] int page = 1, 
         [FromQuery] int pageSize = 30)
