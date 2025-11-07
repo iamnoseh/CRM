@@ -11,7 +11,7 @@ namespace WebApp.Controllers;
 public class StudentAccountsController(IStudentAccountService service) : ControllerBase
 {
     [HttpGet]
-    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Student")]
     public async Task<ActionResult<PaginationResponse<List<AccountListItemDto>>>> List([FromQuery] string? search, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
     {
         var res = await service.GetAccountsAsync(search, pageNumber, pageSize);
@@ -26,7 +26,7 @@ public class StudentAccountsController(IStudentAccountService service) : Control
         return StatusCode(res.StatusCode, res);
     }
     [HttpGet("student/{studentId}")]
-    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Student")]
     public async Task<ActionResult<Response<GetStudentAccountDto>>> GetByStudent(int studentId)
     {
         var res = await service.GetByStudentIdAsync(studentId);
@@ -34,7 +34,7 @@ public class StudentAccountsController(IStudentAccountService service) : Control
     }
 
     [HttpGet("student/{studentId}/logs")]
-    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Student")]
     public async Task<ActionResult<Response<List<GetAccountLogDto>>>> GetLogs(int studentId, [FromQuery] int limit = 10)
     {
         var res = await service.GetLastLogsAsync(studentId, limit);
