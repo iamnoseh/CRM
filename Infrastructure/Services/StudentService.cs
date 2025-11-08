@@ -669,10 +669,16 @@ public class StudentService(
             if (student == null)
                 return new Response<List<StudentGroupOverviewDto>>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст ё донишҷӯ ёфт нашуд");
 
-            var groupItems = await context.StudentGroups
-                .Where(sg => !sg.IsDeleted && sg.StudentId == studentId && sg.IsActive)
-                .Join(context.Groups.Where(g => !g.IsDeleted), sg => sg.GroupId, g => g.Id, (sg, g) => new { sg.GroupId, GroupName = g.Name })
-                .Distinct()
+            var groupItems = await context.Groups
+                .Where(g => !g.IsDeleted && g.StudentGroups.Any(sg => !sg.IsDeleted && sg.IsActive && sg.StudentId == studentId))
+                .Select(g => new
+                {
+                    GroupId = g.Id,
+                    GroupName = g.Name,
+                    GroupImagePath = g.PhotoPath,
+                    CourseName = g.Course != null ? g.Course.CourseName : null,
+                    CourseImagePath = g.Course != null ? g.Course.ImagePath : null
+                })
                 .ToListAsync();
 
             if (groupItems.Count == 0)
@@ -739,6 +745,9 @@ public class StudentService(
                 {
                     GroupId = g.GroupId,
                     GroupName = g.GroupName,
+                    GroupImagePath = g.GroupImagePath,
+                    CourseName = g.CourseName,
+                    CourseImagePath = g.CourseImagePath,
                     PaymentStatus = paymentStatus,
                     LastPaymentDate = pay?.PaymentDate,
                     AverageScore = averageScore,

@@ -6,6 +6,9 @@ public class StudentGroupOverviewDto
 {
     public int GroupId { get; set; }
     public string GroupName { get; set; } = string.Empty;
+    public string? CourseName { get; set; }
+    public string? CourseImagePath { get; set; }
+    public string? GroupImagePath { get; set; }
     public PaymentStatus? PaymentStatus { get; set; }
     public DateTime? LastPaymentDate { get; set; }
     public decimal AverageScore { get; set; }
