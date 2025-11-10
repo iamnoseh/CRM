@@ -26,7 +26,6 @@ namespace Infrastructure.BackgroundTasks
 
         public Task<Response<BackgroundTaskResult>> RunOnceAsync() => UpdateStudentStatusesAsync();
 
-        // Compatibility helper used by Hangfire wiring
         public Task Run()
         {
             return Task.Run(async () => await RunOnceAsync());
@@ -83,8 +82,7 @@ namespace Infrastructure.BackgroundTasks
 
             var utcNow = DateTime.UtcNow;
             var boundary = DateTimeOffset.UtcNow;
-
-            // Only students who have at least one ACTIVE, non-completed group with EndDate in the future
+            
             var studentIdsWithActiveGroups = await db.StudentGroups
                 .Include(sg => sg.Group)
                 .Where(sg => sg.IsActive && !sg.IsDeleted &&
@@ -129,7 +127,7 @@ namespace Infrastructure.BackgroundTasks
                             var subject = "Ёдраскуни: мӯҳлати пардохт гузаштааст";
                             var content = $"Салом {student.FullName},\n\nМӯҳлати пардохт ({student.NextPaymentDueDate:yyyy-MM-dd}) гузаштааст. Лутфан пардохтро анҷом диҳед.\n\nБо эҳтиром.";
                             var emailMessage = new EmailMessageDto(new[] { student.Email }, subject, content);
-                            await emailService.SendEmail(emailMessage, TextFormat.Plain);
+                            // await emailService.SendEmail(emailMessage, TextFormat.Plain);
                             result.Messages.Add($"Почтаи электронӣ ба {student.Email} фиристод шуд");
                         }
                         catch (Exception ex)
