@@ -208,10 +208,15 @@ namespace Infrastructure.Services;
         {
             var date = new DateTime(year, month, 1);
 
+            var boundaryNow = DateTimeOffset.UtcNow;
             var studentGroups = await db.StudentGroups
                 .Include(sg => sg.Student)
                 .Include(sg => sg.Group).ThenInclude(g => g.Course)
-                .Where(sg => !sg.IsDeleted && sg.IsActive)
+                .Where(sg => !sg.IsDeleted && sg.IsActive &&
+                             sg.Group != null &&
+                             !sg.Group.IsDeleted &&
+                             sg.Group.Status == ActiveStatus.Active &&
+                             sg.Group.EndDate > boundaryNow)
                 .ToListAsync();
 
             var accountsByStudent = await db.StudentAccounts.Where(a => a.IsActive && !a.IsDeleted)
@@ -353,6 +358,12 @@ namespace Infrastructure.Services;
                 await db.SaveChangesAsync();
             }
 
+            var group = await db.Groups.Include(g => g.Course).FirstOrDefaultAsync(g => g.Id == groupId && !g.IsDeleted);
+            if (group == null || group.Status != ActiveStatus.Active || group.EndDate <= DateTimeOffset.UtcNow)
+            {
+                return new Response<string>(HttpStatusCode.BadRequest, "Гурӯҳ фаъол нест ё мӯҳлаташ гузаштааст");
+            }
+
             var preview = await discountService.PreviewAsync(studentId, groupId, month, year);
             if (preview.StatusCode != (int)HttpStatusCode.OK || preview.Data == null)
             {
@@ -381,7 +392,7 @@ namespace Infrastructure.Services;
             account.Balance -= amountToCharge;
             account.UpdatedAt = DateTimeOffset.UtcNow;
 
-            var group = await db.Groups.Include(g => g.Course).FirstOrDefaultAsync(g => g.Id == groupId);
+            // group already loaded above
             var groupName2 = group?.Name ?? $"GroupId={groupId}";
             db.AccountLogs.Add(new AccountLog
             {
@@ -598,10 +609,16 @@ namespace Infrastructure.Services;
         var account = await db.StudentAccounts.FirstOrDefaultAsync(a => a.StudentId == studentId && a.IsActive && !a.IsDeleted);
         if (account == null) return;
 
+        var boundary = DateTimeOffset.UtcNow;
         var sgs = await db.StudentGroups
             .Include(sg => sg.Student)
             .Include(sg => sg.Group).ThenInclude(g => g.Course)
-            .Where(sg => sg.StudentId == studentId && sg.IsActive && !sg.IsDeleted)
+            .Where(sg => sg.StudentId == studentId &&
+                         sg.IsActive && !sg.IsDeleted &&
+                         sg.Group != null &&
+                         !sg.Group.IsDeleted &&
+                         sg.Group.Status == ActiveStatus.Active &&
+                         sg.Group.EndDate > boundary)
             .ToListAsync();
 
         var anyInsufficient = false;

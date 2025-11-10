@@ -82,9 +82,23 @@ namespace Infrastructure.BackgroundTasks
             var emailService = scope.ServiceProvider.GetService<IEmailService>();
 
             var utcNow = DateTime.UtcNow;
+            var boundary = DateTimeOffset.UtcNow;
+
+            // Only students who have at least one ACTIVE, non-completed group with EndDate in the future
+            var studentIdsWithActiveGroups = await db.StudentGroups
+                .Include(sg => sg.Group)
+                .Where(sg => sg.IsActive && !sg.IsDeleted &&
+                             sg.Group != null &&
+                             !sg.Group.IsDeleted &&
+                             sg.Group.Status == ActiveStatus.Active &&
+                             sg.Group.EndDate > boundary)
+                .Select(sg => sg.StudentId)
+                .Distinct()
+                .ToListAsync();
 
             var studentsToUpdate = await db.Students
                 .Where(s => s.ActiveStatus == ActiveStatus.Active && !s.IsDeleted)
+                .Where(s => studentIdsWithActiveGroups.Contains(s.Id))
                 .Where(s => s.NextPaymentDueDate != null && s.NextPaymentDueDate <= utcNow)
                 .ToListAsync();
 

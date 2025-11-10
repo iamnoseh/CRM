@@ -68,10 +68,14 @@ public class DailyAutoChargeService(
             using var scope = serviceProvider.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<Infrastructure.Data.DataContext>();
 
-            // Pull active links with JoinDate to compute due-day per month
+            // Pull active links for ACTIVE, non-completed groups only
+            var nowBoundaryUtc = DateTimeOffset.UtcNow;
             var activeLinks = db.StudentGroups
                 .Where(sg => sg.IsActive && !sg.IsDeleted)
-                .Select(sg => new { sg.StudentId, sg.GroupId, sg.JoinDate })
+                .Join(db.Groups.Where(g => !g.IsDeleted && g.Status == Domain.Enums.ActiveStatus.Active && g.EndDate > nowBoundaryUtc),
+                      sg => sg.GroupId,
+                      g => g.Id,
+                      (sg, g) => new { sg.StudentId, sg.GroupId, sg.JoinDate })
                 .ToList();
 
             var total = 0;
