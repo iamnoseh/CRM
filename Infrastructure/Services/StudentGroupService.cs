@@ -307,7 +307,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
             var studentGroups = await context.StudentGroups
                 .Include(sg => sg.Student)
                 .Include(sg => sg.Group)
-                .Where(sg => !sg.IsDeleted)
+                .Where(sg => !sg.IsDeleted && !sg.IsLeft)
                 .Select(sg => new GetStudentGroupDto
                 {
                     Id = sg.Id,
@@ -360,7 +360,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
             var query = context.StudentGroups
                 .Include(sg => sg.Student)
                 .Include(sg => sg.Group)
-                .Where(sg => !sg.IsDeleted)
+                .Where(sg => !sg.IsDeleted && !sg.IsLeft)
                 .AsQueryable();
 
             if (!string.IsNullOrEmpty(filter.Search))
@@ -466,7 +466,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
             var studentGroups = await context.StudentGroups
                 .Include(sg => sg.Group)
                 .Include(sg => sg.Student)
-                .Where(sg => sg.StudentId == studentId && !sg.IsDeleted)
+                .Where(sg => sg.StudentId == studentId && !sg.IsDeleted && !sg.IsLeft)
                 .Select(sg => new GetStudentGroupDto
                 {
                     Id = sg.Id,
@@ -526,7 +526,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
             var now3 = DateTime.UtcNow;
             var studentGroups = await context.StudentGroups
                 .Include(sg => sg.Student)
-                .Where(sg => sg.GroupId == groupId && !sg.IsDeleted)
+                .Where(sg => sg.GroupId == groupId && !sg.IsDeleted && !sg.IsLeft)
                 .Select(sg => new GetStudentGroupDto
                 {
                     Id = sg.Id,
@@ -746,6 +746,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                 .Include(sg => sg.Student)
                 .Where(sg => sg.GroupId == groupId && 
                             sg.IsActive == true && 
+                            sg.IsLeft == false &&
                             !sg.IsDeleted)
                 .Select(sg => new GetStudentGroupDto
                 {
