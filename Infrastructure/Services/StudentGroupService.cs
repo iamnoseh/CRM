@@ -93,6 +93,50 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
     }
     #endregion
 
+    #region GetLeftStudentsInGroupAsync
+    public async Task<Response<List<LeftStudentDto>>> GetLeftStudentsInGroupAsync(int groupId)
+    {
+        try
+        {
+            var group = await context.Groups
+                .FirstOrDefaultAsync(g => g.Id == groupId && !g.IsDeleted);
+
+            if (group == null)
+                return new Response<List<LeftStudentDto>>(HttpStatusCode.NotFound, "Группа не найдена");
+
+            var leftStudents = await context.StudentGroups
+                .Include(sg => sg.Student)
+                .Where(sg => sg.GroupId == groupId &&
+                            sg.IsLeft == true &&
+                            !sg.IsDeleted)
+                .Select(sg => new LeftStudentDto
+                {
+                    StudentId = sg.StudentId,
+                    GroupId = sg.GroupId,
+                    GroupName = group.Name,
+                    FullName = sg.Student!.FullName,
+                    PhoneNumber = sg.Student.PhoneNumber,
+                    ImagePath = sg.Student.ProfileImage ?? context.Users
+                        .Where(u => u.Id == sg.Student.UserId)
+                        .Select(u => u.ProfileImagePath)
+                        .FirstOrDefault(),
+                    LeftReason = sg.LeftReason,
+                    LeftDate = sg.LeftDate
+                })
+                .ToListAsync();
+
+            if (!leftStudents.Any())
+                return new Response<List<LeftStudentDto>>(HttpStatusCode.NotFound, "В этой группе нет студентов, которые покинули её");
+
+            return new Response<List<LeftStudentDto>>(leftStudents);
+        }
+        catch (Exception ex)
+        {
+            return new Response<List<LeftStudentDto>>(HttpStatusCode.InternalServerError, ex.Message);
+        }
+    }
+    #endregion
+
     #region UpdateStudentGroupAsync
     public async Task<Response<string>> UpdateStudentGroupAsync(int id, UpdateStudentGroupDto request)
     {

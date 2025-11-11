@@ -25,6 +25,7 @@ public interface IStudentGroupService
     Task<Response<string>> DeactivateStudentInGroupAsync(int studentId, int groupId);
     Task<Response<string>> LeftStudentFromGroup(int studentId, int groupId, string leftReason);
     Task<Response<string>> ReverseLeftStudentFromGroup(int studentId, int groupId);
+    Task<Response<List<LeftStudentDto>>> GetLeftStudentsInGroupAsync(int groupId);
     Task<Response<int>> GetStudentGroupCountAsync(int groupId);
     Task<Response<int>> GetStudentGroupsCountAsync(int studentId);
     Task<Response<string>> TransferStudentGroup(int studentId, int sourceGroupId, int targetGroupId);

@@ -83,6 +83,14 @@ public class StudentGroupController(IStudentGroupService studentGroupService) : 
         return StatusCode(result.StatusCode, result);
     }
     
+    [HttpGet("group/{groupId}/left-students")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor,Student")]
+    public async Task<ActionResult<Response<List<LeftStudentDto>>>> GetLeftStudentsInGroup(int groupId)
+    {
+        var result = await studentGroupService.GetLeftStudentsInGroupAsync(groupId);
+        return StatusCode(result.StatusCode, result);
+    }
+    
     [HttpPost("group/{groupId}/students")]
     [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<ActionResult<Response<string>>> AddMultipleStudentsToGroup(int groupId, List<int> studentIds)
