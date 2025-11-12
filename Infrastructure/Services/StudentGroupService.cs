@@ -92,7 +92,6 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
         }
     }
     #endregion
-
     #region GetLeftStudentsInGroupAsync
     public async Task<Response<List<LeftStudentDto>>> GetLeftStudentsInGroupAsync(int groupId)
     {
