@@ -115,6 +115,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                     GroupId = sg.GroupId,
                     GroupName = group.Name,
                     FullName = sg.Student!.FullName,
+                    Birthday = sg.Student.Birthday,
                     PhoneNumber = sg.Student.PhoneNumber,
                     ImagePath = sg.Student.ProfileImage ?? context.Users
                         .Where(u => u.Id == sg.Student.UserId)
