@@ -1054,17 +1054,18 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
     }
     #endregion
 
-    #region TransferStudentGroup
-    public async Task<Response<string>> TransferStudentGroup(int studentId, int sourceGroupId, int targetGroupId)
+    #endregion
+
+    #region TransferStudentsGroupBulk
+    public async Task<Response<string>> TransferStudentsGroupBulk(int sourceGroupId, int targetGroupId, List<int> studentIds)
     {
         try
         {
             if (sourceGroupId == targetGroupId)
                 return new Response<string>(HttpStatusCode.BadRequest, "Группа-источник и группа-цель не могут быть одинаковыми");
 
-            var student = await context.Students.FirstOrDefaultAsync(s => s.Id == studentId && !s.IsDeleted);
-            if (student == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Студент не найден");
+            if (studentIds == null || !studentIds.Any())
+                return new Response<string>(HttpStatusCode.BadRequest, "Список студентов пуст");
 
             var sourceGroup = await context.Groups.FirstOrDefaultAsync(g => g.Id == sourceGroupId && !g.IsDeleted);
             if (sourceGroup == null)
@@ -1074,69 +1075,92 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
             if (targetGroup == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Целевая группа не найдена");
 
-            var studentInSourceGroup = await context.StudentGroups
-                .FirstOrDefaultAsync(sg => sg.StudentId == studentId && 
-                                         sg.GroupId == sourceGroupId && 
-                                         sg.IsActive && 
-                                         !sg.IsDeleted);
-            
-            if (studentInSourceGroup == null)
-                return new Response<string>(HttpStatusCode.BadRequest, "Студент не является активным членом исходной группы");
+            var existingStudents = await context.Students
+                .Where(s => studentIds.Contains(s.Id) && !s.IsDeleted)
+                .Select(s => s.Id).ToListAsync();
 
-            // Deactivate from source group
-            studentInSourceGroup.IsActive = false;
-            studentInSourceGroup.LeaveDate = DateTime.UtcNow;
-            studentInSourceGroup.UpdatedAt = DateTimeOffset.UtcNow;
-            context.StudentGroups.Update(studentInSourceGroup);
+            var missing = studentIds.Except(existingStudents).ToList();
+            if (missing.Any())
+                return new Response<string>(HttpStatusCode.NotFound, $"Студенты с ID {string.Join(", ", missing)} не найдены");
 
-            // Check if student already exists in target group (even if inactive/deleted/left)
-            var studentInTargetGroup = await context.StudentGroups
-                .FirstOrDefaultAsync(sg => sg.StudentId == studentId && 
-                                         sg.GroupId == targetGroupId);
+            var movedCount = 0;
+            var skippedCount = 0;
 
-            if (studentInTargetGroup != null)
+            foreach (var studentId in studentIds.ToList())
             {
-                // Reactivate if already exists
-                if (studentInTargetGroup.IsActive && !studentInTargetGroup.IsDeleted && !studentInTargetGroup.IsLeft)
-                    return new Response<string>(HttpStatusCode.BadRequest, "Студент уже активен в целевой группе");
-
-                studentInTargetGroup.IsActive = true;
-                studentInTargetGroup.IsDeleted = false;
-                studentInTargetGroup.IsLeft = false;
-                studentInTargetGroup.LeftReason = null;
-                studentInTargetGroup.LeftDate = null;
-                studentInTargetGroup.LeaveDate = null;
-                studentInTargetGroup.JoinDate = DateTime.UtcNow; // Update join date to reflect transfer
-                studentInTargetGroup.UpdatedAt = DateTimeOffset.UtcNow;
-                context.StudentGroups.Update(studentInTargetGroup);
-            }
-            else
-            {
-                // Create new entry if not exists
-                var newStudentGroup = new StudentGroup
+                var studentInSourceGroup = await context.StudentGroups
+                    .FirstOrDefaultAsync(sg => sg.StudentId == studentId &&
+                                             sg.GroupId == sourceGroupId &&
+                                             sg.IsActive &&
+                                             !sg.IsDeleted);
+                if (studentInSourceGroup == null)
                 {
-                    StudentId = studentId,
-                    GroupId = targetGroupId,
-                    IsActive = true,
-                    JoinDate = DateTime.UtcNow,
-                    CreatedAt = DateTimeOffset.UtcNow,
-                    UpdatedAt = DateTimeOffset.UtcNow
-                };
-                await context.StudentGroups.AddAsync(newStudentGroup);
+                    skippedCount++;
+                    continue;
+                }
+
+                // deactivate from source
+                studentInSourceGroup.IsActive = false;
+                studentInSourceGroup.LeaveDate = DateTime.UtcNow;
+                studentInSourceGroup.UpdatedAt = DateTimeOffset.UtcNow;
+                context.StudentGroups.Update(studentInSourceGroup);
+
+                // target membership
+                var studentInTargetGroup = await context.StudentGroups
+                    .FirstOrDefaultAsync(sg => sg.StudentId == studentId && sg.GroupId == targetGroupId);
+
+                if (studentInTargetGroup != null)
+                {
+                    if (studentInTargetGroup.IsActive && !studentInTargetGroup.IsDeleted && !studentInTargetGroup.IsLeft)
+                    {
+                        skippedCount++;
+                        continue;
+                    }
+
+                    studentInTargetGroup.IsActive = true;
+                    studentInTargetGroup.IsDeleted = false;
+                    studentInTargetGroup.IsLeft = false;
+                    studentInTargetGroup.LeftReason = null;
+                    studentInTargetGroup.LeftDate = null;
+                    studentInTargetGroup.LeaveDate = null;
+                    studentInTargetGroup.JoinDate = DateTime.UtcNow;
+                    studentInTargetGroup.UpdatedAt = DateTimeOffset.UtcNow;
+                    context.StudentGroups.Update(studentInTargetGroup);
+                }
+                else
+                {
+                    var newStudentGroup = new StudentGroup
+                    {
+                        StudentId = studentId,
+                        GroupId = targetGroupId,
+                        IsActive = true,
+                        JoinDate = DateTime.UtcNow,
+                        CreatedAt = DateTimeOffset.UtcNow,
+                        UpdatedAt = DateTimeOffset.UtcNow
+                    };
+                    await context.StudentGroups.AddAsync(newStudentGroup);
+                }
+
+                movedCount++;
             }
 
-            var result = await context.SaveChangesAsync();
+            var saved = await context.SaveChangesAsync();
 
-            if (result > 0)
+            if (saved > 0)
             {
-                _ = await journalService.RemoveFutureEntriesForStudentAsync(sourceGroupId, studentId);
-                _ = await journalService.BackfillCurrentWeekForStudentAsync(targetGroupId, studentId);
-                // charge for target group for current month
-                var now = DateTime.UtcNow;
-                _ = await studentAccountService.ChargeForGroupAsync(studentId, targetGroupId, now.Month, now.Year);
-                return new Response<string>(HttpStatusCode.OK, "Студент успешно переведен в новую группу");
+                foreach (var studentId in studentIds)
+                {
+                    _ = await journalService.RemoveFutureEntriesForStudentAsync(sourceGroupId, studentId);
+                    _ = await journalService.BackfillCurrentWeekForStudentAsync(targetGroupId, studentId);
+                    var now = DateTime.UtcNow;
+                    _ = await studentAccountService.ChargeForGroupAsync(studentId, targetGroupId, now.Month, now.Year);
+                }
+
+                var msg = $"Переведено: {movedCount}. Пропущено: {skippedCount}.";
+                return new Response<string>(HttpStatusCode.OK, msg);
             }
-            return new Response<string>(HttpStatusCode.InternalServerError, "Не удалось перевести студента в новую группу");
+
+            return new Response<string>(HttpStatusCode.InternalServerError, "Не удалось выполнить массовый перенос студентов");
         }
         catch (Exception ex)
         {

@@ -28,5 +28,5 @@ public interface IStudentGroupService
     Task<Response<List<LeftStudentDto>>> GetLeftStudentsInGroupAsync(int groupId);
     Task<Response<int>> GetStudentGroupCountAsync(int groupId);
     Task<Response<int>> GetStudentGroupsCountAsync(int studentId);
-    Task<Response<string>> TransferStudentGroup(int studentId, int sourceGroupId, int targetGroupId);
+    Task<Response<string>> TransferStudentsGroupBulk(int sourceGroupId, int targetGroupId, List<int> studentIds);
 }

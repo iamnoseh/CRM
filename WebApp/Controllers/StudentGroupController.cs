@@ -123,11 +123,13 @@ public class StudentGroupController(IStudentGroupService studentGroupService) : 
         return StatusCode(result.StatusCode, result);
     }
     
-    [HttpPut("transfer-student-group/{studentId}/{sourceGroupId}/{targetGroupId}")]
+    
+    
+    [HttpPut("transfer-student-group/bulk/{sourceGroupId}/{targetGroupId}")]
     [Authorize(Roles = "Admin,SuperAdmin,Manager")]
-    public async Task<ActionResult<Response<string>>> TransferStudentGroup(int studentId, int sourceGroupId, int targetGroupId)
+    public async Task<ActionResult<Response<string>>> TransferStudentsGroupBulk(int sourceGroupId, int targetGroupId, [FromBody] List<int> studentIds)
     {
-        var result = await studentGroupService.TransferStudentGroup(studentId, sourceGroupId, targetGroupId);
+        var result = await studentGroupService.TransferStudentsGroupBulk(sourceGroupId, targetGroupId, studentIds);
         return StatusCode(result.StatusCode, result);
     }
 }
