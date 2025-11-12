@@ -1053,7 +1053,6 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
     }
     #endregion
 
-    #endregion
 
     #region TransferStudentsGroupBulk
     public async Task<Response<string>> TransferStudentsGroupBulk(int sourceGroupId, int targetGroupId, List<int> studentIds)
