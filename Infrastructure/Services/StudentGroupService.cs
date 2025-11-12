@@ -125,9 +125,6 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                 })
                 .ToListAsync();
 
-            if (!leftStudents.Any())
-                return new Response<List<LeftStudentDto>>(HttpStatusCode.NotFound, "В этой группе нет студентов, которые покинули её");
-
             return new Response<List<LeftStudentDto>>(leftStudents);
         }
         catch (Exception ex)
