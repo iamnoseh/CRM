@@ -9,6 +9,7 @@ using Infrastructure.Data;
 using Infrastructure.Helpers;
 using Infrastructure.Interfaces;
 using Infrastructure.Services.EmailService;
+using Infrastructure.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -23,7 +24,8 @@ public class StudentService(
     string uploadPath,
     IEmailService emailService,
     IOsonSmsService osonSmsService,
-    IConfiguration configuration) : IStudentService
+    IConfiguration configuration,
+    IJournalService journalService) : IStudentService
 {
     public async Task<Response<string>> CreateStudentAsync(CreateStudentDto createStudentDto)
     {
@@ -686,6 +688,15 @@ public class StudentService(
 
             var groupIds = groupItems.Select(x => x.GroupId).ToList();
 
+            // Weekly average per group (includes exam days in journal entries)
+            var weeklyAvgByGroup = new Dictionary<int, double>();
+            foreach (var gid in groupIds)
+            {
+                var wk = await journalService.GetGroupWeeklyTotalsAsync(gid, null);
+                var avg = wk.Data?.StudentAggregates?.FirstOrDefault(a => a.StudentId == studentId)?.AveragePointsPerWeek;
+                if (avg.HasValue) weeklyAvgByGroup[gid] = avg.Value;
+            }
+
             // determine payments this month per group
             var nowUtc = DateTime.UtcNow;
             var paidThisMonthIds = await context.Payments
@@ -771,11 +782,7 @@ public class StudentService(
                 var attendanceRate = totalEntries > 0
                     ? Math.Round((decimal)(stat!.PresentCount) * 100m / totalEntries, 2)
                     : 0m;
-                var averageScore = 0m;
-                if (stat != null && stat.ScoredCount > 0)
-                {
-                    averageScore = Math.Round(stat.SumScore / stat.ScoredCount, 2);
-                }
+                var averageScore = weeklyAvgByGroup.TryGetValue(g.GroupId, out var avgWeek) ? (decimal)Math.Round(avgWeek, 2) : 0m;
 
                 result.Add(new StudentGroupOverviewDto
                 {
