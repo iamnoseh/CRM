@@ -686,6 +686,21 @@ public class StudentService(
 
             var groupIds = groupItems.Select(x => x.GroupId).ToList();
 
+            // determine payments this month per group
+            var nowUtc = DateTime.UtcNow;
+            var paidThisMonthIds = await context.Payments
+                .Where(p => !p.IsDeleted &&
+                            p.StudentId == studentId &&
+                            p.GroupId != null &&
+                            groupIds.Contains(p.GroupId!.Value) &&
+                            p.Year == nowUtc.Year &&
+                            p.Month == nowUtc.Month &&
+                            (p.Status == PaymentStatus.Completed || p.Status == PaymentStatus.Paid))
+                .Select(p => p.GroupId!.Value)
+                .Distinct()
+                .ToListAsync();
+            var paidThisMonthSet = new HashSet<int>(paidThisMonthIds);
+
             var latestPaymentsByGroup = await context.Payments
                 .Where(p => !p.IsDeleted && p.StudentId == studentId && p.GroupId != null && groupIds.Contains(p.GroupId.Value))
                 .GroupBy(p => p.GroupId!.Value)
@@ -699,8 +714,6 @@ public class StudentService(
             var paymentsDict = latestPaymentsByGroup
                 .Where(x => x != null)
                 .ToDictionary(x => x!.GroupId, x => x);
-
-            var nowUtc = DateTime.UtcNow;
 
             var journalStats = await context.Journals
                 .Where(j => !j.IsDeleted && groupIds.Contains(j.GroupId))
@@ -722,13 +735,36 @@ public class StudentService(
 
             var journalDict = journalStats.ToDictionary(x => x.GroupId, x => x);
 
+            // cache course prices for groups
+            var priceByGroupId = await context.Groups
+                .Include(g => g.Course)
+                .Where(g => groupIds.Contains(g.Id))
+                .ToDictionaryAsync(g => g.Id, g => g.Course != null ? g.Course.Price : 0m);
+
             var result = new List<StudentGroupOverviewDto>();
             foreach (var g in groupItems)
             {
                 paymentsDict.TryGetValue(g.GroupId, out var pay);
-                var paymentStatus = pay?.Status;
-                if (paymentStatus == PaymentStatus.Paid)
+
+                // effective payment status for current month
+                PaymentStatus? paymentStatus;
+                if (paidThisMonthSet.Contains(g.GroupId))
+                {
                     paymentStatus = PaymentStatus.Completed;
+                }
+                else
+                {
+                    // preview payable: if zero -> completed, else pending
+                    var price = priceByGroupId.TryGetValue(g.GroupId, out var p) ? p : 0m;
+                    var discount = await context.StudentGroupDiscounts
+                        .Where(x => x.StudentId == studentId && x.GroupId == g.GroupId && !x.IsDeleted)
+                        .OrderByDescending(x => x.UpdatedAt)
+                        .Select(x => x.DiscountAmount)
+                        .FirstOrDefaultAsync();
+                    var applied = Math.Min(price, discount);
+                    var net = price - applied;
+                    paymentStatus = net <= 0 ? PaymentStatus.Completed : PaymentStatus.Pending;
+                }
 
                 journalDict.TryGetValue(g.GroupId, out var stat);
                 var totalEntries = (stat?.PresentCount ?? 0) + (stat?.LateCount ?? 0) + (stat?.AbsentCount ?? 0);
