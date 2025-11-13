@@ -328,6 +328,42 @@ namespace Infrastructure.Services;
         }
     }
 
+    public async Task<Response<int>> RunMonthlyChargeForGroupAsync(int groupId, int month, int year)
+    {
+        try
+        {
+            var boundaryNow = DateTimeOffset.UtcNow;
+            var group = await db.Groups
+                .Include(g => g.Course)
+                .FirstOrDefaultAsync(g => g.Id == groupId && !g.IsDeleted);
+            if (group == null || group.Status != ActiveStatus.Active || group.EndDate <= boundaryNow)
+                return new Response<int>(HttpStatusCode.BadRequest, "Гурӯҳ фаъол нест ё ёфт нашуд");
+
+            var sgs = await db.StudentGroups
+                .Include(sg => sg.Student)
+                .Where(sg => sg.GroupId == groupId &&
+                             sg.IsActive && !sg.IsDeleted)
+                .ToListAsync();
+
+            var success = 0;
+            foreach (var sg in sgs)
+            {
+                var res = await ChargeForGroupAsync(sg.StudentId, groupId, month, year);
+                if (res.StatusCode == (int)HttpStatusCode.OK)
+                {
+                    success++;
+                }
+            }
+
+            return new Response<int>(success) { Message = $"Дебет барои гурӯҳ анҷом шуд, муваффақ: {success}" };
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "RunMonthlyChargeForGroupAsync ноком шуд GroupId={GroupId} {Month}.{Year}", groupId, month, year);
+            return new Response<int>(HttpStatusCode.InternalServerError, "Хатои дохилӣ дар дебети гурӯҳ");
+        }
+    }
+
     public async Task<Response<string>> ChargeForGroupAsync(int studentId, int groupId, int month, int year)
     {
         try

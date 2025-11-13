@@ -8,6 +8,7 @@ public interface IStudentAccountService
     Task<Response<GetStudentAccountDto>> GetByStudentIdAsync(int studentId);
     Task<Response<GetStudentAccountDto>> TopUpAsync(TopUpDto dto);
     Task<Response<int>> RunMonthlyChargeAsync(int month, int year);
+    Task<Response<int>> RunMonthlyChargeForGroupAsync(int groupId, int month, int year);
     Task<Response<string>> ChargeForGroupAsync(int studentId, int groupId, int month, int year);
     Task<Response<string>> RecalculateStudentPaymentStatusAsync(int studentId, int month, int year);
     Task<Response<string>> RecalculateStudentPaymentStatusCurrentAsync(int studentId);

@@ -55,6 +55,17 @@ public class StudentAccountsController(IStudentAccountService service) : Control
         var res = await service.RunMonthlyChargeAsync(month, year);
         return StatusCode(res.StatusCode, res);
     }
+
+    [HttpPost("group-charge-run")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
+    public async Task<ActionResult<Response<int>>> GroupMonthlyChargeRun([FromQuery] int groupId, [FromQuery] int? month = null, [FromQuery] int? year = null)
+    {
+        var now = DateTime.UtcNow;
+        var m = month ?? now.Month;
+        var y = year ?? now.Year;
+        var res = await service.RunMonthlyChargeForGroupAsync(groupId, m, y);
+        return StatusCode(res.StatusCode, res);
+    }
 }
 
 
