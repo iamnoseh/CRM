@@ -538,6 +538,19 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
             if (!studentGroups.Any())
                 return new Response<List<GetStudentGroupDto>>(HttpStatusCode.NotFound, "Студент не назначен ни в одну группу");
 
+            // Adjust statuses for zero payable (full discount) for current month
+            foreach (var item in studentGroups)
+            {
+                if (item.student.PaymentStatus != PaymentStatus.Completed)
+                {
+                    var preview = await discountService.PreviewAsync(item.student.Id, item.GroupId, now2.Month, now2.Year);
+                    if (preview.Data?.PayableAmount == 0)
+                    {
+                        item.student.PaymentStatus = PaymentStatus.Completed;
+                    }
+                }
+            }
+
             return new Response<List<GetStudentGroupDto>>(studentGroups);
         }
         catch (Exception ex)
@@ -595,6 +608,19 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                 })
                 .ToListAsync();
             
+            // Adjust statuses for zero payable (full discount) for current month
+            foreach (var item in studentGroups)
+            {
+                if (item.student.PaymentStatus != PaymentStatus.Completed)
+                {
+                    var preview = await discountService.PreviewAsync(item.student.Id, item.GroupId, now3.Month, now3.Year);
+                    if (preview.Data?.PayableAmount == 0)
+                    {
+                        item.student.PaymentStatus = PaymentStatus.Completed;
+                    }
+                }
+            }
+
             return new Response<List<GetStudentGroupDto>>(studentGroups);
         }
         catch (Exception ex)
