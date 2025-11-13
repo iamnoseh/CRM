@@ -129,7 +129,8 @@ public static class Register
                 uploadPath,
                 st.GetRequiredService<IEmailService>(),
                 st.GetRequiredService<IOsonSmsService>(),
-                st.GetRequiredService<IConfiguration>()
+                st.GetRequiredService<IConfiguration>(),
+                st.GetRequiredService<IJournalService>()
             ));
                 services.AddScoped<IUserService>(sp =>
             new UserService(
