@@ -365,32 +365,6 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                 }
             }
 
-            // Adjust statuses for zero payable (full discount)
-            foreach (var item in studentGroups)
-            {
-                if (item.student.PaymentStatus != PaymentStatus.Completed)
-                {
-                    var preview = await discountService.PreviewAsync(item.student.Id, item.GroupId, now2.Month, now2.Year);
-                    if (preview.Data?.PayableAmount == 0)
-                    {
-                        item.student.PaymentStatus = PaymentStatus.Completed;
-                    }
-                }
-            }
-
-            // Adjust statuses for zero payable (full discount)
-            foreach (var item in studentGroups)
-            {
-                if (item.student.PaymentStatus != PaymentStatus.Completed)
-                {
-                    var preview = await discountService.PreviewAsync(item.student.Id, item.GroupId, now3.Month, now3.Year);
-                    if (preview.Data?.PayableAmount == 0)
-                    {
-                        item.student.PaymentStatus = PaymentStatus.Completed;
-                    }
-                }
-            }
-
             return new Response<List<GetStudentGroupDto>>(studentGroups);
         }
         catch (Exception ex)
