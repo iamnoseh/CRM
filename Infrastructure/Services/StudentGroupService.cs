@@ -11,12 +11,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Services;
 
-public class StudentGroupService(DataContext context, IJournalService journalService, Infrastructure.Interfaces.IStudentAccountService studentAccountService) : IStudentGroupService
+public class StudentGroupService(DataContext context, IJournalService journalService, Infrastructure.Interfaces.IStudentAccountService studentAccountService, IDiscountService discountService) : IStudentGroupService
 {
     private async Task<Response<string>> AfterActivateChargeAsync(int studentId, int groupId)
     {
         var now = DateTime.UtcNow;
         await studentAccountService.ChargeForGroupAsync(studentId, groupId, now.Month, now.Year);
+        await studentAccountService.RecalculateStudentPaymentStatusAsync(studentId, now.Month, now.Year);
         return new Response<string>(HttpStatusCode.OK, "Студент успешно активирован в группе");
     }
     #region CreateStudentGroupAsync
@@ -56,6 +57,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                     // charge immediately on re-activation as well
                     var now = DateTime.UtcNow;
                     _ = await studentAccountService.ChargeForGroupAsync(request.StudentId, request.GroupId, now.Month, now.Year);
+                    _ = await studentAccountService.RecalculateStudentPaymentStatusAsync(request.StudentId, now.Month, now.Year);
                     return new Response<string>(HttpStatusCode.OK, "Членство студента в группе переактивировано");
                 }
                 return new Response<string>(HttpStatusCode.InternalServerError, "Не удалось переактивировать членство студента в группе");
@@ -286,6 +288,16 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                 LeaveDate = studentGroup.LeaveDate
             };
 
+            // Treat zero payable (full discount) as paid for current month/year
+            if (dto.student.PaymentStatus != PaymentStatus.Completed)
+            {
+                var preview = await discountService.PreviewAsync(dto.student.Id, dto.GroupId, now.Month, now.Year);
+                if (preview.Data?.PayableAmount == 0)
+                {
+                    dto.student.PaymentStatus = PaymentStatus.Completed;
+                }
+            }
+
             return new Response<GetStudentGroupDto>(dto);
         }
         catch (Exception ex)
@@ -339,6 +351,45 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
 
             if (!studentGroups.Any())
                 return new Response<List<GetStudentGroupDto>>(HttpStatusCode.NotFound, "Членства студентов в группах не найдены");
+
+            // Adjust statuses for full-discount (zero payable) cases
+            foreach (var item in studentGroups)
+            {
+                if (item.student.PaymentStatus != PaymentStatus.Completed)
+                {
+                    var preview = await discountService.PreviewAsync(item.student.Id, item.GroupId, now1.Month, now1.Year);
+                    if (preview.Data?.PayableAmount == 0)
+                    {
+                        item.student.PaymentStatus = PaymentStatus.Completed;
+                    }
+                }
+            }
+
+            // Adjust statuses for zero payable (full discount)
+            foreach (var item in studentGroups)
+            {
+                if (item.student.PaymentStatus != PaymentStatus.Completed)
+                {
+                    var preview = await discountService.PreviewAsync(item.student.Id, item.GroupId, now2.Month, now2.Year);
+                    if (preview.Data?.PayableAmount == 0)
+                    {
+                        item.student.PaymentStatus = PaymentStatus.Completed;
+                    }
+                }
+            }
+
+            // Adjust statuses for zero payable (full discount)
+            foreach (var item in studentGroups)
+            {
+                if (item.student.PaymentStatus != PaymentStatus.Completed)
+                {
+                    var preview = await discountService.PreviewAsync(item.student.Id, item.GroupId, now3.Month, now3.Year);
+                    if (preview.Data?.PayableAmount == 0)
+                    {
+                        item.student.PaymentStatus = PaymentStatus.Completed;
+                    }
+                }
+            }
 
             return new Response<List<GetStudentGroupDto>>(studentGroups);
         }
@@ -430,6 +481,19 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                     LeaveDate = sg.LeaveDate
                 })
                 .ToListAsync();
+
+            // Adjust statuses for zero payable (full discount)
+            foreach (var item in studentGroups)
+            {
+                if (item.student.PaymentStatus != PaymentStatus.Completed)
+                {
+                    var preview = await discountService.PreviewAsync(item.student.Id, item.GroupId, now2.Month, now2.Year);
+                    if (preview.Data?.PayableAmount == 0)
+                    {
+                        item.student.PaymentStatus = PaymentStatus.Completed;
+                    }
+                }
+            }
 
             return new PaginationResponse<List<GetStudentGroupDto>>(
                 studentGroups,
@@ -626,6 +690,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                     foreach (var sid in affectedIds)
                     {
                         await studentAccountService.ChargeForGroupAsync(sid, groupId, now.Month, now.Year);
+                        await studentAccountService.RecalculateStudentPaymentStatusAsync(sid, now.Month, now.Year);
                     }
                 }
                 return new Response<string>(HttpStatusCode.Created, "Студенты успешно добавлены в группу");
@@ -781,6 +846,19 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
             if (!activeStudents.Any())
                 return new Response<List<GetStudentGroupDto>>(HttpStatusCode.NotFound, "В этой группе нет активных студентов");
 
+            // Adjust statuses for zero payable (full discount)
+            foreach (var item in activeStudents)
+            {
+                if (item.student.PaymentStatus != PaymentStatus.Completed)
+                {
+                    var preview = await discountService.PreviewAsync(item.student.Id, item.GroupId, now4.Month, now4.Year);
+                    if (preview.Data?.PayableAmount == 0)
+                    {
+                        item.student.PaymentStatus = PaymentStatus.Completed;
+                    }
+                }
+            }
+
             return new Response<List<GetStudentGroupDto>>(activeStudents);
         }
         catch (Exception ex)
@@ -842,6 +920,19 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
 
             if (!inactiveStudents.Any())
                 return new Response<List<GetStudentGroupDto>>(HttpStatusCode.NotFound, "В этой группе нет неактивных студентов");
+
+            // Adjust statuses for zero payable (full discount)
+            foreach (var item in inactiveStudents)
+            {
+                if (item.student.PaymentStatus != PaymentStatus.Completed)
+                {
+                    var preview = await discountService.PreviewAsync(item.student.Id, item.GroupId, now5.Month, now5.Year);
+                    if (preview.Data?.PayableAmount == 0)
+                    {
+                        item.student.PaymentStatus = PaymentStatus.Completed;
+                    }
+                }
+            }
 
             return new Response<List<GetStudentGroupDto>>(inactiveStudents);
         }
@@ -1152,6 +1243,7 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                     _ = await journalService.BackfillCurrentWeekForStudentAsync(targetGroupId, studentId);
                     var now = DateTime.UtcNow;
                     _ = await studentAccountService.ChargeForGroupAsync(studentId, targetGroupId, now.Month, now.Year);
+                    _ = await studentAccountService.RecalculateStudentPaymentStatusAsync(studentId, now.Month, now.Year);
                 }
 
                 var msg = $"Переведено: {movedCount}. Пропущено: {skippedCount}.";
