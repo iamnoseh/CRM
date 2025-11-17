@@ -284,7 +284,8 @@ public static class Register
             "https://crm.kavsaracademy.tj",
             "http://crm.kavsaracademy.tj",
             "http://37.27.249.153:3001",
-            "https://37.27.249.153:3001"
+            "https://37.27.249.153:3001",
+            "http://localhost:5175"
         };
         
         services.AddCors(options =>
