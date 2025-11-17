@@ -59,17 +59,17 @@ public class GroupController(IGroupService groupService, DataContext context) : 
         };
     }
 
-	[HttpGet("simple")]
-	[Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor,Student")]
-	public async Task<IActionResult> GetSimpleGroups()
-	{
-		var response = await groupService.GetGroupsSimpleAsync();
-		return response.StatusCode switch
-		{
-			200 => Ok(response),
-			_ => StatusCode(response.StatusCode, response)
-		};
-	}
+    [HttpGet("simple")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor,Student")]
+    public async Task<IActionResult> GetSimpleGroups([FromQuery] string? search)
+    {
+        var response = await groupService.GetGroupsSimpleAsync(search);
+        return response.StatusCode switch
+        {
+            200 => Ok(response),
+            _ => StatusCode(response.StatusCode, response)
+        };
+    }
 
     [HttpGet("by-student/{studentId}")]
     [Authorize(Roles = "Admin,SuperAdmin,Manager,Student")]

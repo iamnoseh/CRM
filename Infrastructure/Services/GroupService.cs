@@ -642,7 +642,7 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
         }
     }
 
-    public async Task<Response<List<GetSimpleGroupInfoDto>>> GetGroupsSimpleAsync()
+    public async Task<Response<List<GetSimpleGroupInfoDto>>> GetGroupsSimpleAsync(string? search)
     {
         try
         {
@@ -650,6 +650,20 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 .Where(g => !g.IsDeleted)
                 .AsQueryable();
             query = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(query, _httpContextAccessor, g => (int?)g.Course!.CenterId);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var s = search.Trim();
+                var sLower = s.ToLower();
+                if (int.TryParse(s, out var idNumeric) && idNumeric > 0)
+                {
+                    query = query.Where(g => g.Id == idNumeric || g.Name.ToLower().Contains(sLower));
+                }
+                else
+                {
+                    query = query.Where(g => g.Name.ToLower().Contains(sLower));
+                }
+            }
 
             var simple = await query
                 .OrderBy(g => g.Name)
