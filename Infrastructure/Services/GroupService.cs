@@ -641,6 +641,41 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
             };
         }
     }
+
+    public async Task<Response<List<GetSimpleGroupInfoDto>>> GetGroupsSimpleAsync()
+    {
+        try
+        {
+            var query = context.Groups
+                .Where(g => !g.IsDeleted)
+                .AsQueryable();
+            query = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(query, _httpContextAccessor, g => (int?)g.Course!.CenterId);
+
+            var simple = await query
+                .OrderBy(g => g.Name)
+                .Select(g => new GetSimpleGroupInfoDto
+                {
+                    Id = g.Id,
+                    Name = g.Name,
+                    ImagePath = g.PhotoPath
+                })
+                .ToListAsync();
+
+            return new Response<List<GetSimpleGroupInfoDto>>
+            {
+                StatusCode = (int)HttpStatusCode.OK,
+                Data = simple
+            };
+        }
+        catch (Exception ex)
+        {
+            return new Response<List<GetSimpleGroupInfoDto>>
+            {
+                StatusCode = (int)HttpStatusCode.InternalServerError,
+                Message = $"Хатогӣ ҳангоми гирифтани рӯйхати соддаи гурӯҳҳо: {ex.Message}"
+            };
+        }
+    }
     
     private GetGroupDto MapToGetGroupDto(Group group)
     {
