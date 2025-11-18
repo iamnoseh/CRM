@@ -17,6 +17,11 @@ public class JournalController(IJournalService journalService) : ControllerBase
     public async Task<Response<string>> Generate(int groupId, int weekNumber) =>
         await journalService.GenerateWeeklyJournalAsync(groupId, weekNumber);
 
+    [HttpPost("generate-from-date/{groupId}")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
+    public async Task<Response<string>> GenerateFromCustomDate(int groupId, [FromQuery] DateTime startDate) =>
+        await journalService.GenerateWeeklyJournalFromCustomDateAsync(groupId, startDate);
+
     [HttpGet("{groupId}")]
     [Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor,Student")] 
     public async Task<Response<GetJournalDto>> Get(int groupId, [FromQuery] int? weekNumber)
@@ -54,6 +59,15 @@ public class JournalController(IJournalService journalService) : ControllerBase
     public async Task<Response<List<int>>> GetGroupWeekNumbers(int groupId) =>
         await journalService.GetGroupWeekNumbersAsync(groupId);
     
+    [HttpDelete("{groupId}/week/{weekNumber}")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
+    public async Task<Response<string>> DeleteJournal(int groupId, int weekNumber) =>
+        await journalService.DeleteJournalAsync(groupId, weekNumber);
+    
+    [HttpDelete("{groupId}/all")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
+    public async Task<Response<string>> DeleteAllJournals(int groupId) =>
+        await journalService.DeleteAllJournalsAsync(groupId);
 }
 
 

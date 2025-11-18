@@ -641,6 +641,55 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
             };
         }
     }
+
+    public async Task<Response<List<GetSimpleGroupInfoDto>>> GetGroupsSimpleAsync(string? search)
+    {
+        try
+        {
+            var query = context.Groups
+                .Where(g => !g.IsDeleted)
+                .AsQueryable();
+            query = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(query, _httpContextAccessor, g => (int?)g.Course!.CenterId);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var s = search.Trim();
+                var sLower = s.ToLower();
+                if (int.TryParse(s, out var idNumeric) && idNumeric > 0)
+                {
+                    query = query.Where(g => g.Id == idNumeric || g.Name.ToLower().Contains(sLower));
+                }
+                else
+                {
+                    query = query.Where(g => g.Name.ToLower().Contains(sLower));
+                }
+            }
+
+            var simple = await query
+                .OrderBy(g => g.Name)
+                .Select(g => new GetSimpleGroupInfoDto
+                {
+                    Id = g.Id,
+                    Name = g.Name,
+                    ImagePath = g.PhotoPath
+                })
+                .ToListAsync();
+
+            return new Response<List<GetSimpleGroupInfoDto>>
+            {
+                StatusCode = (int)HttpStatusCode.OK,
+                Data = simple
+            };
+        }
+        catch (Exception ex)
+        {
+            return new Response<List<GetSimpleGroupInfoDto>>
+            {
+                StatusCode = (int)HttpStatusCode.InternalServerError,
+                Message = $"Хатогӣ ҳангоми гирифтани рӯйхати соддаи гурӯҳҳо: {ex.Message}"
+            };
+        }
+    }
     
     private GetGroupDto MapToGetGroupDto(Group group)
     {

@@ -752,38 +752,32 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                 .FirstOrDefaultAsync(s => s.Id == studentId && !s.IsDeleted);
             
             if (student == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Студент не найден");
+                return new Response<string>(HttpStatusCode.NotFound, "Донишҷӯ ёфт нашуд");
 
             var group = await context.Groups
                 .FirstOrDefaultAsync(g => g.Id == groupId && !g.IsDeleted);
             
             if (group == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Группа не найдена");
+                return new Response<string>(HttpStatusCode.NotFound, "Гурӯҳ ёфт нашуд");
 
             var studentGroup = await context.StudentGroups
                 .FirstOrDefaultAsync(sg => sg.StudentId == studentId && 
                                            sg.GroupId == groupId);
             
             if (studentGroup == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Студент не назначен в эту группу");
+                return new Response<string>(HttpStatusCode.NotFound, "Донишҷӯ дар ин гурӯҳ таъин нашудааст");
 
-            // Soft-remove: deactivate and mark as deleted to hide from active lists,
-            // but keep the record for potential reactivation later
-            studentGroup.IsDeleted = true;
-            studentGroup.IsActive = false;
-            studentGroup.LeaveDate = DateTime.UtcNow;
-            studentGroup.UpdatedAt = DateTimeOffset.UtcNow;
-            
-            context.StudentGroups.Update(studentGroup);
+            // Hard delete: completely remove the record from database
+            context.StudentGroups.Remove(studentGroup);
             var result = await context.SaveChangesAsync();
 
             if (result > 0)
             {
-                // Cleanup any future journal entries for this student in this group
+                // Cleanup any journal entries for this student in this group
                 _ = await journalService.RemoveFutureEntriesForStudentAsync(groupId, studentId);
-                return new Response<string>(HttpStatusCode.OK, "Студент успешно удален из группы");
+                return new Response<string>(HttpStatusCode.OK, "Донишҷӯ комилан аз гурӯҳ хориҷ карда шуд");
             }
-            return new Response<string>(HttpStatusCode.InternalServerError, "Не удалось удалить студента из группы");
+            return new Response<string>(HttpStatusCode.InternalServerError, "Донишҷӯро аз гурӯҳ хориҷ кардан ноком шуд");
         }
         catch (Exception ex)
         {

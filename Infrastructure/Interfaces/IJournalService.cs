@@ -6,6 +6,7 @@ namespace Infrastructure.Interfaces;
 public interface IJournalService
 {
     Task<Response<string>> GenerateWeeklyJournalAsync(int groupId, int weekNumber);
+    Task<Response<string>> GenerateWeeklyJournalFromCustomDateAsync(int groupId, DateTime startDate);
     Task<Response<GetJournalDto>> GetJournalAsync(int groupId, int weekNumber);
     Task<Response<GetJournalDto>> GetJournalByDateAsync(int groupId, DateTime dateLocal);
     Task<Response<GetJournalDto>> GetLatestJournalAsync(int groupId);
@@ -17,6 +18,8 @@ public interface IJournalService
     Task<Response<GroupWeeklyTotalsDto>> GetGroupWeeklyTotalsAsync(int groupId, int? weekId = null);
     Task<Response<GroupPassStatsDto>> GetGroupPassStatsAsync(int groupId, decimal threshold);
     Task<Response<List<int>>> GetGroupWeekNumbersAsync(int groupId);
+    Task<Response<string>> DeleteJournalAsync(int groupId, int weekNumber);
+    Task<Response<string>> DeleteAllJournalsAsync(int groupId);
 }
 
 
