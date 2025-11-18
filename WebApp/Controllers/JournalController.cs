@@ -17,6 +17,11 @@ public class JournalController(IJournalService journalService) : ControllerBase
     public async Task<Response<string>> Generate(int groupId, int weekNumber) =>
         await journalService.GenerateWeeklyJournalAsync(groupId, weekNumber);
 
+    [HttpPost("generate-from-date/{groupId}")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
+    public async Task<Response<string>> GenerateFromCustomDate(int groupId, [FromQuery] DateTime startDate) =>
+        await journalService.GenerateWeeklyJournalFromCustomDateAsync(groupId, startDate);
+
     [HttpGet("{groupId}")]
     [Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor,Student")] 
     public async Task<Response<GetJournalDto>> Get(int groupId, [FromQuery] int? weekNumber)

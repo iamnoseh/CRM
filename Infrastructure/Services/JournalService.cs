@@ -151,6 +151,111 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
         }
     }
 
+    public async Task<Response<string>> GenerateWeeklyJournalFromCustomDateAsync(int groupId, DateTime startDate)
+    {
+        try
+        {
+            var centerId = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
+            var groupQuery = context.Groups
+                .Include(g => g.Course)
+                .Where(g => !g.IsDeleted)
+                .AsQueryable();
+            if (centerId != null)
+            {
+                groupQuery = groupQuery.Where(g => g.Course!.CenterId == centerId);
+            }
+            var group = await groupQuery.FirstOrDefaultAsync(g => g.Id == groupId);
+            if (group == null)
+                return new Response<string>(HttpStatusCode.NotFound, "Гурӯҳ ёфт нашуд");
+
+            // Check if any journal already exists for week 1
+            var existingWeek1 = await context.Journals
+                .FirstOrDefaultAsync(j => j.GroupId == groupId && j.WeekNumber == 1 && !j.IsDeleted);
+            if (existingWeek1 != null)
+                return new Response<string>(HttpStatusCode.BadRequest, 
+                    "Журнали ҳафтаи якум аллакай вуҷуд дорад. Агар мехоҳед аз нав созед, аввал журналҳои мавҷударо нест кунед.");
+
+            var lessonDays = ParseLessonDays(group.LessonDays);
+            if (lessonDays.Count == 0)
+            {
+                lessonDays = new List<int> { 2, 3, 4, 5, 6 };
+            }
+
+            var targetLessons = 6;
+            DateTime cursor = startDate.Date;
+
+            var plannedSlots = new List<(DateTime date, int dayOfWeekOneBased, int lessonNumber)>();
+            while (plannedSlots.Count < targetLessons)
+            {
+                var dotNetDayOfWeek = (int)cursor.DayOfWeek;
+                var crmDayOfWeek = ConvertDotNetToCrmDayOfWeek(dotNetDayOfWeek);
+                
+                if (lessonDays.Contains(crmDayOfWeek))
+                {
+                    plannedSlots.Add((cursor, crmDayOfWeek, plannedSlots.Count + 1));
+                }
+
+                cursor = cursor.AddDays(1);
+            }
+
+            var firstSlotDate = plannedSlots.First().date;
+            var lastSlotDate = plannedSlots.Last().date;
+            var weekStart = new DateTimeOffset(firstSlotDate.Year, firstSlotDate.Month, firstSlotDate.Day, 0, 0, 0,
+                TimeSpan.Zero);
+            var weekEnd = new DateTimeOffset(lastSlotDate.Year, lastSlotDate.Month, lastSlotDate.Day, 23, 59, 59,
+                TimeSpan.Zero);
+
+            var journal = new Journal
+            {
+                GroupId = groupId,
+                WeekNumber = 1,
+                WeekStartDate = weekStart,
+                WeekEndDate = weekEnd,
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow
+            };
+
+            await context.Journals.AddAsync(journal);
+            await context.SaveChangesAsync();
+
+            var students = await context.StudentGroups
+                .Include(sg => sg.Student)
+                .Where(sg => sg.GroupId == groupId && sg.IsActive && !sg.IsDeleted && !sg.Student!.IsDeleted)
+                .Select(sg => sg.Student!)
+                .ToListAsync();
+
+            foreach (var slot in plannedSlots)
+            {
+                var lessonType = DetermineLessonType(group.HasWeeklyExam, 1, slot.lessonNumber, targetLessons);
+                
+                foreach (var student in students)
+                {
+                    var entry = new JournalEntry
+                    {
+                        JournalId = journal.Id,
+                        StudentId = student.Id,
+                        DayOfWeek = slot.dayOfWeekOneBased,
+                        LessonNumber = slot.lessonNumber,
+                        LessonType = lessonType,
+                        StartTime = group.LessonStartTime,
+                        EndTime = group.LessonEndTime,
+                        AttendanceStatus = AttendanceStatus.Absent,
+                        EntryDate = DateTime.SpecifyKind(slot.date, DateTimeKind.Utc)
+                    };
+                    await context.JournalEntries.AddAsync(entry);
+                }
+            }
+
+            await context.SaveChangesAsync();
+            return new Response<string>(HttpStatusCode.Created, 
+                $"Журнали ҳафтаи якум аз санаи {startDate:dd.MM.yyyy} эҷод шуд");
+        }
+        catch (Exception ex)
+        {
+            return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
+        }
+    }
+
     public async Task<Response<GetJournalDto>> GetJournalAsync(int groupId, int weekNumber)
     {
         try
