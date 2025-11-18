@@ -59,6 +59,15 @@ public class JournalController(IJournalService journalService) : ControllerBase
     public async Task<Response<List<int>>> GetGroupWeekNumbers(int groupId) =>
         await journalService.GetGroupWeekNumbersAsync(groupId);
     
+    [HttpDelete("{groupId}/week/{weekNumber}")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
+    public async Task<Response<string>> DeleteJournal(int groupId, int weekNumber) =>
+        await journalService.DeleteJournalAsync(groupId, weekNumber);
+    
+    [HttpDelete("{groupId}/all")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
+    public async Task<Response<string>> DeleteAllJournals(int groupId) =>
+        await journalService.DeleteAllJournalsAsync(groupId);
 }
 
 

@@ -18,6 +18,8 @@ public interface IJournalService
     Task<Response<GroupWeeklyTotalsDto>> GetGroupWeeklyTotalsAsync(int groupId, int? weekId = null);
     Task<Response<GroupPassStatsDto>> GetGroupPassStatsAsync(int groupId, decimal threshold);
     Task<Response<List<int>>> GetGroupWeekNumbersAsync(int groupId);
+    Task<Response<string>> DeleteJournalAsync(int groupId, int weekNumber);
+    Task<Response<string>> DeleteAllJournalsAsync(int groupId);
 }
 
 

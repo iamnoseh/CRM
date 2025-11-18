@@ -1127,6 +1127,104 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
         }
     }
 
+    public async Task<Response<string>> DeleteJournalAsync(int groupId, int weekNumber)
+    {
+        try
+        {
+            var centerId = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
+            var groupQuery = context.Groups
+                .Include(g => g.Course)
+                .Where(g => !g.IsDeleted)
+                .AsQueryable();
+            if (centerId != null)
+            {
+                groupQuery = groupQuery.Where(g => g.Course!.CenterId == centerId);
+            }
+            var group = await groupQuery.FirstOrDefaultAsync(g => g.Id == groupId);
+            if (group == null)
+                return new Response<string>(HttpStatusCode.NotFound, "Гурӯҳ ёфт нашуд");
+
+            var journal = await context.Journals
+                .Include(j => j.Entries)
+                .FirstOrDefaultAsync(j => j.GroupId == groupId && j.WeekNumber == weekNumber && !j.IsDeleted);
+
+            if (journal == null)
+                return new Response<string>(HttpStatusCode.NotFound, $"Журнали ҳафтаи {weekNumber} ёфт нашуд");
+
+            // Delete all entries first
+            if (journal.Entries.Any())
+            {
+                context.JournalEntries.RemoveRange(journal.Entries);
+            }
+
+            // Delete the journal itself
+            context.Journals.Remove(journal);
+            var result = await context.SaveChangesAsync();
+
+            if (result > 0)
+            {
+                return new Response<string>(HttpStatusCode.OK, 
+                    $"Журнали ҳафтаи {weekNumber} бо муваффақият нест карда шуд");
+            }
+
+            return new Response<string>(HttpStatusCode.InternalServerError, "Журналро нест кардан ноком шуд");
+        }
+        catch (Exception ex)
+        {
+            return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
+        }
+    }
+
+    public async Task<Response<string>> DeleteAllJournalsAsync(int groupId)
+    {
+        try
+        {
+            var centerId = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
+            var groupQuery = context.Groups
+                .Include(g => g.Course)
+                .Where(g => !g.IsDeleted)
+                .AsQueryable();
+            if (centerId != null)
+            {
+                groupQuery = groupQuery.Where(g => g.Course!.CenterId == centerId);
+            }
+            var group = await groupQuery.FirstOrDefaultAsync(g => g.Id == groupId);
+            if (group == null)
+                return new Response<string>(HttpStatusCode.NotFound, "Гурӯҳ ёфт нашуд");
+
+            var journals = await context.Journals
+                .Include(j => j.Entries)
+                .Where(j => j.GroupId == groupId && !j.IsDeleted)
+                .ToListAsync();
+
+            if (!journals.Any())
+                return new Response<string>(HttpStatusCode.NotFound, "Ҳеҷ журнале ёфт нашуд");
+
+            // Delete all entries for all journals
+            var allEntries = journals.SelectMany(j => j.Entries).ToList();
+            if (allEntries.Any())
+            {
+                context.JournalEntries.RemoveRange(allEntries);
+            }
+
+            // Delete all journals
+            context.Journals.RemoveRange(journals);
+            var result = await context.SaveChangesAsync();
+
+            if (result > 0)
+            {
+                return new Response<string>(HttpStatusCode.OK, 
+                    $"Ҳамаи журналҳои гурӯҳ ({journals.Count} адад) бо муваффақият нест карда шуданд");
+            }
+
+            return new Response<string>(HttpStatusCode.InternalServerError, "Журналҳоро нест кардан ноком шуд");
+        }
+        catch (Exception ex)
+        {
+            return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
+        }
+    }
+
     private async Task<bool> HasGroupAccessAsync(int groupId)
     {
         var user = _httpContextAccessor.HttpContext?.User;
