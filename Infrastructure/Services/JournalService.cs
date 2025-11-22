@@ -579,7 +579,26 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
             if (request.Grade.HasValue) entry.Grade = request.Grade.Value;
             if (request.BonusPoints.HasValue) entry.BonusPoints = request.BonusPoints.Value;
             if (request.AttendanceStatus.HasValue) entry.AttendanceStatus = request.AttendanceStatus.Value;
-            if (!string.IsNullOrWhiteSpace(request.Comment)) entry.Comment = request.Comment;
+            if (!string.IsNullOrWhiteSpace(request.Comment))
+            {
+                entry.Comment = request.Comment;
+                // Get current user info from token
+                var currentUser = _httpContextAccessor.HttpContext?.User;
+                if (currentUser != null)
+                {
+                    var userIdClaim = currentUser.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                                      ?? currentUser.FindFirst("nameid")?.Value;
+                    var userNameClaim = currentUser.FindFirst(ClaimTypes.Name)?.Value
+                                        ?? currentUser.FindFirst("FullName")?.Value
+                                        ?? currentUser.FindFirst("unique_name")?.Value;
+                    
+                    if (int.TryParse(userIdClaim, out var userId))
+                    {
+                        entry.CommentAuthorId = userId;
+                    }
+                    entry.CommentAuthorName = userNameClaim;
+                }
+            }
             if (request.CommentCategory.HasValue) entry.CommentCategory = request.CommentCategory.Value;
 
             entry.UpdatedAt = DateTimeOffset.UtcNow;
@@ -1273,7 +1292,8 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
                 EntryDate = e.EntryDate,
                 DayOfWeek = e.DayOfWeek,
                 DayName = GetDayName(e.DayOfWeek),
-                LessonNumber = e.LessonNumber
+                LessonNumber = e.LessonNumber,
+                CommentAuthorName = e.CommentAuthorName
             }).ToList();
             
             return new Response<List<StudentCommentDto>>(comments);
