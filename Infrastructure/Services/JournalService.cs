@@ -1225,6 +1225,91 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
         }
     }
 
+    public async Task<Response<List<StudentCommentDto>>> GetStudentCommentsAsync(int studentId)
+    {
+        try
+        {
+            var centerId = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
+            
+            // Check if student exists
+            var student = await context.Students
+                .Where(s => s.Id == studentId && !s.IsDeleted)
+                .FirstOrDefaultAsync();
+            
+            if (student == null)
+                return new Response<List<StudentCommentDto>>(HttpStatusCode.NotFound, "Донишҷӯ ёфт нашуд");
+            
+            // Get all journal entries with comments for this student
+            var entries = await context.JournalEntries
+                .Include(je => je.Journal)
+                    .ThenInclude(j => j.Group)
+                .Where(je => je.StudentId == studentId 
+                    && !je.IsDeleted 
+                    && !string.IsNullOrWhiteSpace(je.Comment)
+                    && je.Journal != null
+                    && !je.Journal.IsDeleted
+                    && je.Journal.Group != null
+                    && !je.Journal.Group.IsDeleted)
+                .OrderByDescending(je => je.EntryDate)
+                .ToListAsync();
+            
+            // Filter by center if needed
+            if (centerId != null)
+            {
+                entries = entries.Where(e => e.Journal?.Group?.Course?.CenterId == centerId).ToList();
+            }
+            
+            var comments = entries.Select(e => new StudentCommentDto
+            {
+                Id = e.Id,
+                GroupName = e.Journal?.Group?.Name ?? "Номаълум",
+                WeekNumber = e.Journal?.WeekNumber ?? 0,
+                Comment = e.Comment ?? "",
+                CommentCategory = e.CommentCategory ?? CommentCategory.General,
+                CommentCategoryName = GetCommentCategoryName(e.CommentCategory ?? CommentCategory.General),
+                EntryDate = e.EntryDate,
+                DayOfWeek = e.DayOfWeek,
+                DayName = GetDayName(e.DayOfWeek),
+                LessonNumber = e.LessonNumber
+            }).ToList();
+            
+            return new Response<List<StudentCommentDto>>(comments);
+        }
+        catch (Exception ex)
+        {
+            return new Response<List<StudentCommentDto>>(HttpStatusCode.InternalServerError, ex.Message);
+        }
+    }
+    
+    private string GetCommentCategoryName(CommentCategory category)
+    {
+        return category switch
+        {
+            CommentCategory.General => "Общий",
+            CommentCategory.Positive => "Положительный",
+            CommentCategory.Warning => "Предупреждение",
+            CommentCategory.Behavior => "Поведение",
+            CommentCategory.Homework => "Домашнее задание",
+            CommentCategory.Participation => "Участие",
+            _ => "Неизвестно"
+        };
+    }
+    
+    private string GetDayName(int dayOfWeek)
+    {
+        return dayOfWeek switch
+        {
+            1 => "Понедельник",
+            2 => "Вторник",
+            3 => "Среда",
+            4 => "Четверг",
+            5 => "Пятница",
+            6 => "Суббота",
+            7 => "Воскресенье",
+            _ => "Неизвестно"
+        };
+    }
+
     private async Task<bool> HasGroupAccessAsync(int groupId)
     {
         var user = _httpContextAccessor.HttpContext?.User;
