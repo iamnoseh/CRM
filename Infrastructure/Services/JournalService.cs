@@ -1240,24 +1240,27 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
                 return new Response<List<StudentCommentDto>>(HttpStatusCode.NotFound, "Донишҷӯ ёфт нашуд");
             
             // Get all journal entries with comments for this student
-            var entries = await context.JournalEntries
+            var query = context.JournalEntries
                 .Include(je => je.Journal)
-                    .ThenInclude(j => j.Group)
+                    .ThenInclude(j => j!.Group)
+                        .ThenInclude(g => g!.Course)
                 .Where(je => je.StudentId == studentId 
                     && !je.IsDeleted 
-                    && !string.IsNullOrWhiteSpace(je.Comment)
-                    && je.Journal != null
+                    && !string.IsNullOrWhiteSpace(je.Comment));
+            
+            // Filter by center if needed
+            if (centerId != null)
+            {
+                query = query.Where(je => je.Journal!.Group!.Course!.CenterId == centerId);
+            }
+            
+            var entries = await query
+                .Where(je => je.Journal != null
                     && !je.Journal.IsDeleted
                     && je.Journal.Group != null
                     && !je.Journal.Group.IsDeleted)
                 .OrderByDescending(je => je.EntryDate)
                 .ToListAsync();
-            
-            // Filter by center if needed
-            if (centerId != null)
-            {
-                entries = entries.Where(e => e.Journal?.Group?.Course?.CenterId == centerId).ToList();
-            }
             
             var comments = entries.Select(e => new StudentCommentDto
             {
