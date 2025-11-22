@@ -14,5 +14,6 @@ public class StudentCommentDto
     public int DayOfWeek { get; set; }
     public string DayName { get; set; } = string.Empty;
     public int LessonNumber { get; set; }
+    public string? CommentAuthorName { get; set; }
 }
 
