@@ -20,7 +20,7 @@ public static class FileUploadHelper
         string? oldFilePath = null)
     {
         if (file == null || file.Length == 0)
-            return new Response<string>(HttpStatusCode.BadRequest, $"No {fileType} file provided");
+            return new Response<string>(HttpStatusCode.BadRequest, $"Файл {fileType} не предоставлен");
 
         var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
         var allowedExtensions = fileType == "profile" ? AllowedImageExtensions : AllowedDocumentExtensions;
@@ -28,10 +28,10 @@ public static class FileUploadHelper
 
         if (!allowedExtensions.Contains(fileExtension))
             return new Response<string>(HttpStatusCode.BadRequest,
-                $"Invalid {fileType} format. Allowed formats: {string.Join(", ", allowedExtensions)}");
+                $"Неверный формат {fileType}. Допустимые форматы: {string.Join(", ", allowedExtensions)}");
 
         if (file.Length > maxSize)
-            return new Response<string>(HttpStatusCode.BadRequest, $"{fileType} size must be less than {maxSize / (1024 * 1024)}MB");
+            return new Response<string>(HttpStatusCode.BadRequest, $"Размер {fileType} должен быть меньше {maxSize / (1024 * 1024)}MB");
         
         if (deleteOldFile && !string.IsNullOrEmpty(oldFilePath))
         {
@@ -66,11 +66,11 @@ public static class FileUploadHelper
     public static async Task<Response<byte[]>> GetFileAsync(string filePath, string uploadPath)
     {
         if (string.IsNullOrEmpty(filePath))
-            return new Response<byte[]>(HttpStatusCode.NotFound, "File path is empty");
+            return new Response<byte[]>(HttpStatusCode.NotFound, "Путь к файлу пуст");
 
         var fullPath = Path.Combine(uploadPath, filePath.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
         if (!File.Exists(fullPath))
-            return new Response<byte[]>(HttpStatusCode.NotFound, "File not found on server");
+            return new Response<byte[]>(HttpStatusCode.NotFound, "Файл не найден на сервере");
 
         var fileBytes = await File.ReadAllBytesAsync(fullPath);
         return new Response<byte[]>(fileBytes);

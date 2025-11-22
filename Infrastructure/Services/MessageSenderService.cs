@@ -9,10 +9,14 @@ using Domain.Enums;
 using MimeKit.Text;
 using Infrastructure.Services.EmailService;
 
+using MediatR;
+using Infrastructure.Features.Students.Queries.GetStudentById;
+
 namespace Infrastructure.Services;
 
 public class MessageSenderService(
-    IStudentService studentService,
+
+    IMediator mediator,
     IEmailService emailService,
     IOsonSmsService osonSmsService,
     IWebHostEnvironment webHostEnvironment)
@@ -36,7 +40,7 @@ public class MessageSenderService(
 
         foreach (var studentId in sendMessageDto.StudentIds)
         {
-            var studentResponse = await studentService.GetStudentByIdAsync(studentId);
+            var studentResponse = await mediator.Send(new GetStudentByIdQuery(studentId));
             if (studentResponse.StatusCode != (int)HttpStatusCode.OK || studentResponse.Data == null)
             {
                 return new Response<GetMessageDto>(HttpStatusCode.NotFound, $"Донишҷӯ бо ID {studentId} ёфт нашуд.");

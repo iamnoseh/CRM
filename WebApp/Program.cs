@@ -9,12 +9,14 @@ using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
-
 builder.Host.UseSerilog((context, services, configuration) =>
 {
     configuration
         .ReadFrom.Configuration(context.Configuration)
-        .Enrich.FromLogContext();
+        .Enrich.FromLogContext()
+        .Enrich.With(new Infrastructure.Logging.UserContextEnricher(
+            services.GetRequiredService<IHttpContextAccessor>()))
+        .Enrich.WithProperty("Application", "CRM");
 });
 
 var uploadPath = builder.Configuration.GetValue<string>("UploadPath") ?? "wwwroot";
@@ -29,11 +31,9 @@ builder.Services.AddCorsServices();
 var emailConfig = builder.Configuration.GetSection("EmailConfiguration").Get<EmailConfiguration>();
 builder.Services.AddSingleton(emailConfig);
 
-
 builder.Services.AddHangfire(cfg =>
     cfg.UsePostgreSqlStorage(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddHangfireServer();
-
 
 builder.Services.AddApplicationServices(builder.Configuration, uploadPath);
 builder.Services.AddSwaggerServices();
@@ -59,7 +59,6 @@ if (migrationsEnabled)
     await app.ApplyMigrationsAndSeedData();
 }
 
-
 app.UseHangfireDashboard("/hangfire", new DashboardOptions
 {
     DashboardTitle = "Kavsar Academy - Background Jobs",
@@ -71,7 +70,6 @@ using var scope = app.Services.CreateScope();
 var hangfireTaskService =
     scope.ServiceProvider.GetRequiredService<Infrastructure.Services.HangfireBackgroundTaskService>();
 hangfireTaskService.StartAllBackgroundTasks();
-
 
 if (enableSwagger)
 {

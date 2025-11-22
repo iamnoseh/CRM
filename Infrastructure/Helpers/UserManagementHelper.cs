@@ -110,7 +110,7 @@ public static class UserManagementHelper
 
         var result = await userManager.UpdateAsync(user);
         return result.Succeeded
-            ? new Response<string>(HttpStatusCode.OK, "User updated successfully")
+            ? new Response<string>(HttpStatusCode.OK, "Пользователь успешно обновлен")
             : new Response<string>(HttpStatusCode.BadRequest, IdentityHelper.FormatIdentityErrors(result));
     }
 }

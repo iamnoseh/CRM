@@ -1,5 +1,7 @@
 using Domain.DTOs.EmailDTOs;
 using Domain.Entities;
+using FluentValidation;
+using MediatR;
 using Infrastructure.Data;
 using Infrastructure.Interfaces;
 using Infrastructure.Seed;
@@ -50,11 +52,15 @@ public static class Register
                 sp.GetRequiredService<EmailConfiguration>(),
                 sp.GetRequiredService<IConfiguration>()
             ));
-        services.AddScoped<ICenterService>(sp =>
+            services.AddScoped<ICenterService>(sp =>
             new CenterService(
                 sp.GetRequiredService<DataContext>(),
                 sp.GetRequiredService<IConfiguration>()["UploadPath"] ,sp.GetRequiredService<IHttpContextAccessor>()?? throw new InvalidOperationException("UploadPath not configured")
-            ));      
+            ));
+
+        services.AddValidatorsFromAssembly(typeof(Register).Assembly);
+        services.AddTransient(typeof(IPipelineBehavior<,>), typeof(Infrastructure.Behaviors.ValidationBehavior<,>));
+        services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Register).Assembly));
     }
     
 
@@ -121,17 +127,7 @@ public static class Register
                 sp.GetRequiredService<IHttpContextAccessor>(),
                 sp.GetRequiredService<IOsonSmsService>(),
                 sp.GetRequiredService<IConfiguration>()));
-        services.AddScoped<IStudentService>(st =>
-            new StudentService(
-                st.GetRequiredService<DataContext>(),
-                st.GetRequiredService<IHttpContextAccessor>(),
-                st.GetRequiredService<UserManager<User>>(),
-                uploadPath,
-                st.GetRequiredService<IEmailService>(),
-                st.GetRequiredService<IOsonSmsService>(),
-                st.GetRequiredService<IConfiguration>(),
-                st.GetRequiredService<IJournalService>()
-            ));
+
                 services.AddScoped<IUserService>(sp =>
             new UserService(
                 sp.GetRequiredService<DataContext>(),
@@ -174,16 +170,6 @@ public static class Register
                 sp.GetRequiredService<DataContext>(),
                 sp.GetRequiredService<IHttpContextAccessor>(),
                 sp.GetRequiredService<IJournalService>()
-            ));
-            
-        services.AddScoped<IStudentGroupService, StudentGroupService>();
-        
-        services.AddScoped<IMentorGroupService, MentorGroupService>();       
-        
-        services.AddScoped<IClassroomService>(cs => 
-            new ClassroomService(
-                cs.GetRequiredService<DataContext>(),
-                cs.GetRequiredService<IHttpContextAccessor>()
             ));
         
         services.AddScoped<IScheduleService>(sp =>

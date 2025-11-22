@@ -7,144 +7,116 @@ using Infrastructure.Services.ExportToExel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Domain.DTOs.Payments;
-
+using MediatR;
+using Infrastructure.Features.Students.Queries.GetStudentById;
+using Infrastructure.Features.Students.Commands.CreateStudent;
+using Infrastructure.Features.Students.Commands.UpdateStudent;
+using Infrastructure.Features.Students.Commands.DeleteStudent;
+using Infrastructure.Features.Students.Commands.UpdateUserProfileImage;
+using Infrastructure.Features.Students.Commands.UpdateStudentDocument;
+using Infrastructure.Features.Students.Commands.UpdateStudentPaymentStatus;
+using Infrastructure.Features.Students.Queries.GetStudentForSelect;
+using Infrastructure.Features.Students.Queries.GetStudentDocument;
+using Infrastructure.Features.Students.Queries.GetSimpleStudents;
+using Infrastructure.Features.Students.Queries.GetStudentGroupsOverview;
+using Infrastructure.Features.Students.Queries.GetStudentPayments;
+using Infrastructure.Features.Students.Queries.GetStudentsPagination;
 
 namespace WebApp.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class StudentController (IStudentService service) : ControllerBase
+public class StudentController(IMediator mediator) : ControllerBase
 {
     [HttpGet("select-students")]
     [Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor")]
     public async Task<IActionResult> GetStudentForSelect([FromQuery] StudentFilterForSelect filter)
     {
-        var result = await service.GetStudentForSelect(filter);
+        var result = await mediator.Send(new GetStudentForSelectQuery(filter));
         return Ok(result);
     }
 
     [HttpGet("{id}")]
     [Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor,Student")]
-    public async Task<Response<GetStudentDto>> GetStudentById(int id ) => 
-        await service.GetStudentByIdAsync(id );
-    
-    [HttpGet("filter")]
-    [Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor,Student")]
-    public async Task<PaginationResponse<List<GetStudentDto>>> 
-        GetStudentsPagination([FromQuery] StudentFilter filter ) =>
-        await service.GetStudentsPagination(filter );
-
-    [HttpGet("simple")]
-    [Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor,Student")]
-    public async Task<PaginationResponse<List<GetSimpleDto>>> 
-        GetSimpleStudents([FromQuery] StudentFilter filter) =>
-        await service.GetSimpleStudents(filter);
+    public async Task<IActionResult> GetStudentById(int id)
+    {
+        var response = await mediator.Send(new GetStudentByIdQuery(id));
+        return StatusCode(response.StatusCode, response);
+    }
 
     [HttpPost]
     [Authorize(Roles = "Admin,SuperAdmin,Manager")]
-    public async Task<Response<string>> CreateStudent([FromForm] CreateStudentDto student) => 
-        await service.CreateStudentAsync(student);
+    public async Task<IActionResult> CreateStudent([FromForm] CreateStudentDto createStudentDto)
+    {
+        var command = new CreateStudentCommand(createStudentDto);
+        var response = await mediator.Send(command);
+        return StatusCode(response.StatusCode, response);
+    }
 
     [HttpPut("{id}")]
     [Authorize(Roles = "Admin,SuperAdmin,Manager")]
-    public async Task<Response<string>> UpdateStudent(int id, [FromForm] UpdateStudentDto dto) =>
-        await service.UpdateStudentAsync(id, dto);
-        
-    [HttpPut("profile/{id}")]
-    [Authorize(Roles = "Admin,SuperAdmin,Manager,Student")]
-    public async Task<Response<string>> UpdateStudentProfile(int id, IFormFile photo) =>
-        await service.UpdateUserProfileImageAsync(id, photo);
-        
-    [HttpPut("document/{id}")]
-    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
-    public async Task<Response<string>> UpdateStudentDocument(int id, IFormFile document) =>
-        await service.UpdateStudentDocumentAsync(id, document);
+    public async Task<IActionResult> UpdateStudent(int id, [FromForm] UpdateStudentDto updateStudentDto)
+    {
+        var command = new UpdateStudentCommand(id, updateStudentDto);
+        var response = await mediator.Send(command);
+        return StatusCode(response.StatusCode, response);
+    }
 
-    [HttpDelete("{id}")][Authorize(Roles = "Admin,SuperAdmin,Manager")]
-    public async Task<Response<string>> DeleteStudent(int id) =>
-        await service.DeleteStudentAsync(id);
-    
-        
+    [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
+    public async Task<IActionResult> DeleteStudent(int id)
+    {
+        var command = new DeleteStudentCommand(id);
+        var response = await mediator.Send(command);
+        return StatusCode(response.StatusCode, response);
+    }
+
+    [HttpPut("profile-image/{studentId}")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Student")]
+    public async Task<IActionResult> UpdateUserProfileImage(int studentId, IFormFile profileImage)
+    {
+        var command = new UpdateUserProfileImageCommand(studentId, profileImage);
+        var response = await mediator.Send(command);
+        return StatusCode(response.StatusCode, response);
+    }
+
+    [HttpPut("document/{studentId}")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
+    public async Task<IActionResult> UpdateStudentDocument(int studentId, IFormFile documentFile)
+    {
+        var command = new UpdateStudentDocumentCommand(studentId, documentFile);
+        var response = await mediator.Send(command);
+        return StatusCode(response.StatusCode, response);
+    }
+
     [HttpGet("document/{studentId}")]
-    [Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor,Student")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<IActionResult> GetStudentDocument(int studentId)
     {
-        var studentDebugResponse = await service.GetStudentByIdAsync(studentId);
-        if (studentDebugResponse.StatusCode != (int)System.Net.HttpStatusCode.OK)
-            return StatusCode((int)studentDebugResponse.StatusCode, studentDebugResponse);
-        
-        var studentDebug = studentDebugResponse.Data;
-        Console.WriteLine($"Student document property before download: {studentDebug?.Document ?? "NULL"}");
-
-        var response = await service.GetStudentDocument(studentId);
-        
+        var response = await mediator.Send(new GetStudentDocumentQuery(studentId));
         if (response.StatusCode != (int)System.Net.HttpStatusCode.OK)
-            return StatusCode((int)response.StatusCode, response);
-        var studentResponse = await service.GetStudentByIdAsync(studentId);
-        if (studentResponse.StatusCode != (int)System.Net.HttpStatusCode.OK)
-            return File(response.Data, "application/octet-stream", $"student_{studentId}_document.pdf");
+            return StatusCode(response.StatusCode, response.Message);
+
         string fileName = $"student_{studentId}_document";
         string contentType = "application/octet-stream";
-        var student = studentResponse.Data;
-        if (student != null && !string.IsNullOrEmpty(student.Document))
-        {
-            string extension = Path.GetExtension(student.Document);
-            if (!string.IsNullOrEmpty(extension))
-            {
-                fileName += extension;
-                contentType = extension.ToLowerInvariant() switch
-                {
-                    ".pdf" => "application/pdf",
-                    ".doc" => "application/msword",
-                    ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    ".jpg" or ".jpeg" => "image/jpeg",
-                    ".png" => "image/png",
-                    _ => "application/octet-stream"
-                };
-            }
-        }
+        
         return File(response.Data, contentType, fileName);
-    }
-    
-
-    [HttpGet("debug/document/{studentId}")]
-    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
-    public async Task<IActionResult> DebugStudentDocument(int studentId)
-    {
-        try
-        {
-            var student = await service.GetStudentByIdAsync(studentId);
-            
-            if (student.StatusCode != (int)System.Net.HttpStatusCode.OK)
-                return StatusCode((int)student.StatusCode, student);
-            var debugInfo = new
-            {
-                StudentId = studentId,
-                DocumentPath = student.Data.Document,
-                HasDocumentProperty = student.Data.Document != null,
-                UploadPath = "Check server configuration",
-                FileSystemCheck = "Not performed",
-                Suggestion = "If Document property is null, you need to upload a document"
-            };
-            
-            return Ok(debugInfo);
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { Error = ex.Message, StackTrace = ex.StackTrace });
-        }
     }
 
     [HttpPut("payment-status")]
     [Authorize(Roles = "Admin,SuperAdmin,Manager")]
-    public async Task<Response<string>> UpdateStudentPaymentStatus([FromBody] UpdateStudentPaymentStatusDto dto)
-        => await service.UpdateStudentPaymentStatusAsync(dto);
+    public async Task<IActionResult> UpdateStudentPaymentStatus([FromBody] UpdateStudentPaymentStatusDto dto)
+    {
+        var command = new UpdateStudentPaymentStatusCommand(dto);
+        var response = await mediator.Send(command);
+        return StatusCode(response.StatusCode, response);
+    }
     
     [HttpGet("{studentId}/groups-overview")]
     [Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor,Student")]
     public async Task<ActionResult<Response<List<StudentGroupOverviewDto>>>> GetStudentGroupsOverview(int studentId)
     {
-        var res = await service.GetStudentGroupsOverviewAsync(studentId);
+        var res = await mediator.Send(new GetStudentGroupsOverviewQuery(studentId));
         return StatusCode(res.StatusCode, res);
     }
     
@@ -169,5 +141,15 @@ public class StudentController (IStudentService service) : ControllerBase
         [FromQuery] int? year,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 20)
-        => await service.GetStudentPaymentsAsync(studentId, month, year, pageNumber, pageSize);
+        => await mediator.Send(new GetStudentPaymentsQuery(studentId, month, year, pageNumber, pageSize));
+    
+    [HttpGet("pagination")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor")]
+    public async Task<PaginationResponse<List<GetStudentDto>>> GetStudentsPagination([FromQuery] StudentFilter filter)
+        => await mediator.Send(new GetStudentsPaginationQuery(filter));
+
+    [HttpGet("simple")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager,Mentor")]
+    public async Task<PaginationResponse<List<GetSimpleDto>>> GetSimpleStudents([FromQuery] StudentFilter filter)
+        => await mediator.Send(new GetSimpleStudentsQuery(filter));
 }
