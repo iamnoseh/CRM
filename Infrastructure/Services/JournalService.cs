@@ -586,17 +586,22 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
                 var currentUser = _httpContextAccessor.HttpContext?.User;
                 if (currentUser != null)
                 {
-                    var userIdClaim = currentUser.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                    var userIdClaim = currentUser.FindFirst("UserId")?.Value
+                                      ?? currentUser.FindFirst(ClaimTypes.NameIdentifier)?.Value
                                       ?? currentUser.FindFirst("nameid")?.Value;
-                    var userNameClaim = currentUser.FindFirst(ClaimTypes.Name)?.Value
-                                        ?? currentUser.FindFirst("FullName")?.Value
+                    var userNameClaim = currentUser.FindFirst("Fullname")?.Value
+                                        ?? currentUser.FindFirst(ClaimTypes.Name)?.Value
                                         ?? currentUser.FindFirst("unique_name")?.Value;
                     
-                    if (int.TryParse(userIdClaim, out var userId))
+                    if (!string.IsNullOrEmpty(userIdClaim) && int.TryParse(userIdClaim, out var userId))
                     {
                         entry.CommentAuthorId = userId;
                     }
-                    entry.CommentAuthorName = userNameClaim;
+                    
+                    if (!string.IsNullOrEmpty(userNameClaim))
+                    {
+                        entry.CommentAuthorName = userNameClaim;
+                    }
                 }
             }
             if (request.CommentCategory.HasValue) entry.CommentCategory = request.CommentCategory.Value;
