@@ -28,5 +28,8 @@ public class JournalEntry : BaseEntity
     [StringLength(500)]
     public string? Comment { get; set; }
     public CommentCategory? CommentCategory { get; set; }
+    public int? CommentAuthorId { get; set; }
+    [StringLength(200)]
+    public string? CommentAuthorName { get; set; }
     public DateTime EntryDate { get; set; } = DateTime.UtcNow;
 }

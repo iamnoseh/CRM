@@ -20,6 +20,7 @@ public interface IJournalService
     Task<Response<List<int>>> GetGroupWeekNumbersAsync(int groupId);
     Task<Response<string>> DeleteJournalAsync(int groupId, int weekNumber);
     Task<Response<string>> DeleteAllJournalsAsync(int groupId);
+    Task<Response<List<StudentCommentDto>>> GetStudentCommentsAsync(int studentId);
 }
 
 
