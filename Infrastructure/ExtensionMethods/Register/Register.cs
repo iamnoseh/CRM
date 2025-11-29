@@ -275,27 +275,13 @@ public static class Register
     }
         public static void AddCorsServices(this IServiceCollection services)
     {
-        var defaultOrigins = new[]
-        {
-            "http://localhost:5173",
-            "http://localhost:5174",
-            "http://localhost:5064",
-            "http://localhost:5032",
-            "https://crm.kavsaracademy.tj",
-            "http://crm.kavsaracademy.tj",
-            "http://37.27.249.153:3001",
-            "https://37.27.249.153:3001",
-            "http://localhost:5175"
-        };
-        
         services.AddCors(options =>
         {
             options.AddPolicy("AllowFrontend", policy =>
             {
-                policy.WithOrigins(defaultOrigins)
+                policy.AllowAnyOrigin()
                     .AllowAnyMethod()
-                    .AllowAnyHeader()
-                    .AllowCredentials();
+                    .AllowAnyHeader();
                 policy.SetPreflightMaxAge(TimeSpan.FromMinutes(10));
             });
         });
