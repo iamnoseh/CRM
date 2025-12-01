@@ -350,4 +350,131 @@ public class AccountService(
             return new Response<string>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми ивазкунии рамз: {ex.Message}");
         }
     }
+
+    public async Task<Response<string>> SendOtp(SendOtpDto sendOtpDto)
+    {
+        try
+        {
+            if (sendOtpDto == null || string.IsNullOrWhiteSpace(sendOtpDto.Username))
+                return new Response<string>(HttpStatusCode.BadRequest, "Номи корбар ҳатмист");
+
+            // Find user by username
+            var existingUser = await userManager.FindByNameAsync(sendOtpDto.Username);
+            
+            if (existingUser == null)
+                return new Response<string>(HttpStatusCode.NotFound, "Корбари бо ин номи корбар ёфт нашуд");
+
+            var otpCode = new Random().Next(1000, 9999).ToString();
+            
+            existingUser.Code = otpCode;
+            existingUser.CodeDate = DateTimeOffset.UtcNow;
+
+            var result = await context.SaveChangesAsync();
+            if (result <= 0)
+                return new Response<string>(HttpStatusCode.InternalServerError, "Хатогӣ ҳангоми сохтани рамзи тасдиқ");
+
+            if (!string.IsNullOrWhiteSpace(existingUser.PhoneNumber))
+            {
+                var smsMessage = $"Салом!\nШумо дархости барқарорсозии рамзро пешниҳод кардед.\nРамзи тасдиқи : {otpCode}\nРамз танҳо 3 дақиқа эътибор дорад.\nKavsar Academy";
+                await osonSmsService.SendSmsAsync(existingUser.PhoneNumber, smsMessage);
+            }
+
+            if (!string.IsNullOrWhiteSpace(existingUser.Email))
+            {
+                await EmailHelper.SendResetPasswordCodeEmailAsync(emailService, existingUser.Email, otpCode);
+            }
+
+            return new Response<string>(HttpStatusCode.OK, "Рамзи тасдиқи OTP ба телефон ва/ё email бо муваффақият фиристода шуд");
+        }
+        catch (Exception ex)
+        {
+            return new Response<string>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми фиристодани OTP: {ex.Message}");
+        }
+    }
+
+    public async Task<Response<VerifyOtpResponseDto>> VerifyOtp(VerifyOtpDto verifyOtpDto)
+    {
+        try
+        {
+            if (verifyOtpDto == null || string.IsNullOrWhiteSpace(verifyOtpDto.Username) || string.IsNullOrWhiteSpace(verifyOtpDto.OtpCode))
+                return new Response<VerifyOtpResponseDto>(HttpStatusCode.BadRequest, "Номи корбар ва рамзи тасдиқ ҳатмист");
+
+            var existingUser = await userManager.FindByNameAsync(verifyOtpDto.Username);
+            
+            if (existingUser == null)
+                return new Response<VerifyOtpResponseDto>(HttpStatusCode.NotFound, "Корбари бо ин номи корбар ёфт нашуд");
+
+            if (existingUser.Code != verifyOtpDto.OtpCode)
+                return new Response<VerifyOtpResponseDto>(HttpStatusCode.BadRequest, "Рамзи тасдиқи OTP нодуруст аст");
+
+            var timeElapsed = DateTimeOffset.UtcNow - existingUser.CodeDate;
+            if (timeElapsed.TotalMinutes > 3)
+                return new Response<VerifyOtpResponseDto>(HttpStatusCode.BadRequest, "Мӯҳлати рамзи тасдиқи OTP гузаштааст (3 дақиқа)");
+
+            var resetToken = Convert.ToBase64String(Guid.NewGuid().ToByteArray()) + "_" + existingUser.Id;
+            
+             existingUser.Code = $"VERIFIED_{resetToken}";
+            existingUser.CodeDate = DateTimeOffset.UtcNow; 
+            await context.SaveChangesAsync();
+
+            var responseData = new VerifyOtpResponseDto
+            {
+                ResetToken = resetToken,
+                Message = "Рамзи тасдиқи OTP дуруст аст. Токен барои барқарорсозии рамз дода шуд."
+            };
+
+            return new Response<VerifyOtpResponseDto>(responseData) 
+            { 
+                Message = "Рамзи тасдиқи OTP дуруст аст" 
+            };
+        }
+        catch (Exception ex)
+        {
+            return new Response<VerifyOtpResponseDto>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми тасдиқи OTP: {ex.Message}");
+        }
+    }
+
+    public async Task<Response<string>> ResetPasswordWithOtp(ResetPasswordDto resetPasswordDto)
+    {
+        try
+        {
+            if (resetPasswordDto == null || string.IsNullOrWhiteSpace(resetPasswordDto.ResetToken) || 
+                string.IsNullOrWhiteSpace(resetPasswordDto.NewPassword))
+                return new Response<string>(HttpStatusCode.BadRequest, "Token ва рамзи нав ҳатмист");
+
+            var tokenParts = resetPasswordDto.ResetToken.Split('_');
+            if (tokenParts.Length != 2 || !int.TryParse(tokenParts[1], out var userId))
+                return new Response<string>(HttpStatusCode.BadRequest, "Token нодуруст аст");
+
+            var existingUser = await userManager.Users.FirstOrDefaultAsync(u => u.Id == userId);
+            
+            if (existingUser == null)
+                return new Response<string>(HttpStatusCode.NotFound, "Корбар ёфт нашуд");
+
+            var expectedCode = $"VERIFIED_{resetPasswordDto.ResetToken}";
+            if (existingUser.Code != expectedCode)
+                return new Response<string>(HttpStatusCode.BadRequest, "Token нодуруст аст ё аллакай истифода шудааст");
+            var timeElapsed = DateTimeOffset.UtcNow - existingUser.CodeDate;
+            if (timeElapsed.TotalMinutes > 10)
+                return new Response<string>(HttpStatusCode.BadRequest, "Мӯҳлати token гузаштааст. Лутфан, аз нав кӯшиш кунед");
+
+            // Reset password using Identity
+            var passwordResetToken = await userManager.GeneratePasswordResetTokenAsync(existingUser);
+            var resetResult = await userManager.ResetPasswordAsync(existingUser, passwordResetToken, resetPasswordDto.NewPassword);
+            
+            if (!resetResult.Succeeded)
+                return new Response<string>(HttpStatusCode.BadRequest, IdentityHelper.FormatIdentityErrors(resetResult));
+
+            // Clear token after successful reset
+            existingUser.Code = null;
+            existingUser.CodeDate = default;
+            await context.SaveChangesAsync();
+
+            return new Response<string>(HttpStatusCode.OK, "Рамз бо муваффақият иваз карда шуд");
+        }
+        catch (Exception ex)
+        {
+            return new Response<string>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми барқарорсозии рамз: {ex.Message}");
+        }
+    }
 }

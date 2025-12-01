@@ -63,7 +63,23 @@ public class AccountController(IAccountService service) : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto resetPasswordDto)
     {
-        var response = await service.ResetPassword(resetPasswordDto);
+        var response = await service.ResetPasswordWithOtp(resetPasswordDto);
+        return StatusCode(response.StatusCode, response);
+    }
+
+    [HttpPost("send-otp")]
+    [AllowAnonymous]
+    public async Task<IActionResult> SendOtp([FromBody] SendOtpDto sendOtpDto)
+    {
+        var response = await service.SendOtp(sendOtpDto);
+        return StatusCode(response.StatusCode, response);
+    }
+
+    [HttpPost("verify-otp")]
+    [AllowAnonymous]
+    public async Task<IActionResult> VerifyOtp([FromBody] VerifyOtpDto verifyOtpDto)
+    {
+        var response = await service.VerifyOtp(verifyOtpDto);
         return StatusCode(response.StatusCode, response);
     }
 }
