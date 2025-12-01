@@ -11,14 +11,6 @@ namespace WebApp.Controllers;
 [Route("api/[controller]")]
 public class AccountController(IAccountService service) : ControllerBase
 {
-    [HttpPost("register")]
-    [AllowAnonymous]
-    public async Task<IActionResult> Register([FromForm] RegisterDto request)
-    {
-        var response = await service.Register(request);
-        return StatusCode(response.StatusCode, response);
-    }
-
     [HttpPost("login")]
     [AllowAnonymous]
     public async Task<IActionResult> Login(LoginDto request)
@@ -51,22 +43,6 @@ public class AccountController(IAccountService service) : ControllerBase
         return StatusCode(response.StatusCode, response);
     }
 
-    [HttpPost("forgot-password")]
-    [AllowAnonymous]
-    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto forgotPasswordDto)
-    {
-        var response = await service.ForgotPasswordCodeGenerator(forgotPasswordDto);
-        return StatusCode(response.StatusCode, response);
-    }
-
-    [HttpPost("reset-password")]
-    [AllowAnonymous]
-    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto resetPasswordDto)
-    {
-        var response = await service.ResetPasswordWithOtp(resetPasswordDto);
-        return StatusCode(response.StatusCode, response);
-    }
-
     [HttpPost("send-otp")]
     [AllowAnonymous]
     public async Task<IActionResult> SendOtp([FromBody] SendOtpDto sendOtpDto)
@@ -80,6 +56,14 @@ public class AccountController(IAccountService service) : ControllerBase
     public async Task<IActionResult> VerifyOtp([FromBody] VerifyOtpDto verifyOtpDto)
     {
         var response = await service.VerifyOtp(verifyOtpDto);
+        return StatusCode(response.StatusCode, response);
+    }
+
+    [HttpPost("reset-password")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto resetPasswordDto)
+    {
+        var response = await service.ResetPasswordWithOtp(resetPasswordDto);
         return StatusCode(response.StatusCode, response);
     }
 }

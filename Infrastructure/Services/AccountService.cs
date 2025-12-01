@@ -29,76 +29,6 @@ public class AccountService(
     string uploadPath,
     IHttpContextAccessor httpContextAccessor) : IAccountService
 {
-    public async Task<Response<string>> Register(RegisterDto model)
-    {
-        try
-        {
-            var existingUser = await userManager.FindByNameAsync(model.UserName);
-            if (existingUser != null)
-                return new Response<string>(HttpStatusCode.BadRequest, "Чунин номи корбар аллакай вуҷуд дорад");
-            
-            string profileImagePath = string.Empty;
-            if (model.ProfileImage != null)
-            {
-                var imageResult = await FileUploadHelper.UploadFileAsync(
-                    model.ProfileImage, 
-                    uploadPath,
-                    "profiles",
-                    "profile",
-                    true);
-
-                if (imageResult.StatusCode != (int)HttpStatusCode.OK)
-                    return new Response<string>((HttpStatusCode)imageResult.StatusCode, imageResult.Message);
-
-                profileImagePath = imageResult.Data;
-            }
-
-            var userResult = await UserManagementHelper.CreateUserAsync(
-                model,
-                userManager,
-                Roles.User.ToString(),
-                dto => dto.UserName,
-                dto => dto.Email,
-                dto => dto.FullName,
-                dto => dto.Birthday,
-                dto => dto.Gender,
-                dto => dto.Address,
-                dto => dto.CenterId,
-                _ => profileImagePath,
-                false); 
-
-            if (userResult.StatusCode != (int)HttpStatusCode.OK)
-                return new Response<string>((HttpStatusCode)userResult.StatusCode, userResult.Message);
-
-            var (user, password, username) = userResult.Data;
-
-            if (!string.IsNullOrEmpty(model.Email))
-            {
-                await EmailHelper.SendLoginDetailsEmailAsync(
-                    emailService,
-                    model.Email,
-                    username,
-                    password,
-                    "User",
-                    "#5E60CE",
-                    "#4EA8DE");
-            }
-            
-            if (!string.IsNullOrEmpty(user.PhoneNumber))
-            {
-                var loginUrl = configuration["AppSettings:LoginUrl"];
-                var smsMessage = $"Салом, {user.FullName}!\nUsername: {username},\nPassword: {password}.\nЛутфан, барои ворид шудан ба система ба ин суроға ташриф оред: {loginUrl}\nKavsar Academy";
-                await osonSmsService.SendSmsAsync(user.PhoneNumber, smsMessage);
-            }
-
-            return new Response<string>(HttpStatusCode.Created, "Корбар бо муваффақият сохта шуд. Маълумоти воридшавӣ ба почтаи электронӣ ва/ё SMS фиристода шуд.");
-        }
-        catch (Exception ex)
-        {
-            return new Response<string>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми бақайдгирии корбар: {ex.Message}");
-        }
-    }
-
     public async Task<Response<string>> Login(LoginDto login)
     {
         var user = await userManager.FindByNameAsync(login.Username);
@@ -253,74 +183,6 @@ public class AccountService(
         return tokenString;
     }
 
-    public async Task<Response<string>> ResetPassword(ResetPasswordDto resetPasswordDto)
-    {
-        try
-        {
-            if (resetPasswordDto == null)
-                return new Response<string>(HttpStatusCode.BadRequest, "Маълумоти дархост нодуруст аст");
-
-            var existingUser = await userManager.FindByNameAsync(resetPasswordDto.Username);
-            if (existingUser == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Корбар ёфт нашуд");
-
-            if (resetPasswordDto.Code != existingUser.Code)
-                return new Response<string>(HttpStatusCode.BadRequest, "Рамзи тасдиқ нодуруст аст");
-
-            var timeElapsed = DateTimeOffset.UtcNow - existingUser.CodeDate;
-            if (timeElapsed.TotalMinutes > 3)
-                return new Response<string>(HttpStatusCode.BadRequest, "Мӯҳлати рамзи тасдиқ гузаштааст");
-
-            var resetToken = await userManager.GeneratePasswordResetTokenAsync(existingUser);
-            var resetResult = await userManager.ResetPasswordAsync(existingUser, resetToken, resetPasswordDto.Password);
-            if (!resetResult.Succeeded)
-                return new Response<string>(HttpStatusCode.BadRequest, IdentityHelper.FormatIdentityErrors(resetResult));
-
-            existingUser.Code = null;
-            existingUser.CodeDate = default;
-            await context.SaveChangesAsync();
-
-            return new Response<string>(HttpStatusCode.OK, "Рамз бо муваффақият иваз карда шуд");
-        }
-        catch (Exception ex)
-        {
-            return new Response<string>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми ивазкунии рамз: {ex.Message}");
-        }
-    }
-
-    public async Task<Response<string>> ForgotPasswordCodeGenerator(ForgotPasswordDto forgotPasswordDto)
-    {
-        try
-        {
-            if (forgotPasswordDto == null)
-                return new Response<string>(HttpStatusCode.BadRequest, "Маълумоти дархост нодуруст аст");
-
-            var existingUser = await userManager.FindByNameAsync(forgotPasswordDto.Username);
-            if (existingUser == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Корбар ёфт нашуд");
-
-            var code = new Random().Next(1000, 9999).ToString();
-            existingUser.Code = code;
-            existingUser.CodeDate = DateTime.UtcNow;
-
-            var res = await context.SaveChangesAsync();
-            if (res <= 0)
-                return new Response<string>(HttpStatusCode.BadRequest, "Хатогӣ ҳангоми сохтани рамзи тасдиқ");
-
-            if (!string.IsNullOrWhiteSpace(existingUser.Email))
-            {
-                await EmailHelper.SendResetPasswordCodeEmailAsync(emailService, existingUser.Email, code);
-                await osonSmsService.SendSmsAsync(existingUser.PhoneNumber, $"Салом!\nШумо дархости барқарорсозии рамзро пешниҳод кардед.\nРамзи тасдиқ: {code}\nРамзи тасдиқ танҳо 10 дақиқа эътибор дорад");
-            }
-
-            return new Response<string>(HttpStatusCode.OK, "Рамзи тасдиқ бо муваффақият сохта шуд  фиристода шуд");
-        }
-        catch (Exception ex)
-        {
-            return new Response<string>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми фиристодани рамзи тасдиқ: {ex.Message}");
-        }
-    }
-
     public async Task<Response<string>> ChangePassword(ChangePasswordDto passwordDto)
     {
         try
@@ -367,7 +229,7 @@ public class AccountService(
             var otpCode = new Random().Next(1000, 9999).ToString();
             
             existingUser.Code = otpCode;
-            existingUser.CodeDate = DateTimeOffset.UtcNow;
+            existingUser.CodeDate = DateTime.UtcNow;
 
             var result = await context.SaveChangesAsync();
             if (result <= 0)
@@ -407,14 +269,14 @@ public class AccountService(
             if (existingUser.Code != verifyOtpDto.OtpCode)
                 return new Response<VerifyOtpResponseDto>(HttpStatusCode.BadRequest, "Рамзи тасдиқи OTP нодуруст аст");
 
-            var timeElapsed = DateTimeOffset.UtcNow - existingUser.CodeDate;
+            var timeElapsed = DateTime.UtcNow - existingUser.CodeDate;
             if (timeElapsed.TotalMinutes > 3)
                 return new Response<VerifyOtpResponseDto>(HttpStatusCode.BadRequest, "Мӯҳлати рамзи тасдиқи OTP гузаштааст (3 дақиқа)");
 
             var resetToken = Convert.ToBase64String(Guid.NewGuid().ToByteArray()) + "_" + existingUser.Id;
             
-             existingUser.Code = $"VERIFIED_{resetToken}";
-            existingUser.CodeDate = DateTimeOffset.UtcNow; 
+            existingUser.Code = $"VERIFIED_{resetToken}";
+            existingUser.CodeDate = DateTime.UtcNow; 
             await context.SaveChangesAsync();
 
             var responseData = new VerifyOtpResponseDto
@@ -454,7 +316,7 @@ public class AccountService(
             var expectedCode = $"VERIFIED_{resetPasswordDto.ResetToken}";
             if (existingUser.Code != expectedCode)
                 return new Response<string>(HttpStatusCode.BadRequest, "Token нодуруст аст ё аллакай истифода шудааст");
-            var timeElapsed = DateTimeOffset.UtcNow - existingUser.CodeDate;
+            var timeElapsed = DateTime.UtcNow - existingUser.CodeDate;
             if (timeElapsed.TotalMinutes > 10)
                 return new Response<string>(HttpStatusCode.BadRequest, "Мӯҳлати token гузаштааст. Лутфан, аз нав кӯшиш кунед");
 
