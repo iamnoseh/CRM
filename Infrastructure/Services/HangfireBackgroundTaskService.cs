@@ -24,10 +24,12 @@ public class HangfireBackgroundTaskService(
                 () => groupExpirationService.Run(),
                 Cron.Daily(0, 0));
 
-            recurringJobManager.AddOrUpdate(
-                "student-status-update",
-                () => studentStatusUpdaterService.Run(),
-                Cron.Daily(0, 10));
+            // StudentStatusUpdaterService ғайрифаъол карда шуд
+            // Ҳамаи логикаи пардохт дар DailyAutoChargeService идора мешавад
+            // recurringJobManager.AddOrUpdate(
+            //     "student-status-update",
+            //     () => studentStatusUpdaterService.Run(),
+            //     Cron.Daily(0, 10));
 
           recurringJobManager.AddOrUpdate(
                 "weekly-journal-schedule",
@@ -62,7 +64,7 @@ public class HangfireBackgroundTaskService(
         try
         {
             recurringJobManager.RemoveIfExists("group-expiration-check");
-            recurringJobManager.RemoveIfExists("student-status-update");
+            // recurringJobManager.RemoveIfExists("student-status-update"); // ғайрифаъол
             recurringJobManager.RemoveIfExists("weekly-journal-schedule");
             recurringJobManager.RemoveIfExists("monthly-finance-aggregation");
             recurringJobManager.RemoveIfExists("daily-auto-charge");
