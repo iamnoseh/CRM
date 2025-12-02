@@ -7,12 +7,9 @@ public static class BackgroundServiceExtensions
 {
     public static IServiceCollection AddBackgroundServices(this IServiceCollection services)
     {
-        // Add background services with proper error handling
         services.AddHostedService<GroupExpirationService>();
-        services.AddHostedService<StudentStatusUpdaterService>();
         services.AddHostedService<WeeklyJournalSchedulerService>();
 
-        // Configure logging for background services
         services.AddLogging(builder =>
         {
             builder.AddConsole();
@@ -27,12 +24,9 @@ public static class BackgroundServiceExtensions
         var options = new BackgroundServiceOptions();
         configureOptions?.Invoke(options);
 
-        // Add background services with retry configuration
         services.AddHostedService<GroupExpirationService>();
-        services.AddHostedService<StudentStatusUpdaterService>();
         services.AddHostedService<WeeklyJournalSchedulerService>();
 
-        // Configure logging for background services
         services.AddLogging(builder =>
         {
             builder.AddConsole();

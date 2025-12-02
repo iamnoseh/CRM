@@ -10,7 +10,6 @@ public class HangfireBackgroundTaskService(
     ILogger<HangfireBackgroundTaskService> logger,
     IRecurringJobManager recurringJobManager,
     GroupExpirationService groupExpirationService,
-    StudentStatusUpdaterService studentStatusUpdaterService,
     WeeklyJournalSchedulerService weeklyJournalSchedulerService,
     MonthlyFinanceAggregatorService monthlyFinanceAggregatorService,
     DailyAutoChargeService dailyAutoChargeService)
@@ -27,16 +26,11 @@ public class HangfireBackgroundTaskService(
                 "weekly-journal-schedule",
                 () => weeklyJournalSchedulerService.ProcessActiveGroupsAsync(CancellationToken.None),
                 Cron.Daily(0, 30));
-
-            // Daily auto charge at 08:00 Dushanbe time ~= 03:00 UTC
             recurringJobManager.AddOrUpdate(
                 "daily-auto-charge",
                 () => dailyAutoChargeService.Run(),
                 Cron.Daily(3, 0));
 
-            // Monthly payroll generation on the 1st day at 06:10 UTC for previous month per center can be triggered via FinanceController endpoint or separate job if center list known.
-
-            // Monthly finance aggregation on the 1st day at 00:05 UTC
             recurringJobManager.AddOrUpdate(
                 "monthly-finance-aggregation",
                 () => monthlyFinanceAggregatorService.RunAsync(CancellationToken.None),
@@ -78,10 +72,6 @@ public class HangfireBackgroundTaskService(
                 case "group-expiration":
                     recurringJobManager.Trigger("group-expiration-check");
                     logger.LogInformation("Background task 'group-expiration' запущен немедленно");
-                    break;
-                case "student-status":
-                    recurringJobManager.Trigger("student-status-update");
-                    logger.LogInformation("Background task 'student-status' запущен немедленно");
                     break;
                 case "weekly-journal":
                     recurringJobManager.Trigger("weekly-journal-schedule");
