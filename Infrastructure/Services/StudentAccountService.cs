@@ -289,7 +289,6 @@ namespace Infrastructure.Services;
                         studentToUpdate.LastPaymentDate = DateTime.UtcNow;
                         studentToUpdate.TotalPaid += amountToCharge;
                         studentToUpdate.UpdatedAt = DateTimeOffset.UtcNow;
-                        studentToUpdate.LastPaymentReminderSmsDate = null;
                         db.Students.Update(studentToUpdate);
                     }
 
@@ -461,7 +460,6 @@ namespace Infrastructure.Services;
                 studentToUpdate.LastPaymentDate = DateTime.UtcNow;
                 studentToUpdate.TotalPaid += amountToCharge;
                 studentToUpdate.UpdatedAt = DateTimeOffset.UtcNow;
-                studentToUpdate.LastPaymentReminderSmsDate = null;
                 db.Students.Update(studentToUpdate);
             }
 
@@ -728,7 +726,6 @@ namespace Infrastructure.Services;
                     studentToUpdate2.LastPaymentDate = DateTime.UtcNow;
                     studentToUpdate2.TotalPaid += amountToCharge;
                     studentToUpdate2.UpdatedAt = DateTimeOffset.UtcNow;
-                    studentToUpdate2.LastPaymentReminderSmsDate = null; // Тоза кардан барои моҳи навбатӣ
                     db.Students.Update(studentToUpdate2);
                 }
 
