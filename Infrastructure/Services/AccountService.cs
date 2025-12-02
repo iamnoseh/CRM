@@ -258,7 +258,6 @@ public class AccountService(
                 return new Response<VerifyOtpResponseDto>(HttpStatusCode.BadRequest, "Номи корбар ва рамзи тасдиқ ҳатмист");
 
             var existingUser = await userManager.FindByNameAsync(verifyOtpDto.Username);
-            
             if (existingUser == null)
                 return new Response<VerifyOtpResponseDto>(HttpStatusCode.NotFound, "Корбари бо ин номи корбар ёфт нашуд");
 
@@ -270,9 +269,8 @@ public class AccountService(
                 return new Response<VerifyOtpResponseDto>(HttpStatusCode.BadRequest, "Мӯҳлати рамзи тасдиқи OTP гузаштааст (3 дақиқа)");
 
             var resetToken = Convert.ToBase64String(Guid.NewGuid().ToByteArray()) + "_" + existingUser.Id;
-            
             existingUser.Code = $"VERIFIED_{resetToken}";
-            existingUser.CodeDate = DateTime.UtcNow; 
+            existingUser.CodeDate = DateTime.UtcNow;
             await context.SaveChangesAsync();
 
             var responseData = new VerifyOtpResponseDto
@@ -297,28 +295,30 @@ public class AccountService(
         try
         {
             if (resetPasswordDto == null || string.IsNullOrWhiteSpace(resetPasswordDto.ResetToken) || 
-                string.IsNullOrWhiteSpace(resetPasswordDto.NewPassword))
-                return new Response<string>(HttpStatusCode.BadRequest, "Token ва рамзи нав ҳатмист");
+                string.IsNullOrWhiteSpace(resetPasswordDto.NewPassword) || string.IsNullOrWhiteSpace(resetPasswordDto.ConfirmPassword))
+                return new Response<string>(HttpStatusCode.BadRequest, "Token, рамзи нав ва тасдиқи рамз ҳатмист");
+
+            if (resetPasswordDto.NewPassword != resetPasswordDto.ConfirmPassword)
+                return new Response<string>(HttpStatusCode.BadRequest, "Рамзҳо мувофиқат намекунанд");
 
             var tokenParts = resetPasswordDto.ResetToken.Split('_');
             if (tokenParts.Length != 2 || !int.TryParse(tokenParts[1], out var userId))
                 return new Response<string>(HttpStatusCode.BadRequest, "Token нодуруст аст");
 
             var existingUser = await userManager.Users.FirstOrDefaultAsync(u => u.Id == userId);
-            
             if (existingUser == null)
                 return new Response<string>(HttpStatusCode.NotFound, "Корбар ёфт нашуд");
 
             var expectedCode = $"VERIFIED_{resetPasswordDto.ResetToken}";
             if (existingUser.Code != expectedCode)
                 return new Response<string>(HttpStatusCode.BadRequest, "Token нодуруст аст ё аллакай истифода шудааст");
+            
             var timeElapsed = DateTime.UtcNow - existingUser.CodeDate;
             if (timeElapsed.TotalMinutes > 10)
                 return new Response<string>(HttpStatusCode.BadRequest, "Мӯҳлати token гузаштааст. Лутфан, аз нав кӯшиш кунед");
 
             var passwordResetToken = await userManager.GeneratePasswordResetTokenAsync(existingUser);
             var resetResult = await userManager.ResetPasswordAsync(existingUser, passwordResetToken, resetPasswordDto.NewPassword);
-            
             if (!resetResult.Succeeded)
                 return new Response<string>(HttpStatusCode.BadRequest, IdentityHelper.FormatIdentityErrors(resetResult));
 

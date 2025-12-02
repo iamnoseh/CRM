@@ -10,4 +10,8 @@ public class ResetPasswordDto
     [Required(ErrorMessage = "Рамзи нав ҳатмист")]
     [MinLength(6, ErrorMessage = "Рамз набояд аз 6 рамз кам бошад")]
     public string NewPassword { get; set; } = string.Empty;
+    
+    [Required(ErrorMessage = "Тасдиқи рамз ҳатмист")]
+    [Compare("NewPassword", ErrorMessage = "Рамзҳо мувофиқат намекунанд")]
+    public string ConfirmPassword { get; set; } = string.Empty;
 }

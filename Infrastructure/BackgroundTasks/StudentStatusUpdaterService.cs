@@ -70,16 +70,5 @@ namespace Infrastructure.BackgroundTasks
             return candidateOffset.ToUniversalTime();
         }
 
-    private async Task<Response<BackgroundTaskResult>> UpdateStudentStatusesAsync()
-    {
-        // ИН BACKGROUND TASK ДИГАР ИСТИФОДА НАМЕШАВАД
-        // Ҳамаи логикаи пардохт ва огоҳӣ дар DailyAutoChargeService ҳаст
-        _logger.LogInformation("StudentStatusUpdaterService: Хизмат ғайрифаъол карда шуд. Истифодаи DailyAutoChargeService тавсия дода мешавад.");
-        
-        var result = new BackgroundTaskResult();
-        result.Messages.Add("Ин хизмат ғайрифаъол карда шуд. Пардохтҳо тавассути DailyAutoChargeService идора мешаванд.");
-        
-        return new Response<BackgroundTaskResult>(result) { Message = result.Messages.Last() };
-    }
     }
 }
