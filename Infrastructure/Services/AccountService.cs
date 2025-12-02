@@ -99,8 +99,6 @@ public class AccountService(
         var key = Encoding.UTF8.GetBytes(configuration["Jwt:Key"]);
         var securityKey = new SymmetricSecurityKey(key);
         var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
-
-        // Determine principal identifier to embed into JWT (Student.Id / Mentor.Id / User.Id)
         var roles = await userManager.GetRolesAsync(user);
         var normalizedRoles = roles?.Select(r => string.Equals(r, "Teacher", StringComparison.OrdinalIgnoreCase) ? "Mentor" : r)
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -219,8 +217,6 @@ public class AccountService(
         {
             if (sendOtpDto == null || string.IsNullOrWhiteSpace(sendOtpDto.Username))
                 return new Response<string>(HttpStatusCode.BadRequest, "Номи корбар ҳатмист");
-
-            // Find user by username
             var existingUser = await userManager.FindByNameAsync(sendOtpDto.Username);
             
             if (existingUser == null)
@@ -320,14 +316,12 @@ public class AccountService(
             if (timeElapsed.TotalMinutes > 10)
                 return new Response<string>(HttpStatusCode.BadRequest, "Мӯҳлати token гузаштааст. Лутфан, аз нав кӯшиш кунед");
 
-            // Reset password using Identity
             var passwordResetToken = await userManager.GeneratePasswordResetTokenAsync(existingUser);
             var resetResult = await userManager.ResetPasswordAsync(existingUser, passwordResetToken, resetPasswordDto.NewPassword);
             
             if (!resetResult.Succeeded)
                 return new Response<string>(HttpStatusCode.BadRequest, IdentityHelper.FormatIdentityErrors(resetResult));
 
-            // Clear token after successful reset
             existingUser.Code = null;
             existingUser.CodeDate = default;
             await context.SaveChangesAsync();

@@ -1,9 +1,9 @@
 using Domain.Enums;
 using Domain.DTOs.EmailDTOs;
-
 using Domain.Responses;
 using Infrastructure.Data;
 using Infrastructure.Helpers;
+using Infrastructure.Interfaces;
 using Infrastructure.Services.EmailService;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -79,6 +79,7 @@ namespace Infrastructure.BackgroundTasks
             using var scope = _serviceProvider.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<DataContext>();
             var emailService = scope.ServiceProvider.GetService<IEmailService>();
+            var smsService = scope.ServiceProvider.GetService<IOsonSmsService>();
 
             var utcNow = DateTime.UtcNow;
             var boundary = DateTimeOffset.UtcNow;
@@ -120,6 +121,27 @@ namespace Infrastructure.BackgroundTasks
 
                     _logger.LogInformation("Student {FullName} marked pending (due: {due})", student.FullName, student.NextPaymentDueDate);
 
+                    if (!student.LastPaymentReminderSmsDate.HasValue && smsService != null && !string.IsNullOrWhiteSpace(student.PhoneNumber))
+                    {
+                        try
+                        {
+                            var smsText = $"Салом, {student.FullName}! Мӯҳлати пардохти моҳона гузаштааст. Лутфан барои давом додани таҳсил, маблағи моҳонаро ба ҳамёнатон пур кунед.\n\nKavsar Academy";
+                            await smsService.SendSmsAsync(student.PhoneNumber, smsText);
+                            
+                            student.LastPaymentReminderSmsDate = DateTime.UtcNow;
+                            result.Messages.Add($"SMS ба {student.PhoneNumber} фиристода шуд");
+                            _logger.LogInformation("Payment reminder SMS sent to student {id}", student.Id);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to send SMS to student {id}", student.Id);
+                            result.Messages.Add($"SMS нафиристода шуд: {ex.Message}");
+                        }
+                    }
+                    else if (student.LastPaymentReminderSmsDate.HasValue)
+                    {
+                        _logger.LogInformation("SMS барои студент {FullName} аллакай пештар фиристода шуда буд", student.FullName);
+                    }
                     if (emailService != null && !string.IsNullOrWhiteSpace(student.Email))
                     {
                         try
@@ -127,7 +149,7 @@ namespace Infrastructure.BackgroundTasks
                             var subject = "Ёдраскуни: мӯҳлати пардохт гузаштааст";
                             var content = $"Салом {student.FullName},\n\nМӯҳлати пардохт ({student.NextPaymentDueDate:yyyy-MM-dd}) гузаштааст. Лутфан пардохтро анҷом диҳед.\n\nБо эҳтиром.";
                             var emailMessage = new EmailMessageDto(new[] { student.Email }, subject, content);
-                            // await emailService.SendEmail(emailMessage, TextFormat.Plain);
+                            await emailService.SendEmail(emailMessage, TextFormat.Plain);
                             result.Messages.Add($"Почтаи электронӣ ба {student.Email} фиристод шуд");
                         }
                         catch (Exception ex)

@@ -283,19 +283,18 @@ namespace Infrastructure.Services;
                     };
                     db.Payments.Add(payment);
 
-                    // sync student's stats (status will be recalculated later)
                     var studentToUpdate = await db.Students.FirstOrDefaultAsync(s => s.Id == sg.StudentId && !s.IsDeleted);
                     if (studentToUpdate != null)
                     {
                         studentToUpdate.LastPaymentDate = DateTime.UtcNow;
                         studentToUpdate.TotalPaid += amountToCharge;
                         studentToUpdate.UpdatedAt = DateTimeOffset.UtcNow;
+                        studentToUpdate.LastPaymentReminderSmsDate = null;
                         db.Students.Update(studentToUpdate);
                     }
 
                     successCount++;
 
-                    // SMS notify about successful charge
                     try
                     {
                         var studentPhone = sg.Student?.PhoneNumber;
@@ -311,14 +310,12 @@ namespace Infrastructure.Services;
                 }
                 else
                 {
-                    // notify low balance
-                    await NotifyInsufficientAsync(sg.StudentId, account, amountToCharge, date, sg.Group.Name);
+                    await NotifyInsufficientAsync(sg.StudentId, sg.GroupId, account, amountToCharge, date, sg.Group.Name);
                 }
             }
 
             await db.SaveChangesAsync();
 
-            // Optionally we could recalc per student here if needed
             return new Response<int>(successCount) { Message = $"Дебет муваффақ шуд барои {successCount} донишҷӯ" };
         }
         catch (Exception ex)
@@ -369,7 +366,6 @@ namespace Infrastructure.Services;
         try
         {
             Log.Information("ChargeForGroupAsync start | StudentId={StudentId} GroupId={GroupId} Period={Month}.{Year}", studentId, groupId, month, year);
-            // skip if payment already exists for this month
             var alreadyPaid = await db.Payments.AnyAsync(p => !p.IsDeleted && p.StudentId == studentId && p.GroupId == groupId && p.Month == month && p.Year == year && (p.Status == PaymentStatus.Completed || p.Status == PaymentStatus.Paid));
             if (alreadyPaid)
             {
@@ -377,7 +373,6 @@ namespace Infrastructure.Services;
                 return new Response<string>("Пардохти ин моҳ аллакай сабт шудааст");
             }
 
-            // ensure account exists
             var account = await db.StudentAccounts.FirstOrDefaultAsync(a => a.StudentId == studentId && a.IsActive && !a.IsDeleted);
             if (account == null)
             {
@@ -418,17 +413,15 @@ namespace Infrastructure.Services;
 
             if (account.Balance < amountToCharge)
             {
-                // insufficient funds
-                await NotifyInsufficientAsync(studentId, account, amountToCharge, new DateTime(year, month, 1), (await db.Groups.FirstOrDefaultAsync(g => g.Id == groupId))?.Name ?? "гурӯҳ");
+                await NotifyInsufficientAsync(studentId, groupId, account, amountToCharge, new DateTime(year, month, 1), (await db.Groups.FirstOrDefaultAsync(g => g.Id == groupId))?.Name ?? "гурӯҳ");
                 Log.Warning("ChargeForGroupAsync: insufficient funds | StudentId={StudentId} Balance={Balance} Required={Required}", studentId, account.Balance, amountToCharge);
                 return new Response<string>(HttpStatusCode.BadRequest, "Баланс нокифоя аст барои пардохти моҳона");
             }
 
-            // debit and create payment
             account.Balance -= amountToCharge;
             account.UpdatedAt = DateTimeOffset.UtcNow;
 
-            // group already loaded above
+    
             var groupName2 = group?.Name ?? $"GroupId={groupId}";
             db.AccountLogs.Add(new AccountLog
             {
@@ -462,13 +455,13 @@ namespace Infrastructure.Services;
             };
             db.Payments.Add(payment);
 
-            // sync student stats (status will be recalculated)
             var studentToUpdate = await db.Students.FirstOrDefaultAsync(s => s.Id == studentId && !s.IsDeleted);
             if (studentToUpdate != null)
             {
                 studentToUpdate.LastPaymentDate = DateTime.UtcNow;
                 studentToUpdate.TotalPaid += amountToCharge;
                 studentToUpdate.UpdatedAt = DateTimeOffset.UtcNow;
+                studentToUpdate.LastPaymentReminderSmsDate = null;
                 db.Students.Update(studentToUpdate);
             }
 
@@ -568,18 +561,37 @@ namespace Infrastructure.Services;
         }
     }
 
-    private async Task NotifyInsufficientAsync(int studentId, StudentAccount account, decimal required, DateTime dueDate, string groupName)
+    private async Task NotifyInsufficientAsync(int studentId, int groupId, StudentAccount account, decimal required, DateTime dueDate, string groupName)
     {
         try
         {
+            var studentGroup = await db.StudentGroups
+                .FirstOrDefaultAsync(sg => sg.StudentId == studentId && sg.GroupId == groupId && !sg.IsDeleted);
+            
+            if (studentGroup == null) return;
+
+            var today = DateTime.UtcNow.Date;
+            if (studentGroup.LastPaymentReminderSentDate.HasValue && 
+                studentGroup.LastPaymentReminderSentDate.Value.Date == today)
+            {
+                Log.Information("SMS-и огоҳии норасоии маблағ аллакай имрӯз фиристода шудааст: StudentId={StudentId} GroupId={GroupId}", studentId, groupId);
+                return;
+            }
+
             var student = await db.Students.FirstOrDefaultAsync(s => s.Id == studentId && !s.IsDeleted);
             if (student == null) return;
 
             var missing = required - account.Balance;
             var sms = $"Салом, {student.FullName}! Барои пардохти моҳонаи гурӯҳи {groupName} маблағи ҳисобатон нокифоя аст. Камбуд: {missing:0.##} сомонӣ. Лутфан бо коди ҳамён {account.AccountCode} ба админ муроҷиат карда ҳисоби худро пур кунед.";
+            
             if (!string.IsNullOrWhiteSpace(student.PhoneNumber))
             {
                 await messageSenderService.SendSmsToNumberAsync(student.PhoneNumber, sms);
+                studentGroup.LastPaymentReminderSentDate = DateTime.UtcNow;
+                db.StudentGroups.Update(studentGroup);
+                await db.SaveChangesAsync();
+                
+                Log.Information("SMS-и огоҳии норасоии маблағ фиристода шуд: StudentId={StudentId} GroupId={GroupId}", studentId, groupId);
             }
 
             if (!string.IsNullOrWhiteSpace(student.Email))
@@ -716,6 +728,7 @@ namespace Infrastructure.Services;
                     studentToUpdate2.LastPaymentDate = DateTime.UtcNow;
                     studentToUpdate2.TotalPaid += amountToCharge;
                     studentToUpdate2.UpdatedAt = DateTimeOffset.UtcNow;
+                    studentToUpdate2.LastPaymentReminderSmsDate = null; // Тоза кардан барои моҳи навбатӣ
                     db.Students.Update(studentToUpdate2);
                 }
 
@@ -737,7 +750,7 @@ namespace Infrastructure.Services;
             else
             {
                 anyInsufficient = true;
-                await NotifyInsufficientAsync(sg.StudentId, account, amountToCharge, new DateTime(year, month, 1), sg.Group.Name);
+                await NotifyInsufficientAsync(sg.StudentId, sg.GroupId, account, amountToCharge, new DateTime(year, month, 1), sg.Group.Name);
             }
         }
 
