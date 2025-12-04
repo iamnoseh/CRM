@@ -1,3 +1,4 @@
+using System.Net;
 using Domain.DTOs.Statistics;
 using Domain.DTOs.Finance;
 using Domain.Entities;
@@ -5,41 +6,41 @@ using Domain.Enums;
 using Domain.Responses;
 using Infrastructure.Data;
 using Infrastructure.Interfaces;
+using Infrastructure.Constants;
+using Infrastructure.Helpers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Http;
-using Infrastructure.Helpers;
 using Serilog;
 
 namespace Infrastructure.Services;
 
 public class FinanceService(DataContext dbContext, IHttpContextAccessor httpContextAccessor) : IFinanceService
 {
-    private readonly DataContext _db = dbContext;
-    private readonly IHttpContextAccessor _httpContextAccessor = httpContextAccessor;
+    #region GetFinancialSummaryAsync
 
     public async Task<Response<CenterFinancialSummaryDto>> GetFinancialSummaryAsync(int centerId, DateTimeOffset start, DateTimeOffset end)
     {
         try
         {
-            var userCenterId = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
+            var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
             var effectiveCenterId = userCenterId ?? centerId;
-            var center = await _db.Centers.AsNoTracking().FirstOrDefaultAsync(c => c.Id == effectiveCenterId);
+            var center = await dbContext.Centers.AsNoTracking().FirstOrDefaultAsync(c => c.Id == effectiveCenterId);
             if (center is null)
-                return new Response<CenterFinancialSummaryDto>(System.Net.HttpStatusCode.NotFound, "Центр не найден");
+                return new Response<CenterFinancialSummaryDto>(HttpStatusCode.NotFound, Messages.Center.NotFound);
 
-            var income = await _db.Payments
+            var income = await dbContext.Payments
                 .Where(p => p.CenterId == effectiveCenterId
                             && p.PaymentDate >= start.UtcDateTime && p.PaymentDate <= end.UtcDateTime
                             && (p.Status == PaymentStatus.Completed || p.Status == PaymentStatus.Paid))
                 .SumAsync(p => (decimal?)p.Amount) ?? 0m;
 
-            var expense = await _db.Expenses
+            var expense = await dbContext.Expenses
                 .Where(e => e.CenterId == effectiveCenterId
                             && e.ExpenseDate >= start && e.ExpenseDate <= end
                             && !e.IsDeleted)
                 .SumAsync(e => (decimal?)e.Amount) ?? 0m;
 
-            var byCategory = await _db.Expenses
+            var byCategory = await dbContext.Expenses
                 .Where(e => e.CenterId == effectiveCenterId && e.ExpenseDate >= start && e.ExpenseDate <= end && !e.IsDeleted)
                 .GroupBy(e => e.Category)
                 .Select(g => new CategoryAmountDto
@@ -49,8 +50,7 @@ public class FinanceService(DataContext dbContext, IHttpContextAccessor httpCont
                 })
                 .ToListAsync();
 
-            // By day trend
-            var incomesByDay = await _db.Payments
+            var incomesByDay = await dbContext.Payments
                 .Where(p => p.CenterId == effectiveCenterId
                             && p.PaymentDate >= start.UtcDateTime && p.PaymentDate <= end.UtcDateTime
                             && (p.Status == PaymentStatus.Completed || p.Status == PaymentStatus.Paid))
@@ -58,7 +58,7 @@ public class FinanceService(DataContext dbContext, IHttpContextAccessor httpCont
                 .Select(g => new { Date = g.Key, Amount = g.Sum(x => x.Amount) })
                 .ToListAsync();
 
-            var expensesByDay = await _db.Expenses
+            var expensesByDay = await dbContext.Expenses
                 .Where(e => e.CenterId == effectiveCenterId && e.ExpenseDate >= start && e.ExpenseDate <= end && !e.IsDeleted)
                 .GroupBy(e => e.ExpenseDate.Date)
                 .Select(g => new { Date = g.Key, Amount = g.Sum(x => x.Amount) })
@@ -97,9 +97,13 @@ public class FinanceService(DataContext dbContext, IHttpContextAccessor httpCont
         catch (Exception ex)
         {
             Log.Error(ex, "Ошибка при расчёте финансового отчёта для центра {CenterId}", centerId);
-            return new Response<CenterFinancialSummaryDto>(System.Net.HttpStatusCode.InternalServerError, "Не удалось рассчитать сводку");
+            return new Response<CenterFinancialSummaryDto>(HttpStatusCode.InternalServerError, "Не удалось рассчитать сводку");
         }
     }
+
+    #endregion
+
+    #region GetDailySummaryAsync
 
     public async Task<Response<DailyFinancialSummaryDto>> GetDailySummaryAsync(int centerId, DateTimeOffset date)
     {
@@ -107,7 +111,7 @@ public class FinanceService(DataContext dbContext, IHttpContextAccessor httpCont
         var end = start.AddDays(1).AddTicks(-1);
         var summary = await GetFinancialSummaryAsync(centerId, start, end);
         if (summary.Data == null)
-            return new Response<DailyFinancialSummaryDto>((System.Net.HttpStatusCode)summary.StatusCode, summary.Message ?? "");
+            return new Response<DailyFinancialSummaryDto>((HttpStatusCode)summary.StatusCode, summary.Message ?? "");
 
         var dto = new DailyFinancialSummaryDto
         {
@@ -121,6 +125,10 @@ public class FinanceService(DataContext dbContext, IHttpContextAccessor httpCont
         return new Response<DailyFinancialSummaryDto>(dto);
     }
 
+    #endregion
+
+    #region GetMonthlySummaryAsync
+
     public async Task<Response<MonthlyFinancialSummaryDto>> GetMonthlySummaryAsync(int centerId, int year, int month)
     {
         try
@@ -129,7 +137,7 @@ public class FinanceService(DataContext dbContext, IHttpContextAccessor httpCont
             var end = start.AddMonths(1).AddTicks(-1);
             var summary = await GetFinancialSummaryAsync(centerId, start, end);
             if (summary.Data == null)
-                return new Response<MonthlyFinancialSummaryDto>((System.Net.HttpStatusCode)summary.StatusCode, summary.Message ?? "");
+                return new Response<MonthlyFinancialSummaryDto>((HttpStatusCode)summary.StatusCode, summary.Message ?? "");
 
             var dto = new MonthlyFinancialSummaryDto
             {
@@ -147,9 +155,13 @@ public class FinanceService(DataContext dbContext, IHttpContextAccessor httpCont
         catch (Exception ex)
         {
             Log.Error(ex, "Ошибка при расчёте месячной сводки {Year}-{Month} для центра {CenterId}", year, month, centerId);
-            return new Response<MonthlyFinancialSummaryDto>(System.Net.HttpStatusCode.InternalServerError, "Не удалось рассчитать месячную сводку");
+            return new Response<MonthlyFinancialSummaryDto>(HttpStatusCode.InternalServerError, "Не удалось рассчитать месячную сводку");
         }
     }
+
+    #endregion
+
+    #region GetYearlySummaryAsync
 
     public async Task<Response<YearlyFinancialSummaryDto>> GetYearlySummaryAsync(int centerId, int year)
     {
@@ -159,7 +171,7 @@ public class FinanceService(DataContext dbContext, IHttpContextAccessor httpCont
             var end = start.AddYears(1).AddTicks(-1);
             var summary = await GetFinancialSummaryAsync(centerId, start, end);
             if (summary.Data == null)
-                return new Response<YearlyFinancialSummaryDto>((System.Net.HttpStatusCode)summary.StatusCode, summary.Message ?? "");
+                return new Response<YearlyFinancialSummaryDto>((HttpStatusCode)summary.StatusCode, summary.Message ?? "");
 
             var dto = new YearlyFinancialSummaryDto
             {
@@ -176,15 +188,19 @@ public class FinanceService(DataContext dbContext, IHttpContextAccessor httpCont
         catch (Exception ex)
         {
             Log.Error(ex, "Ошибка при расчёте годовой сводки {Year} для центра {CenterId}", year, centerId);
-            return new Response<YearlyFinancialSummaryDto>(System.Net.HttpStatusCode.InternalServerError, "Не удалось рассчитать годовую сводку");
+            return new Response<YearlyFinancialSummaryDto>(HttpStatusCode.InternalServerError, "Не удалось рассчитать годовую сводку");
         }
     }
+
+    #endregion
+
+    #region GetCategoryBreakdownAsync
 
     public async Task<Response<List<CategoryAmountDto>>> GetCategoryBreakdownAsync(int centerId, DateTimeOffset start, DateTimeOffset end)
     {
         try
         {
-            var breakdown = await _db.Expenses
+            var breakdown = await dbContext.Expenses
                 .Where(e => e.CenterId == centerId && e.ExpenseDate >= start && e.ExpenseDate <= end && !e.IsDeleted)
                 .GroupBy(e => e.Category)
                 .Select(g => new CategoryAmountDto
@@ -198,19 +214,23 @@ public class FinanceService(DataContext dbContext, IHttpContextAccessor httpCont
         catch (Exception ex)
         {
             Log.Error(ex, "Ошибка при расчёте разбивки по категориям для центра {CenterId}", centerId);
-            return new Response<List<CategoryAmountDto>>(System.Net.HttpStatusCode.InternalServerError, "Не удалось рассчитать разбивку по категориям");
+            return new Response<List<CategoryAmountDto>>(HttpStatusCode.InternalServerError, "Не удалось рассчитать разбивку по категориям");
         }
     }
+
+    #endregion
+
+    #region GenerateMentorPayrollAsync
 
     public async Task<Response<int>> GenerateMentorPayrollAsync(int centerId, int year, int month)
     {
         try
         {
-            var centerExists = await _db.Centers.AnyAsync(c => c.Id == centerId);
+            var centerExists = await dbContext.Centers.AnyAsync(c => c.Id == centerId);
             if (!centerExists)
-                return new Response<int>(System.Net.HttpStatusCode.NotFound, "Центр не найден");
+                return new Response<int>(HttpStatusCode.NotFound, Messages.Center.NotFound);
 
-            var mentors = await _db.Mentors
+            var mentors = await dbContext.Mentors
                 .Where(m => m.CenterId == centerId && m.ActiveStatus == ActiveStatus.Active)
                 .Select(m => new { m.Id, m.Salary })
                 .ToListAsync();
@@ -218,7 +238,7 @@ public class FinanceService(DataContext dbContext, IHttpContextAccessor httpCont
             var createdCount = 0;
             foreach (var mentor in mentors)
             {
-                var exists = await _db.Expenses.AnyAsync(e => e.CenterId == centerId
+                var exists = await dbContext.Expenses.AnyAsync(e => e.CenterId == centerId
                                                               && e.MentorId == mentor.Id
                                                               && e.Category == ExpenseCategory.Salary
                                                               && e.Month == month && e.Year == year
@@ -240,42 +260,46 @@ public class FinanceService(DataContext dbContext, IHttpContextAccessor httpCont
                     CreatedAt = DateTimeOffset.UtcNow,
                     UpdatedAt = DateTimeOffset.UtcNow
                 };
-                _db.Expenses.Add(expense);
+                dbContext.Expenses.Add(expense);
                 createdCount++;
             }
 
             if (createdCount > 0)
-                await _db.SaveChangesAsync();
+                await dbContext.SaveChangesAsync();
 
-            var user = _httpContextAccessor.HttpContext?.User?.Identity?.Name ?? "system";
+            var user = httpContextAccessor.HttpContext?.User?.Identity?.Name ?? "system";
             Log.Information("Пользователь {User} сформировал начисление зарплат для центра {CenterId} {Year}-{Month}: {Count} записей", user, centerId, year, month, createdCount);
             return new Response<int>(createdCount);
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Ошибка при формировании начисления зарплат для центра {CenterId} {Year}-{Month}", centerId, year, month);
-            return new Response<int>(System.Net.HttpStatusCode.InternalServerError, "Не удалось сформировать начисление зарплат");
+            return new Response<int>(HttpStatusCode.InternalServerError, "Не удалось сформировать начисление зарплат");
         }
     }
+
+    #endregion
+
+    #region GetDebtsAsync
 
     public async Task<Response<List<DebtDto>>> GetDebtsAsync(int centerId, int year, int month, int? studentId)
     {
         try
         {
-            var userCenterId = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
+            var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
             var effectiveCenterId = userCenterId ?? centerId;
 
-            var studentGroups = _db.StudentGroups
+            var studentGroups = dbContext.StudentGroups
                 .AsNoTracking()
                 .Where(sg => !sg.IsDeleted)
-                .Join(_db.Groups.AsNoTracking(), sg => sg.GroupId, g => g.Id, (sg, g) => new { sg, g })
-                .Join(_db.Courses.AsNoTracking(), x => x.g.CourseId, c => c.Id, (x, c) => new { x.sg, x.g, c })
+                .Join(dbContext.Groups.AsNoTracking(), sg => sg.GroupId, g => g.Id, (sg, g) => new { sg, g })
+                .Join(dbContext.Courses.AsNoTracking(), x => x.g.CourseId, c => c.Id, (x, c) => new { x.sg, x.g, c })
                 .Where(x => x.c.CenterId == effectiveCenterId);
 
             if (studentId.HasValue)
                 studentGroups = studentGroups.Where(x => x.sg.StudentId == studentId.Value);
 
-            var discounts = _db.StudentGroupDiscounts.AsNoTracking().ToList();
+            var discounts = dbContext.StudentGroupDiscounts.AsNoTracking().ToList();
 
             var list = await studentGroups
                 .Select(x => new
@@ -287,12 +311,12 @@ public class FinanceService(DataContext dbContext, IHttpContextAccessor httpCont
                 })
                 .ToListAsync();
 
-            var studentNames = await _db.Students.AsNoTracking()
+            var studentNames = await dbContext.Students.AsNoTracking()
                 .Where(s => list.Select(i => i.StudentId).Contains(s.Id))
                 .Select(s => new { s.Id, s.FullName })
                 .ToListAsync();
 
-            var payments = await _db.Payments.AsNoTracking()
+            var payments = await dbContext.Payments.AsNoTracking()
                 .Where(p => p.CenterId == effectiveCenterId && p.Year == year && p.Month == month && (p.Status == PaymentStatus.Completed || p.Status == PaymentStatus.Paid))
                 .GroupBy(p => new { p.StudentId, p.GroupId })
                 .Select(g => new { g.Key.StudentId, g.Key.GroupId, Amount = g.Sum(p => p.Amount) })
@@ -327,28 +351,32 @@ public class FinanceService(DataContext dbContext, IHttpContextAccessor httpCont
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Хатогӣ дар ҳисобкунии қарздорон барои марказ {CenterId} {Year}-{Month}", centerId, year, month);
-            return new Response<List<DebtDto>>(System.Net.HttpStatusCode.InternalServerError, "Ҳисобкунии қарздорон ноком шуд");
+            Log.Error(ex, "Ошибка при расчёте задолженностей для центра {CenterId} {Year}-{Month}", centerId, year, month);
+            return new Response<List<DebtDto>>(HttpStatusCode.InternalServerError, "Не удалось рассчитать задолженности");
         }
     }
+
+    #endregion
+
+    #region SetMonthClosedAsync
 
     public async Task<Response<bool>> SetMonthClosedAsync(int centerId, int year, int month, bool isClosed)
     {
         try
         {
-            var centerExists = await _db.Centers.AnyAsync(c => c.Id == centerId);
+            var centerExists = await dbContext.Centers.AnyAsync(c => c.Id == centerId);
             if (!centerExists)
-                return new Response<bool>(System.Net.HttpStatusCode.NotFound, "Марказ ёфт нашуд");
+                return new Response<bool>(HttpStatusCode.NotFound, Messages.Center.NotFound);
 
-            var summary = await _db.MonthlyFinancialSummaries
+            var summary = await dbContext.MonthlyFinancialSummaries
                 .FirstOrDefaultAsync(m => m.CenterId == centerId && m.Year == year && m.Month == month);
+
             if (summary is null)
             {
-                // Ensure we have values even if not aggregated yet
-                var income = await _db.Payments.AsNoTracking()
+                var income = await dbContext.Payments.AsNoTracking()
                     .Where(p => p.CenterId == centerId && p.Year == year && p.Month == month && (p.Status == PaymentStatus.Completed || p.Status == PaymentStatus.Paid))
                     .SumAsync(p => (decimal?)p.Amount) ?? 0m;
-                var expense = await _db.Expenses.AsNoTracking()
+                var expense = await dbContext.Expenses.AsNoTracking()
                     .Where(e => e.CenterId == centerId && e.Year == year && e.Month == month && !e.IsDeleted)
                     .SumAsync(e => (decimal?)e.Amount) ?? 0m;
                 summary = new MonthlyFinancialSummary
@@ -364,7 +392,7 @@ public class FinanceService(DataContext dbContext, IHttpContextAccessor httpCont
                     CreatedAt = DateTimeOffset.UtcNow,
                     UpdatedAt = DateTimeOffset.UtcNow
                 };
-                _db.MonthlyFinancialSummaries.Add(summary);
+                dbContext.MonthlyFinancialSummaries.Add(summary);
             }
             else
             {
@@ -372,25 +400,29 @@ public class FinanceService(DataContext dbContext, IHttpContextAccessor httpCont
                 summary.UpdatedAt = DateTimeOffset.UtcNow;
             }
 
-            await _db.SaveChangesAsync();
+            await dbContext.SaveChangesAsync();
             return new Response<bool>(true);
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Хатогӣ ҳангоми бастан/кушодани моҳ {Year}-{Month} барои марказ {CenterId}", year, month, centerId);
-            return new Response<bool>(System.Net.HttpStatusCode.InternalServerError, "Амалиёт ноком шуд");
+            Log.Error(ex, "Ошибка при закрытии/открытии месяца {Year}-{Month} для центра {CenterId}", year, month, centerId);
+            return new Response<bool>(HttpStatusCode.InternalServerError, "Операция не выполнена");
         }
     }
 
+    #endregion
+
+    #region IsMonthClosedAsync
+
     public async Task<bool> IsMonthClosedAsync(int centerId, int year, int month, CancellationToken ct = default)
     {
-        var closed = await _db.MonthlyFinancialSummaries
+        var closed = await dbContext.MonthlyFinancialSummaries
             .AsNoTracking()
             .Where(m => m.CenterId == centerId && m.Year == year && m.Month == month)
             .Select(m => (bool?)m.IsClosed)
             .FirstOrDefaultAsync(ct);
         return closed ?? false;
     }
+
+    #endregion
 }
-
-

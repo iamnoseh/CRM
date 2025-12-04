@@ -8,6 +8,7 @@ using Domain.Responses;
 using Infrastructure.Data;
 using Infrastructure.Helpers;
 using Infrastructure.Interfaces;
+using Infrastructure.Constants;
 using Infrastructure.Services.EmailService;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
@@ -25,14 +26,16 @@ public class MentorService(
     IOsonSmsService osonSmsService,
     IConfiguration configuration) : IMentorService
 {
+    #region CreateMentorAsync
+
     public async Task<Response<string>> CreateMentorAsync(CreateMentorDto createMentorDto)
     {
         try
         {
             var centerId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
             if (centerId == null)
-                return new Response<string>(HttpStatusCode.BadRequest, "CenterId дар токен ёфт нашуд");
-            
+                return new Response<string>(HttpStatusCode.BadRequest, Messages.Group.CenterIdNotFound);
+
             string profileImagePath = string.Empty;
             if (createMentorDto.ProfileImage != null)
             {
@@ -42,7 +45,7 @@ public class MentorService(
                     return new Response<string>((HttpStatusCode)imageResult.StatusCode, imageResult.Message);
                 profileImagePath = imageResult.Data;
             }
-            
+
             string documentPath = string.Empty;
             if (createMentorDto.DocumentFile != null)
             {
@@ -52,7 +55,7 @@ public class MentorService(
                     return new Response<string>((HttpStatusCode)docResult.StatusCode, docResult.Message);
                 documentPath = docResult.Data;
             }
-            
+
             var userResult = await UserManagementHelper.CreateUserAsync(
                 createMentorDto,
                 userManager,
@@ -65,7 +68,7 @@ public class MentorService(
                 dto => dto.Address,
                 dto => centerId.Value,
                 _ => profileImagePath);
-                
+
             if (userResult.StatusCode != (int)HttpStatusCode.OK)
                 return new Response<string>((HttpStatusCode)userResult.StatusCode, userResult.Message);
 
@@ -75,6 +78,7 @@ public class MentorService(
                 user.PaymentStatus = PaymentStatus.Completed;
                 await userManager.UpdateAsync(user);
             }
+
             if (!string.IsNullOrEmpty(createMentorDto.Email))
             {
                 await EmailHelper.SendLoginDetailsEmailAsync(
@@ -90,7 +94,7 @@ public class MentorService(
             if (!string.IsNullOrEmpty(user.PhoneNumber))
             {
                 var loginUrl = configuration["AppSettings:LoginUrl"];
-                var smsMessage = $"Салом, {user.FullName}!\nUsername: {username},\nPassword: {password}\nЛутфан, барои ворид шудан ба система ба ин суроға ташриф оред: {loginUrl}\nKavsar Academy";
+                var smsMessage = string.Format(Messages.Sms.WelcomeStudent, user.FullName, username, password, loginUrl);
                 await osonSmsService.SendSmsAsync(user.PhoneNumber, smsMessage);
             }
 
@@ -119,14 +123,18 @@ public class MentorService(
             var res = await context.SaveChangesAsync();
 
             return res > 0
-                ? new Response<string>(HttpStatusCode.Created, "Устод бо муваффақият сохта шуд. Маълумоти воридшавӣ ба почтаи электронӣ ва/ё SMS фиристода шуд.")
-                : new Response<string>(HttpStatusCode.BadRequest, "Хатогӣ ҳангоми сохтани устод");
+                ? new Response<string>(HttpStatusCode.Created, Messages.Mentor.Created)
+                : new Response<string>(HttpStatusCode.BadRequest, Messages.Mentor.CreationError);
         }
         catch (Exception ex)
         {
-            return new Response<string>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми сохтани устод: {ex.Message}");
+            return new Response<string>(HttpStatusCode.InternalServerError, string.Format(Messages.Mentor.CreationError, ex.Message));
         }
     }
+
+    #endregion
+
+    #region UpdateMentorAsync
 
     public async Task<Response<string>> UpdateMentorAsync(int id, UpdateMentorDto updateMentorDto)
     {
@@ -134,12 +142,12 @@ public class MentorService(
         {
             var mentor = await context.Mentors.FirstOrDefaultAsync(m => m.Id == id && !m.IsDeleted);
             if (mentor == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Устод ёфт нашуд");
+                return new Response<string>(HttpStatusCode.NotFound, Messages.Mentor.NotFound);
 
             var center = await context.Centers.FirstOrDefaultAsync(c => c.Id == updateMentorDto.CenterId && !c.IsDeleted);
             if (center == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Маркази таълимӣ ёфт нашуд");
-                
+                return new Response<string>(HttpStatusCode.NotFound, Messages.Center.NotFound);
+
             if (updateMentorDto.ProfileImage != null)
             {
                 var imageResult = await FileUploadHelper.UploadFileAsync(
@@ -198,14 +206,18 @@ public class MentorService(
             var res = await context.SaveChangesAsync();
 
             return res > 0
-                ? new Response<string>(HttpStatusCode.OK, "Устод бо муваффақият навсозӣ шуд")
-                : new Response<string>(HttpStatusCode.InternalServerError, "Хатогӣ ҳангоми навсозии устод");
+                ? new Response<string>(HttpStatusCode.OK, Messages.Mentor.Updated)
+                : new Response<string>(HttpStatusCode.InternalServerError, Messages.Mentor.UpdateError);
         }
         catch (Exception ex)
         {
-            return new Response<string>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми навсозии устод: {ex.Message}");
+            return new Response<string>(HttpStatusCode.InternalServerError, string.Format(Messages.Mentor.UpdateError, ex.Message));
         }
     }
+
+    #endregion
+
+    #region DeleteMentorAsync
 
     public async Task<Response<string>> DeleteMentorAsync(int id)
     {
@@ -213,7 +225,7 @@ public class MentorService(
         {
             var mentor = await context.Mentors.FirstOrDefaultAsync(m => m.Id == id && !m.IsDeleted);
             if (mentor == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Устод ёфт нашуд");
+                return new Response<string>(HttpStatusCode.NotFound, Messages.Mentor.NotFound);
 
             mentor.IsDeleted = true;
             mentor.UpdatedAt = DateTimeOffset.UtcNow;
@@ -244,51 +256,46 @@ public class MentorService(
             var result = await context.SaveChangesAsync();
 
             return result > 0
-                ? new Response<string>(HttpStatusCode.OK, "Устод бо муваффақият нест карда шуд")
-                : new Response<string>(HttpStatusCode.InternalServerError, "Хатогӣ ҳангоми несткунии устод");
+                ? new Response<string>(HttpStatusCode.OK, Messages.Mentor.Deleted)
+                : new Response<string>(HttpStatusCode.InternalServerError, Messages.Mentor.DeleteError);
         }
         catch (Exception ex)
         {
-            return new Response<string>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми несткунии устод: {ex.Message}");
+            return new Response<string>(HttpStatusCode.InternalServerError, string.Format(Messages.Mentor.DeleteError, ex.Message));
         }
     }
-    
+
+    #endregion
+
+    #region GetMentorByIdAsync
+
     public async Task<Response<GetMentorDto>> GetMentorByIdAsync(int id)
     {
-        var mentorsQuery = context.Mentors
-            .Where(m => m.Id == id && !m.IsDeleted);
-        mentorsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
-            mentorsQuery, httpContextAccessor, m => m.CenterId);
+        var mentorsQuery = context.Mentors.Where(m => m.Id == id && !m.IsDeleted);
+        mentorsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(mentorsQuery, httpContextAccessor, m => m.CenterId);
         var m = await mentorsQuery.FirstOrDefaultAsync();
+
         if (m == null)
-            return new Response<GetMentorDto>(HttpStatusCode.NotFound, "Устод ёфт нашуд");
-        var dto = new GetMentorDto
-        {
-            Id = m.Id,
-            FullName = m.FullName,
-            Email = m.Email,
-            Phone = m.PhoneNumber,
-            Address = m.Address,
-            Birthday = m.Birthday,
-            Age = m.Age,
-            Salary = m.Salary,
-            Experience = m.Experience,
-            Gender = m.Gender,
-            ActiveStatus = m.ActiveStatus,
-            PaymentStatus = m.PaymentStatus,
-            ImagePath = context.Users.Where(u => u.Id == m.UserId).Select(u => u.ProfileImagePath).FirstOrDefault() ?? m.ProfileImage,
-            Document = m.Document,
-            CenterId = m.CenterId,
-            UserId = m.UserId
-        };
+            return new Response<GetMentorDto>(HttpStatusCode.NotFound, Messages.Mentor.NotFound);
+
+        var userImagePath = await context.Users
+            .Where(u => u.Id == m.UserId)
+            .Select(u => u.ProfileImagePath)
+            .FirstOrDefaultAsync();
+
+        var dto = DtoMappingHelper.MapToGetMentorDto(m, userImagePath);
         return new Response<GetMentorDto>(dto);
     }
+
+    #endregion
+
+    #region UpdateMentorDocumentAsync
 
     public async Task<Response<string>> UpdateMentorDocumentAsync(int mentorId, IFormFile? documentFile)
     {
         var mentor = await context.Mentors.FirstOrDefaultAsync(s => s.Id == mentorId && !s.IsDeleted);
         if (mentor == null)
-            return new Response<string>(HttpStatusCode.NotFound, "Устод ёфт нашуд");
+            return new Response<string>(HttpStatusCode.NotFound, Messages.Mentor.NotFound);
 
         var docResult = await FileUploadHelper.UploadFileAsync(
             documentFile, uploadPath, "mentor", "document", true, mentor.Document);
@@ -301,18 +308,26 @@ public class MentorService(
         var res = await context.SaveChangesAsync();
 
         return res > 0
-            ? new Response<string>(HttpStatusCode.OK, "Ҳуҷҷати устод бо муваффақият навсозӣ шуд")
-            : new Response<string>(HttpStatusCode.BadRequest, "Хатогӣ ҳангоми навсозии ҳуҷҷати устод");
+            ? new Response<string>(HttpStatusCode.OK, "Документ преподавателя успешно обновлен")
+            : new Response<string>(HttpStatusCode.BadRequest, "Не удалось обновить документ преподавателя");
     }
+
+    #endregion
+
+    #region GetMentorDocument
 
     public async Task<Response<byte[]>> GetMentorDocument(int mentorId)
     {
         var mentor = await context.Mentors.FirstOrDefaultAsync(s => s.Id == mentorId && !s.IsDeleted);
         if (mentor == null)
-            return new Response<byte[]>(HttpStatusCode.NotFound, "Устод ёфт нашуд");
+            return new Response<byte[]>(HttpStatusCode.NotFound, Messages.Mentor.NotFound);
 
         return await FileUploadHelper.GetFileAsync(mentor.Document, uploadPath);
     }
+
+    #endregion
+
+    #region GetMentorsPagination
 
     public async Task<PaginationResponse<List<GetMentorDto>>> GetMentorsPagination(MentorFilter filter)
     {
@@ -320,21 +335,9 @@ public class MentorService(
         var pageSize = filter.PageSize < 1 ? 10 : filter.PageSize;
 
         var mentorsQuery = context.Mentors.Where(m => !m.IsDeleted);
-        mentorsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
-            mentorsQuery, httpContextAccessor, m => m.CenterId);
+        mentorsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(mentorsQuery, httpContextAccessor, m => m.CenterId);
 
-        if (!string.IsNullOrEmpty(filter.FullName))
-            mentorsQuery = mentorsQuery.Where(m => m.FullName.ToLower().Contains(filter.FullName.ToLower()));
-        if (!string.IsNullOrEmpty(filter.PhoneNumber))
-            mentorsQuery = mentorsQuery.Where(m => m.PhoneNumber.ToLower().Contains(filter.PhoneNumber.ToLower()));
-        if (filter.CenterId.HasValue)
-            mentorsQuery = mentorsQuery.Where(m => m.CenterId == filter.CenterId.Value);
-        if (filter.Age.HasValue)
-            mentorsQuery = mentorsQuery.Where(m => m.Age == filter.Age.Value);
-        if (filter.Gender.HasValue)
-            mentorsQuery = mentorsQuery.Where(m => m.Gender == filter.Gender.Value);
-        if (filter.Salary.HasValue)
-            mentorsQuery = mentorsQuery.Where(m => m.Salary == filter.Salary.Value);
+        mentorsQuery = ApplyMentorFilters(mentorsQuery, filter);
 
         var totalRecords = await mentorsQuery.CountAsync();
         var skip = (pageNumber - 1) * pageSize;
@@ -345,28 +348,18 @@ public class MentorService(
             .Take(pageSize)
             .ToListAsync();
 
-        var dtos = mentors.Select(m => new GetMentorDto
+        var dtos = mentors.Select(m =>
         {
-            Id = m.Id,
-            FullName = m.FullName,
-            Email = m.Email,
-            Phone = m.PhoneNumber,
-            Address = m.Address,
-            Birthday = m.Birthday,
-            Age = m.Age,
-            Salary = m.Salary,
-            Experience = m.Experience,
-            Gender = m.Gender,
-            ActiveStatus = m.ActiveStatus,
-            PaymentStatus = m.PaymentStatus, 
-            ImagePath = context.Users.Where(u => u.Id == m.UserId).Select(u => u.ProfileImagePath).FirstOrDefault() ?? m.ProfileImage,
-            Document = m.Document,
-            CenterId = m.CenterId,
-            UserId = m.UserId
+            var userImage = context.Users.Where(u => u.Id == m.UserId).Select(u => u.ProfileImagePath).FirstOrDefault();
+            return DtoMappingHelper.MapToGetMentorDto(m, userImage);
         }).ToList();
 
         return new PaginationResponse<List<GetMentorDto>>(dtos, totalRecords, pageNumber, pageSize);
     }
+
+    #endregion
+
+    #region GetMentorsByGroupAsync
 
     public async Task<Response<List<GetMentorDto>>> GetMentorsByGroupAsync(int groupId)
     {
@@ -374,7 +367,7 @@ public class MentorService(
         {
             var group = await context.Groups.FirstOrDefaultAsync(g => g.Id == groupId && !g.IsDeleted);
             if (group == null)
-                return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound, "Гурӯҳ ёфт нашуд");
+                return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound, Messages.Group.NotFound);
 
             var mentorIds = await context.MentorGroups
                 .Where(mg => mg.GroupId == groupId && mg.IsActive == true && !mg.IsDeleted)
@@ -382,51 +375,20 @@ public class MentorService(
                 .ToListAsync();
 
             if (mentorIds.Count == 0)
-                return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound, "Устодон барои ин гурӯҳ ёфт нашуданд");
+                return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound, "Преподаватели для этой группы не найдены");
 
-            var mentors = await context.Mentors
-                .Where(u => mentorIds.Contains(u.Id) && !u.IsDeleted)
-                .Select(u => new GetMentorDto
-                {
-                    Id = u.Id,
-                    FullName = u.FullName,
-                    Email = u.Email,
-                    Phone = u.PhoneNumber,
-                    Address = u.Address,
-                    Birthday = u.Birthday,
-                    Age = DateUtils.CalculateAge(u.Birthday),
-                    Gender = u.Gender,
-                    ActiveStatus = u.ActiveStatus,
-                    PaymentStatus = u.PaymentStatus,
-                    ImagePath = u.ProfileImage ?? context.Users.Where(x => x.Id == u.UserId).Select(x => x.ProfileImagePath).FirstOrDefault(),
-                    Experience = u.Experience,
-                    Document = u.Document,
-                    Salary = u.Salary,
-                    UserId = u.UserId,
-                    CenterId = u.CenterId
-                })
-                .ToListAsync();
-
-            foreach (var mentor in mentors)
-            {
-                if (mentor.UserId > 0)
-                {
-                    var user = await userManager.FindByIdAsync(mentor.UserId.ToString());
-                    if (user != null)
-                    {
-                        var roles = await userManager.GetRolesAsync(user);
-                        mentor.Role = roles.FirstOrDefault() ?? "Mentor";
-                    }
-                }
-            }
-
+            var mentors = await GetMentorDtosWithRolesAsync(mentorIds);
             return new Response<List<GetMentorDto>>(mentors);
         }
         catch (Exception ex)
         {
-            return new Response<List<GetMentorDto>>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми гирифтани устодони гурӯҳ: {ex.Message}");
+            return new Response<List<GetMentorDto>>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
+
+    #endregion
+
+    #region GetMentorsByCourseAsync
 
     public async Task<Response<List<GetMentorDto>>> GetMentorsByCourseAsync(int courseId)
     {
@@ -434,7 +396,7 @@ public class MentorService(
         {
             var course = await context.Courses.FirstOrDefaultAsync(c => c.Id == courseId && !c.IsDeleted);
             if (course == null)
-                return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound, "Курс ёфт нашуд");
+                return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound, Messages.Course.NotFound);
 
             var groupIds = await context.Groups
                 .Where(g => g.CourseId == courseId && !g.IsDeleted)
@@ -442,66 +404,35 @@ public class MentorService(
                 .ToListAsync();
 
             if (groupIds.Count == 0)
-                return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound, "Гурӯҳҳо барои ин курс ёфт нашуданд");
+                return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound, "Группы для этого курса не найдены");
 
             var mentorIds = await context.MentorGroups
-                .Where(mg => groupIds.Contains(mg.GroupId) && (bool)mg.IsActive && !mg.IsDeleted)
+                .Where(mg => groupIds.Contains(mg.GroupId) && mg.IsActive == true && !mg.IsDeleted)
                 .Select(mg => mg.MentorId)
                 .Distinct()
                 .ToListAsync();
 
             if (mentorIds.Count == 0)
-                return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound, "Устодон барои ин курс ёфт нашуданд");
+                return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound, "Преподаватели для этого курса не найдены");
 
-            var mentors = await context.Mentors
-                .Where(u => mentorIds.Contains(u.Id) && !u.IsDeleted)
-                .Select(u => new GetMentorDto
-                {
-                    Id = u.Id,
-                    FullName = u.FullName,
-                    Email = u.Email,
-                    Phone = u.PhoneNumber,
-                    Address = u.Address,
-                    Birthday = u.Birthday,
-                    Age = DateUtils.CalculateAge(u.Birthday),
-                    Gender = u.Gender,
-                    ActiveStatus = u.ActiveStatus,
-                    PaymentStatus = u.PaymentStatus,
-                    ImagePath = u.ProfileImage ?? context.Users.Where(x => x.Id == u.UserId).Select(x => x.ProfileImagePath).FirstOrDefault(),
-                    Experience = u.Experience,
-                    Document = u.Document,
-                    UserId = u.UserId,
-                    Salary = u.Salary,
-                    CenterId = u.CenterId
-                })
-                .ToListAsync();
-
-            foreach (var mentor in mentors)
-            {
-                if (mentor.UserId > 0)
-                {
-                    var user = await userManager.FindByIdAsync(mentor.UserId.ToString());
-                    if (user != null)
-                    {
-                        var roles = await userManager.GetRolesAsync(user);
-                        mentor.Role = roles.FirstOrDefault() ?? "Mentor";
-                    }
-                }
-            }
-
+            var mentors = await GetMentorDtosWithRolesAsync(mentorIds);
             return new Response<List<GetMentorDto>>(mentors);
         }
         catch (Exception ex)
         {
-            return new Response<List<GetMentorDto>>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми гирифтани устодони курс: {ex.Message}");
+            return new Response<List<GetMentorDto>>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
+
+    #endregion
+
+    #region UpdateUserProfileImageAsync
 
     public async Task<Response<string>> UpdateUserProfileImageAsync(int id, IFormFile? profileImage)
     {
         var mentor = await context.Mentors.FirstOrDefaultAsync(m => m.Id == id && !m.IsDeleted);
         if (mentor == null)
-            return new Response<string>(HttpStatusCode.NotFound, "Устод ёфт нашуд");
+            return new Response<string>(HttpStatusCode.NotFound, Messages.Mentor.NotFound);
 
         var imageResult = await FileUploadHelper.UploadFileAsync(
             profileImage, uploadPath, "profiles", "profile", true, mentor.ProfileImage);
@@ -525,22 +456,25 @@ public class MentorService(
         var res = await context.SaveChangesAsync();
 
         return res > 0
-            ? new Response<string>(HttpStatusCode.OK, "Акси профил бо муваффақият навсозӣ шуд")
-            : new Response<string>(HttpStatusCode.BadRequest, "Хатогӣ ҳангоми навсозии акси профил");
+            ? new Response<string>(HttpStatusCode.OK, Messages.User.ProfileImageUpdated)
+            : new Response<string>(HttpStatusCode.BadRequest, "Не удалось обновить фото профиля");
     }
+
+    #endregion
+
+    #region UpdateMentorPaymentStatusAsync
 
     public async Task<Response<string>> UpdateMentorPaymentStatusAsync(int mentorId, PaymentStatus status)
     {
         var mentorsQuery = context.Mentors.Where(m => m.Id == mentorId && !m.IsDeleted);
         mentorsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(mentorsQuery, httpContextAccessor, m => m.CenterId);
         var mentor = await mentorsQuery.FirstOrDefaultAsync();
+
         if (mentor == null)
-            return new Response<string>(HttpStatusCode.NotFound, "Устод ёфт нашуд");
+            return new Response<string>(HttpStatusCode.NotFound, Messages.Mentor.NotFound);
 
         if (mentor.PaymentStatus == status)
-        {
-            return new Response<string>(HttpStatusCode.OK, "Ҳолати пардохт аллакай чунин аст");
-        }
+            return new Response<string>(HttpStatusCode.OK, "Статус оплаты уже установлен");
 
         mentor.PaymentStatus = status;
         mentor.UpdatedAt = DateTimeOffset.UtcNow;
@@ -558,10 +492,15 @@ public class MentorService(
 
         context.Mentors.Update(mentor);
         var res = await context.SaveChangesAsync();
+
         return res > 0
-            ? new Response<string>(HttpStatusCode.OK, "Ҳолати пардохт бо муваффақият навсозӣ шуд")
-            : new Response<string>(HttpStatusCode.BadRequest, "Хатогӣ ҳангоми навсозии ҳолати пардохт");
+            ? new Response<string>(HttpStatusCode.OK, "Статус оплаты успешно обновлен")
+            : new Response<string>(HttpStatusCode.BadRequest, "Не удалось обновить статус оплаты");
     }
+
+    #endregion
+
+    #region GetSimpleMentorPagination
 
     public async Task<Response<List<GetSimpleDto>>> GetSimpleMentorPagination()
     {
@@ -569,25 +508,80 @@ public class MentorService(
         {
             var query = context.Mentors.Where(m => !m.IsDeleted);
             query = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(query, httpContextAccessor, m => m.CenterId);
-            var mentors = await query.OrderBy(m => m.FullName).Select(m => new GetSimpleDto()
-            {
-                Id = m.Id,
-                FullName = m.FullName
-            }).ToListAsync();
-            if (mentors.Count > 0)
-            {
-                return new Response<List<GetSimpleDto>>(mentors);
-            }
-            else
-            {
-                
-                return new Response<List<GetSimpleDto>>(HttpStatusCode.NotFound,"Mentors not found");
-            }
+
+            var mentors = await query
+                .OrderBy(m => m.FullName)
+                .Select(m => DtoMappingHelper.MapToGetSimpleDto(m.Id, m.FullName))
+                .ToListAsync();
+
+            return mentors.Count > 0
+                ? new Response<List<GetSimpleDto>>(mentors)
+                : new Response<List<GetSimpleDto>>(HttpStatusCode.NotFound, "Преподаватели не найдены");
         }
-        catch 
+        catch
         {
-            return new Response<List<GetSimpleDto>>(HttpStatusCode.InternalServerError
-            ,"Something went wrong");
+            return new Response<List<GetSimpleDto>>(HttpStatusCode.InternalServerError, Messages.Common.InternalError);
         }
     }
+
+    #endregion
+
+    #region Private Helper Methods
+
+    private static IQueryable<Mentor> ApplyMentorFilters(IQueryable<Mentor> query, MentorFilter filter)
+    {
+        if (!string.IsNullOrEmpty(filter.FullName))
+            query = query.Where(m => m.FullName.ToLower().Contains(filter.FullName.ToLower()));
+
+        if (!string.IsNullOrEmpty(filter.PhoneNumber))
+            query = query.Where(m => m.PhoneNumber.ToLower().Contains(filter.PhoneNumber.ToLower()));
+
+        if (filter.CenterId.HasValue)
+            query = query.Where(m => m.CenterId == filter.CenterId.Value);
+
+        if (filter.Age.HasValue)
+            query = query.Where(m => m.Age == filter.Age.Value);
+
+        if (filter.Gender.HasValue)
+            query = query.Where(m => m.Gender == filter.Gender.Value);
+
+        if (filter.Salary.HasValue)
+            query = query.Where(m => m.Salary == filter.Salary.Value);
+
+        return query;
+    }
+
+    private async Task<List<GetMentorDto>> GetMentorDtosWithRolesAsync(List<int> mentorIds)
+    {
+        var mentors = await context.Mentors
+            .Where(u => mentorIds.Contains(u.Id) && !u.IsDeleted)
+            .ToListAsync();
+
+        var result = new List<GetMentorDto>();
+        foreach (var m in mentors)
+        {
+            var userImage = await context.Users
+                .Where(u => u.Id == m.UserId)
+                .Select(u => u.ProfileImagePath)
+                .FirstOrDefaultAsync();
+
+            var dto = DtoMappingHelper.MapToGetMentorDto(m, userImage);
+
+            if (m.UserId > 0)
+            {
+                var user = await userManager.FindByIdAsync(m.UserId.ToString());
+                if (user != null)
+                {
+                    var roles = await userManager.GetRolesAsync(user);
+                    dto.Role = roles.FirstOrDefault() ?? "Mentor";
+                }
+            }
+
+            result.Add(dto);
+        }
+
+        return result;
+    }
+
+    #endregion
 }

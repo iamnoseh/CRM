@@ -15,34 +15,26 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Services;
 
-public class ClassroomService : IClassroomService
+public class ClassroomService(DataContext context, IHttpContextAccessor httpContextAccessor)
+    : IClassroomService
 {
-    private readonly DataContext _context;
-    private readonly IHttpContextAccessor _httpContextAccessor;
-
-    public ClassroomService(DataContext context, IHttpContextAccessor httpContextAccessor)
-    {
-        _context = context;
-        _httpContextAccessor = httpContextAccessor;
-    }
-
     public async Task<Response<GetClassroomDto>> CreateClassroomAsync(CreateClassroomDto createDto)
     {
         try
         {
-            var centerId = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
+            var centerId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
             if (centerId == null)
             {
                 return new Response<GetClassroomDto>(HttpStatusCode.BadRequest, "CenterId  ёфт нашуд");
             }
 
-            var centerExists = await _context.Centers.AnyAsync(c => c.Id == centerId && !c.IsDeleted);
+            var centerExists = await context.Centers.AnyAsync(c => c.Id == centerId && !c.IsDeleted);
             if (!centerExists)
             {
                 return new Response<GetClassroomDto>(HttpStatusCode.NotFound, "Маркази таълимӣ ёфт нашуд");
             }
             
-            var existingClassroom = await _context.Classrooms
+            var existingClassroom = await context.Classrooms
                 .AnyAsync(c => c.CenterId == centerId && 
                               c.Name.ToLower() == createDto.Name.ToLower() && 
                               !c.IsDeleted);
@@ -62,8 +54,8 @@ public class ClassroomService : IClassroomService
                 UpdatedAt = DateTimeOffset.UtcNow
             };
 
-            _context.Classrooms.Add(classroom);
-            await _context.SaveChangesAsync();
+            context.Classrooms.Add(classroom);
+            await context.SaveChangesAsync();
 
             return await GetClassroomByIdAsync(classroom.Id);
         }
@@ -77,12 +69,12 @@ public class ClassroomService : IClassroomService
     {
         try
         {
-            var query = _context.Classrooms
+            var query = context.Classrooms
                 .Include(c => c.Center)
                 .Where(c => !c.IsDeleted)
                 .AsQueryable();
 
-            query = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(query, _httpContextAccessor, c => c.CenterId);
+            query = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(query, httpContextAccessor, c => c.CenterId);
 
             if (!string.IsNullOrEmpty(filter.Name))
             {
@@ -135,7 +127,7 @@ public class ClassroomService : IClassroomService
     {
         try
         {
-            var classroom = await _context.Classrooms
+            var classroom = await context.Classrooms
                 .Include(c => c.Center)
                 .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
 
@@ -176,7 +168,7 @@ public class ClassroomService : IClassroomService
     {
         try
         {
-            var classrooms = await _context.Classrooms
+            var classrooms = await context.Classrooms
                 .Include(c => c.Center)
                 .Where(c => c.CenterId == centerId && !c.IsDeleted)
                 .OrderBy(c => c.Name)
@@ -219,7 +211,7 @@ public class ClassroomService : IClassroomService
     {
         try
         {
-            var classroom = await _context.Classrooms
+            var classroom = await context.Classrooms
                 .FirstOrDefaultAsync(c => c.Id == updateDto.Id && !c.IsDeleted);
 
             if (classroom == null)
@@ -230,7 +222,7 @@ public class ClassroomService : IClassroomService
                     Message = "Синфхона ёфт нашуд"
                 };
             }
-            var existingClassroom = await _context.Classrooms
+            var existingClassroom = await context.Classrooms
                 .AnyAsync(c => c.CenterId == classroom.CenterId && 
                               c.Name.ToLower() == updateDto.Name.ToLower() && 
                               c.Id != updateDto.Id && 
@@ -251,7 +243,7 @@ public class ClassroomService : IClassroomService
             classroom.IsActive = updateDto.IsActive;
             classroom.UpdatedAt = DateTimeOffset.UtcNow;
 
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
 
             return await GetClassroomByIdAsync(classroom.Id);
         }
@@ -269,7 +261,7 @@ public class ClassroomService : IClassroomService
     {
         try
         {
-            var classroom = await _context.Classrooms
+            var classroom = await context.Classrooms
                 .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
 
             if (classroom == null)
@@ -277,7 +269,7 @@ public class ClassroomService : IClassroomService
                 return new Response<bool>(HttpStatusCode.NotFound, "Синфхона ёфт нашуд");
             }
 
-            var hasActiveSchedules = await _context.Schedules
+            var hasActiveSchedules = await context.Schedules
                 .AnyAsync(s => s.ClassroomId == id && 
                               s.Status == ActiveStatus.Active && 
                               !s.IsDeleted);
@@ -294,7 +286,7 @@ public class ClassroomService : IClassroomService
             classroom.IsDeleted = true;
             classroom.UpdatedAt = DateTimeOffset.UtcNow;
 
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
 
             return new Response<bool>
             {
@@ -317,7 +309,7 @@ public class ClassroomService : IClassroomService
     {
         try
         {
-            var classroom = await _context.Classrooms
+            var classroom = await context.Classrooms
                 .Include(c => c.Center)
                 .FirstOrDefaultAsync(c => c.Id == classroomId && !c.IsDeleted);
 
@@ -333,7 +325,7 @@ public class ClassroomService : IClassroomService
             startDate ??= DateOnly.FromDateTime(DateTime.UtcNow.Date);
             endDate ??= startDate.Value.AddDays(6); // Week view
 
-            var schedules = await _context.Schedules
+            var schedules = await context.Schedules
                 .Include(s => s.Group)
                 .Where(s => s.ClassroomId == classroomId && 
                            s.Status == ActiveStatus.Active && 
@@ -387,7 +379,7 @@ public class ClassroomService : IClassroomService
         {
             var conflictDto = new ScheduleConflictDto();
 
-            var conflicts = await _context.Schedules
+            var conflicts = await context.Schedules
                 .Include(s => s.Classroom)
                 .Include(s => s.Group)
                 .Where(s => s.ClassroomId == scheduleDto.ClassroomId &&
@@ -468,11 +460,11 @@ public class ClassroomService : IClassroomService
                 UpdatedAt = DateTimeOffset.UtcNow
             };
 
-            _context.Schedules.Add(schedule);
-            await _context.SaveChangesAsync();
+            context.Schedules.Add(schedule);
+            await context.SaveChangesAsync();
 
             // Return the created schedule
-            var createdSchedule = await _context.Schedules
+            var createdSchedule = await context.Schedules
                 .Include(s => s.Classroom)
                 .ThenInclude(c => c.Center)
                 .Include(s => s.Group)
@@ -535,7 +527,7 @@ public class ClassroomService : IClassroomService
     {
         try
         {
-            var classroom = await _context.Classrooms
+            var classroom = await context.Classrooms
                 .FirstOrDefaultAsync(c => c.Id == classroomId && !c.IsDeleted);
 
             if (classroom == null)
@@ -547,7 +539,7 @@ public class ClassroomService : IClassroomService
                 };
             }
 
-            var occupiedSlots = await _context.Schedules
+            var occupiedSlots = await context.Schedules
                 .Where(s => s.ClassroomId == classroomId &&
                            s.DayOfWeek == dayOfWeek &&
                            s.Status == ActiveStatus.Active &&
@@ -608,11 +600,11 @@ public class ClassroomService : IClassroomService
     {
         try
         {
-            var allClassrooms = await _context.Classrooms
+            var allClassrooms = await context.Classrooms
                 .Include(c => c.Center)
                 .Where(c => c.CenterId == centerId && c.IsActive && !c.IsDeleted)
                 .ToListAsync();
-            var conflictedClassroomIds = await _context.Schedules
+            var conflictedClassroomIds = await context.Schedules
                 .Where(s => allClassrooms.Select(c => c.Id).Contains(s.ClassroomId) &&
                            s.DayOfWeek == dayOfWeek &&
                            s.Status == ActiveStatus.Active &&
@@ -727,13 +719,13 @@ public class ClassroomService : IClassroomService
     {
         try
         {
-            var classroomsQuery = _context.Classrooms
+            var classroomsQuery = context.Classrooms
                 .Include(c => c.Center)
                 .Where(c => !c.IsDeleted)
                 .AsQueryable();
             
             classroomsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
-                classroomsQuery, _httpContextAccessor, c => c.CenterId);
+                classroomsQuery, httpContextAccessor, c => c.CenterId);
 
             var totalRecords = await classroomsQuery.CountAsync();
 

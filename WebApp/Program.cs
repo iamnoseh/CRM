@@ -1,7 +1,6 @@
 using Infrastructure.ExtensionMethods.Register;
 using SwaggerThemes;
 using Domain.DTOs.EmailDTOs;
-using Infrastructure.BackgroundTasks;
 using Hangfire;
 using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.HttpOverrides;

@@ -4,6 +4,7 @@ using Domain.Enums;
 using Domain.Filters;
 using Domain.Responses;
 using Infrastructure.Data;
+using Infrastructure.Constants;
 using Infrastructure.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
@@ -18,34 +19,35 @@ public class ExpenseService(DataContext dbContext, IHttpContextAccessor httpCont
     private readonly DataContext _dbContext = dbContext;
     private readonly IHttpContextAccessor _httpContextAccessor = httpContextAccessor;
 
+    #region CreateAsync
+
     public async Task<Response<GetExpenseDto>> CreateAsync(CreateExpenseDto dto)
     {
         try
         {
             if (dto.Amount <= 0)
-                return new Response<GetExpenseDto>(System.Net.HttpStatusCode.BadRequest, "Сумма должна быть больше нуля");
+                return new Response<GetExpenseDto>(HttpStatusCode.BadRequest, Messages.Finance.InvalidAmount);
 
             var userCenterId = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
             var effectiveCenterId = userCenterId ?? dto.CenterId;
 
             var centerExists = await _dbContext.Centers.AnyAsync(c => c.Id == effectiveCenterId);
             if (!centerExists)
-                return new Response<GetExpenseDto>(System.Net.HttpStatusCode.NotFound, "Центр не найден");
+                return new Response<GetExpenseDto>(HttpStatusCode.NotFound, Messages.Center.NotFound);
 
             if (dto.Category == ExpenseCategory.Salary && dto.MentorId is not null)
             {
                 var mentorExists = await _dbContext.Mentors.AnyAsync(m => m.Id == dto.MentorId && m.CenterId == effectiveCenterId);
                 if (!mentorExists)
-                    return new Response<GetExpenseDto>(System.Net.HttpStatusCode.NotFound, "Преподаватель не найден в этом центре");
+                    return new Response<GetExpenseDto>(HttpStatusCode.NotFound, Messages.Mentor.NotFound);
             }
 
             var month = dto.Month ?? dto.ExpenseDate.Month;
             var year = dto.Year ?? dto.ExpenseDate.Year;
 
-            // Block if month is closed
             var financeService = new FinanceService(_dbContext, _httpContextAccessor);
             if (await financeService.IsMonthClosedAsync(effectiveCenterId, year, month))
-                return new Response<GetExpenseDto>(HttpStatusCode.BadRequest, "Ин моҳ баста шудааст, эҷоди хароҷот манъ аст");
+                return new Response<GetExpenseDto>(HttpStatusCode.BadRequest, "Этот месяц закрыт, создание расходов запрещено");
 
             var entity = new Expense
             {
@@ -73,9 +75,13 @@ public class ExpenseService(DataContext dbContext, IHttpContextAccessor httpCont
         catch (Exception ex)
         {
             Log.Error(ex, "Ошибка при создании расхода");
-            return new Response<GetExpenseDto>(System.Net.HttpStatusCode.InternalServerError, "Не удалось создать расход");
+            return new Response<GetExpenseDto>(HttpStatusCode.InternalServerError, Messages.Common.InternalError);
         }
     }
+
+    #endregion
+
+    #region UpdateAsync
 
     public async Task<Response<GetExpenseDto>> UpdateAsync(int id, UpdateExpenseDto dto)
     {
@@ -84,22 +90,21 @@ public class ExpenseService(DataContext dbContext, IHttpContextAccessor httpCont
             var userCenterId = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
             var entity = await _dbContext.Expenses.FirstOrDefaultAsync(e => e.Id == id && !e.IsDeleted && (userCenterId == null || e.CenterId == userCenterId.Value));
             if (entity is null)
-                return new Response<GetExpenseDto>(System.Net.HttpStatusCode.NotFound, "Расход не найден");
+                return new Response<GetExpenseDto>(HttpStatusCode.NotFound, Messages.Common.NotFound);
 
             if (dto.Amount <= 0)
-                return new Response<GetExpenseDto>(System.Net.HttpStatusCode.BadRequest, "Сумма должна быть больше нуля");
+                return new Response<GetExpenseDto>(HttpStatusCode.BadRequest, Messages.Finance.InvalidAmount);
 
             if (dto.Category == ExpenseCategory.Salary && dto.MentorId is not null)
             {
                 var mentorExists = await _dbContext.Mentors.AnyAsync(m => m.Id == dto.MentorId && m.CenterId == entity.CenterId);
                 if (!mentorExists)
-                    return new Response<GetExpenseDto>(System.Net.HttpStatusCode.NotFound, "Преподаватель не найден в этом центре");
+                    return new Response<GetExpenseDto>(HttpStatusCode.NotFound, Messages.Mentor.NotFound);
             }
 
-            // Prevent update if closed
             var isClosed = await new FinanceService(_dbContext, _httpContextAccessor).IsMonthClosedAsync(entity.CenterId, entity.Year, entity.Month);
             if (isClosed)
-                return new Response<GetExpenseDto>(HttpStatusCode.BadRequest, "Ин моҳ баста шудааст, тағйир манъ аст");
+                return new Response<GetExpenseDto>(HttpStatusCode.BadRequest, "Этот месяц закрыт, изменение запрещено");
 
             entity.Amount = dto.Amount;
             entity.ExpenseDate = dto.ExpenseDate;
@@ -121,9 +126,13 @@ public class ExpenseService(DataContext dbContext, IHttpContextAccessor httpCont
         catch (Exception ex)
         {
             Log.Error(ex, "Ошибка при обновлении расхода {ExpenseId}", id);
-            return new Response<GetExpenseDto>(System.Net.HttpStatusCode.InternalServerError, "Не удалось обновить расход");
+            return new Response<GetExpenseDto>(HttpStatusCode.InternalServerError, Messages.Common.InternalError);
         }
     }
+
+    #endregion
+
+    #region DeleteAsync
 
     public async Task<Response<bool>> DeleteAsync(int id)
     {
@@ -132,12 +141,11 @@ public class ExpenseService(DataContext dbContext, IHttpContextAccessor httpCont
             var userCenterId = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
             var entity = await _dbContext.Expenses.FirstOrDefaultAsync(e => e.Id == id && !e.IsDeleted && (userCenterId == null || e.CenterId == userCenterId.Value));
             if (entity is null)
-                return new Response<bool>(System.Net.HttpStatusCode.NotFound, "Расход не найден");
+                return new Response<bool>(HttpStatusCode.NotFound, Messages.Common.NotFound);
 
-            // Prevent delete if closed
             var isClosed = await new FinanceService(_dbContext, _httpContextAccessor).IsMonthClosedAsync(entity.CenterId, entity.Year, entity.Month);
             if (isClosed)
-                return new Response<bool>(HttpStatusCode.BadRequest, "Ин моҳ баста шудааст, несткунӣ манъ аст");
+                return new Response<bool>(HttpStatusCode.BadRequest, "Этот месяц закрыт, удаление запрещено");
 
             entity.IsDeleted = true;
             entity.UpdatedAt = DateTimeOffset.UtcNow;
@@ -150,9 +158,13 @@ public class ExpenseService(DataContext dbContext, IHttpContextAccessor httpCont
         catch (Exception ex)
         {
             Log.Error(ex, "Ошибка при удалении расхода {ExpenseId}", id);
-            return new Response<bool>(System.Net.HttpStatusCode.InternalServerError, "Не удалось удалить расход");
+            return new Response<bool>(HttpStatusCode.InternalServerError, Messages.Common.InternalError);
         }
     }
+
+    #endregion
+
+    #region GetByIdAsync
 
     public async Task<Response<GetExpenseDto>> GetByIdAsync(int id)
     {
@@ -161,16 +173,20 @@ public class ExpenseService(DataContext dbContext, IHttpContextAccessor httpCont
             var userCenterId = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
             var entity = await _dbContext.Expenses.AsNoTracking().FirstOrDefaultAsync(e => e.Id == id && !e.IsDeleted && (userCenterId == null || e.CenterId == userCenterId.Value));
             if (entity is null)
-                return new Response<GetExpenseDto>(System.Net.HttpStatusCode.NotFound, "Расход не найден");
+                return new Response<GetExpenseDto>(HttpStatusCode.NotFound, Messages.Common.NotFound);
 
             return new Response<GetExpenseDto>(MapToGetDto(entity));
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Ошибка при получении расхода {ExpenseId}", id);
-            return new Response<GetExpenseDto>(System.Net.HttpStatusCode.InternalServerError, "Не удалось получить расход");
+            return new Response<GetExpenseDto>(HttpStatusCode.InternalServerError, Messages.Common.InternalError);
         }
     }
+
+    #endregion
+
+    #region GetAsync
 
     public async Task<Response<List<GetExpenseDto>>> GetAsync(ExpenseFilter filter)
     {
@@ -217,9 +233,13 @@ public class ExpenseService(DataContext dbContext, IHttpContextAccessor httpCont
         catch (Exception ex)
         {
             Log.Error(ex, "Ошибка при запросе списка расходов");
-            return new Response<List<GetExpenseDto>>(System.Net.HttpStatusCode.InternalServerError, "Не удалось получить список расходов");
+            return new Response<List<GetExpenseDto>>(HttpStatusCode.InternalServerError, Messages.Common.InternalError);
         }
     }
+
+    #endregion
+
+    #region MapToGetDto
 
     private static GetExpenseDto MapToGetDto(Expense e)
     {
@@ -239,6 +259,6 @@ public class ExpenseService(DataContext dbContext, IHttpContextAccessor httpCont
             UpdatedAt = e.UpdatedAt
         };
     }
+
+    #endregion
 }
-
-

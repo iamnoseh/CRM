@@ -3,6 +3,7 @@ using Domain.DTOs.EmailDTOs;
 using Domain.DTOs.MessageSender;
 using Domain.Responses;
 using Infrastructure.Helpers;
+using Infrastructure.Constants;
 using Infrastructure.Interfaces;
 using Microsoft.AspNetCore.Hosting;
 using Domain.Enums;
@@ -18,18 +19,20 @@ public class MessageSenderService(
     IWebHostEnvironment webHostEnvironment)
     : IMessageSenderService
 {
+    #region SendMessageAsync
+
     public async Task<Response<GetMessageDto>> SendMessageAsync(SendMessageDto sendMessageDto)
     {
         var attachmentPath = (string?)null;
         if (sendMessageDto.Attachment != null)
         {
-            var uploadResult = await FileUploadHelper.UploadFileAsync(sendMessageDto.Attachment, 
-                                                                     webHostEnvironment.WebRootPath, 
-                                                                     "messages", 
+            var uploadResult = await FileUploadHelper.UploadFileAsync(sendMessageDto.Attachment,
+                                                                     webHostEnvironment.WebRootPath,
+                                                                     "messages",
                                                                      "document");
             if (uploadResult.StatusCode != (int)HttpStatusCode.OK)
             {
-                return new Response<GetMessageDto>((HttpStatusCode)uploadResult.StatusCode, $"Хатогӣ ҳангоми боркунии замима: {uploadResult.Message}");
+                return new Response<GetMessageDto>((HttpStatusCode)uploadResult.StatusCode, string.Format(Messages.File.UploadError, uploadResult.Message));
             }
             attachmentPath = uploadResult.Data;
         }
@@ -39,7 +42,7 @@ public class MessageSenderService(
             var studentResponse = await studentService.GetStudentByIdAsync(studentId);
             if (studentResponse.StatusCode != (int)HttpStatusCode.OK || studentResponse.Data == null)
             {
-                return new Response<GetMessageDto>(HttpStatusCode.NotFound, $"Донишҷӯ бо ID {studentId} ёфт нашуд.");
+                return new Response<GetMessageDto>(HttpStatusCode.NotFound, Messages.Student.NotFound);
             }
 
             var student = studentResponse.Data;
@@ -48,7 +51,7 @@ public class MessageSenderService(
             {
                 if (string.IsNullOrEmpty(student.Email))
                 {
-                    return new Response<GetMessageDto>(HttpStatusCode.BadRequest, $"Почтаи электронии донишҷӯ бо ID {studentId} мавҷуд нест.");
+                    return new Response<GetMessageDto>(HttpStatusCode.BadRequest, "Электронная почта студента отсутствует");
                 }
 
                 var emailMessage = sendMessageDto.MessageContent;
@@ -65,13 +68,7 @@ public class MessageSenderService(
             {
                 if (string.IsNullOrEmpty(student.Phone))
                 {
-                    return new Response<GetMessageDto>(HttpStatusCode.BadRequest, $"Рақами телефони донишҷӯ бо ID {studentId} мавҷуд нест.");
-                }
-
-                if (!string.IsNullOrEmpty(attachmentPath))
-                {
-                    // For SMS, we can't send attachments directly. We'll just send the text message.
-                    // Or, we could shorten the URL and include it, but for simplicity, we'll omit attachments for SMS.
+                    return new Response<GetMessageDto>(HttpStatusCode.BadRequest, "Номер телефона студента отсутствует");
                 }
 
                 await osonSmsService.SendSmsAsync(student.Phone, sendMessageDto.MessageContent);
@@ -86,26 +83,34 @@ public class MessageSenderService(
             AttachmentPath = attachmentPath,
             SentAt = DateTime.UtcNow
         })
-        { Message = "Паём бо муваффақият ирсол шуд." };
+        { Message = Messages.Common.Success };
     }
+
+    #endregion
+
+    #region SendSmsToNumberAsync
 
     public async Task<Response<Domain.DTOs.OsonSms.OsonSmsSendResponseDto>> SendSmsToNumberAsync(string phoneNumber, string message)
     {
         return await osonSmsService.SendSmsAsync(phoneNumber, message);
     }
 
+    #endregion
+
+    #region SendEmailToAddressAsync
+
     public async Task<Response<bool>> SendEmailToAddressAsync(SendEmailToAddressDto request)
     {
         var attachmentPath = (string?)null;
         if (request.Attachment != null)
         {
-            var uploadResult = await FileUploadHelper.UploadFileAsync(request.Attachment, 
-                                                                     webHostEnvironment.WebRootPath, 
-                                                                     "messages", 
+            var uploadResult = await FileUploadHelper.UploadFileAsync(request.Attachment,
+                                                                     webHostEnvironment.WebRootPath,
+                                                                     "messages",
                                                                      "document");
             if (uploadResult.StatusCode != (int)HttpStatusCode.OK)
             {
-                return new Response<bool>(HttpStatusCode.BadRequest, $"Хатогӣ ҳангоми боркунии замима: {uploadResult.Message}");
+                return new Response<bool>(HttpStatusCode.BadRequest, string.Format(Messages.File.UploadError, uploadResult.Message));
             }
             attachmentPath = uploadResult.Data;
         }
@@ -118,6 +123,8 @@ public class MessageSenderService(
 
         var emailDto = new EmailMessageDto(new[] { request.EmailAddress }, request.Subject, request.MessageContent, attachments);
         await emailService.SendEmail(emailDto, TextFormat.Html);
-        return new Response<bool>(true) { Message = "Почтаи электронӣ бо муваффақият ирсол шуд." };
+        return new Response<bool>(true) { Message = Messages.Common.Success };
     }
+
+    #endregion
 }

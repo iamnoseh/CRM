@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Net;
 using System.Security.Claims;
 using Infrastructure.Helpers;
+using Infrastructure.Constants;
 using Microsoft.AspNetCore.Hosting;
 
 namespace Infrastructure.Services;
@@ -17,8 +18,8 @@ namespace Infrastructure.Services;
 public class UserService(DataContext context, UserManager<User> userManager,
     IHttpContextAccessor httpContextAccessor, IWebHostEnvironment webHostEnvironment, RoleManager<IdentityRole<int>> roleManager) : IUserService
 {
-    #region GetUsersPagination
-    
+    #region GetUsersAsync
+
     public async Task<PaginationResponse<List<GetUserDto>>> GetUsersAsync(UserFilter filter)
     {
         try
@@ -38,8 +39,7 @@ public class UserService(DataContext context, UserManager<User> userManager,
 
             if (filter.Role.HasValue)
             {
-                string roleName = filter.Role.Value.ToString(); 
-
+                string roleName = filter.Role.Value.ToString();
                 query = query.Where(u => context.UserRoles
                     .Join(context.Roles, ur => ur.RoleId, r => r.Id, (ur, r) => new { ur.UserId, RoleName = r.Name })
                     .Any(ur => ur.UserId == u.Id && ur.RoleName == roleName));
@@ -55,29 +55,14 @@ public class UserService(DataContext context, UserManager<User> userManager,
             var userDtos = new List<GetUserDto>();
             foreach (var user in usersList)
             {
-                var roles = await userManager.GetRolesAsync(user);
-                var role = roles.FirstOrDefault(); 
-                userDtos.Add(new GetUserDto
-                {
-                    UserId = user.Id,
-                    FullName = user.FullName,
-                    PhoneNumber = user.PhoneNumber,
-                    Email = user.Email,
-                    Address = user.Address,
-                    Gender = user.Gender,
-                    ActiveStatus = user.ActiveStatus,
-                    Age = user.Age,
-                    DateOfBirth = user.Birthday,
-                    Image = user.ProfileImagePath,
-                    Role = role,
-                    CenterId = user.CenterId
-                });
+                var dto = await DtoMappingHelper.MapToGetUserDtoAsync(user, userManager);
+                userDtos.Add(dto);
             }
 
             return new PaginationResponse<List<GetUserDto>>(
-                userDtos, 
-                filter.PageNumber, 
-                filter.PageSize, 
+                userDtos,
+                filter.PageNumber,
+                filter.PageSize,
                 totalRecords);
         }
         catch (Exception ex)
@@ -85,10 +70,11 @@ public class UserService(DataContext context, UserManager<User> userManager,
             return new PaginationResponse<List<GetUserDto>>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
+
     #endregion
 
-    #region GetUserById
-    
+    #region GetUserByIdAsync
+
     public async Task<Response<GetUserDto>> GetUserByIdAsync(int id)
     {
         try
@@ -96,30 +82,13 @@ public class UserService(DataContext context, UserManager<User> userManager,
             var query = context.Users.Where(x => x.Id == id && !x.IsDeleted);
             query = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(query, httpContextAccessor, u => u.CenterId);
             var user = await query.FirstOrDefaultAsync();
+            
             if (user == null)
             {
-                return new Response<GetUserDto>(HttpStatusCode.NotFound, "User not found");
+                return new Response<GetUserDto>(HttpStatusCode.NotFound, Messages.User.NotFound);
             }
 
-            var roles = await userManager.GetRolesAsync(user);
-            var role = roles.FirstOrDefault();
-
-            var dto = new GetUserDto
-            {
-                UserId = user.Id,
-                FullName = user.FullName,
-                PhoneNumber = user.PhoneNumber,
-                Email = user.Email,
-                Address = user.Address,
-                Gender = user.Gender,
-                ActiveStatus = user.ActiveStatus,
-                Age = user.Age,
-                DateOfBirth = user.Birthday,
-                Image = user.ProfileImagePath,
-                Role = role,
-                CenterId = user.CenterId
-            };
-
+            var dto = await DtoMappingHelper.MapToGetUserDtoAsync(user, userManager);
             return new Response<GetUserDto>(dto);
         }
         catch (Exception ex)
@@ -127,69 +96,41 @@ public class UserService(DataContext context, UserManager<User> userManager,
             return new Response<GetUserDto>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
-    
+
     #endregion
 
-    #region GetCurrentUser
-    
+    #region GetCurrentUserAsync
+
     public async Task<Response<GetUserDetailsDto>> GetCurrentUserAsync()
     {
         try
         {
-            // Get principalId (Student.Id / Mentor.Id / User.Id)
             var principalIdRaw = httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier)
                                 ?? httpContextAccessor.HttpContext?.User.FindFirst("nameid")?.Value;
             if (string.IsNullOrEmpty(principalIdRaw) || !int.TryParse(principalIdRaw, out int principalId))
             {
-                return new Response<GetUserDetailsDto>(HttpStatusCode.Unauthorized, "Корбар аутентификатӣ нашудааст");
+                return new Response<GetUserDetailsDto>(HttpStatusCode.Unauthorized, Messages.User.UserNotAuthenticated);
             }
-            
-            // Get actual UserId for fetching User entity
+
             var userIdRaw = httpContextAccessor.HttpContext?.User.FindFirst("UserId")?.Value;
             if (string.IsNullOrEmpty(userIdRaw) || !int.TryParse(userIdRaw, out int userId))
             {
-                return new Response<GetUserDetailsDto>(HttpStatusCode.Unauthorized, "UserId дар токен ёфт нашуд");
+                return new Response<GetUserDetailsDto>(HttpStatusCode.Unauthorized, Messages.User.UserIdNotFoundInToken);
             }
-            
+
             var query = context.Users
                 .Include(u => u.Center)
                 .Where(x => x.Id == userId && !x.IsDeleted);
-            
+
             var user = await query.FirstOrDefaultAsync();
-            
+
             if (user == null)
-                return new Response<GetUserDetailsDto>(HttpStatusCode.NotFound, "Корбар ёфт нашуд");
+                return new Response<GetUserDetailsDto>(HttpStatusCode.NotFound, Messages.User.NotFound);
 
             var roles = await userManager.GetRolesAsync(user);
             var role = roles.FirstOrDefault();
 
-            var dto = new GetUserDetailsDto
-            {
-                UserId = principalId,  // principalId instead of user.Id
-                Username = user.UserName,
-                FullName = user.FullName,
-                Email = user.Email,
-                PhoneNumber = user.PhoneNumber,
-                Address = user.Address,
-                Gender = user.Gender,
-                ActiveStatus = user.ActiveStatus,
-                PaymentStatus = user.PaymentStatus,
-                Age = user.Age,
-                DateOfBirth = user.Birthday,
-                Image = user.ProfileImagePath,
-                DocumentPath = user.DocumentPath,
-                CenterId = user.CenterId,
-                CenterName = user.Center?.Name,
-                Salary = user.Salary,
-                Experience = user.Experience,
-                CreatedAt = user.CreatedAt,
-                UpdatedAt = user.UpdatedAt,
-                EmailNotificationsEnabled = user.EmailNotificationsEnabled,
-                TelegramNotificationsEnabled = user.TelegramNotificationsEnabled,
-                TelegramChatId = user.TelegramChatId,
-                Role = role
-            };
-
+            var dto = DtoMappingHelper.MapToGetUserDetailsDto(user, principalId, role);
             return new Response<GetUserDetailsDto>(dto);
         }
         catch (Exception ex)
@@ -197,56 +138,40 @@ public class UserService(DataContext context, UserManager<User> userManager,
             return new Response<GetUserDetailsDto>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
-    
+
     #endregion
-    
-    #region SearchUsers
-    
+
+    #region SearchUsersAsync
+
     public async Task<Response<List<GetUserDto>>> SearchUsersAsync(string searchTerm)
     {
         try
         {
             if (string.IsNullOrWhiteSpace(searchTerm))
             {
-                return new Response<List<GetUserDto>>(HttpStatusCode.BadRequest, "Search term is required");
+                return new Response<List<GetUserDto>>(HttpStatusCode.BadRequest, Messages.User.SearchTermRequired);
             }
-            
+
             var query = context.Users
-                .Where(u => !u.IsDeleted && 
-                           (u.FullName.Contains(searchTerm) || 
-                           (u.Email != null && u.Email.Contains(searchTerm)) || 
+                .Where(u => !u.IsDeleted &&
+                           (u.FullName.Contains(searchTerm) ||
+                           (u.Email != null && u.Email.Contains(searchTerm)) ||
                            (u.PhoneNumber != null && u.PhoneNumber.Contains(searchTerm))));
             query = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(query, httpContextAccessor, u => u.CenterId);
-            var users = await query.Take(20) 
-                .ToListAsync();
-                
+            var users = await query.Take(20).ToListAsync();
+
             if (!users.Any())
             {
-                return new Response<List<GetUserDto>>(HttpStatusCode.NotFound, "No users found matching the search criteria");
+                return new Response<List<GetUserDto>>(HttpStatusCode.NotFound, Messages.User.NoUsersFound);
             }
-            
+
             var userDtos = new List<GetUserDto>();
             foreach (var user in users)
             {
-                var roles = await userManager.GetRolesAsync(user);
-                var role = roles.FirstOrDefault();
-                
-                userDtos.Add(new GetUserDto
-                {
-                    UserId = user.Id,
-                    FullName = user.FullName,
-                    PhoneNumber = user.PhoneNumber,
-                    Email = user.Email,
-                    Address = user.Address,
-                    Gender = user.Gender,
-                    ActiveStatus = user.ActiveStatus,
-                    Age = user.Age,
-                    Image = user.ProfileImagePath,
-                    Role = role,
-                    CenterId = user.CenterId
-                });
+                var dto = await DtoMappingHelper.MapToGetUserDtoAsync(user, userManager);
+                userDtos.Add(dto);
             }
-            
+
             return new Response<List<GetUserDto>>(userDtos);
         }
         catch (Exception ex)
@@ -254,57 +179,42 @@ public class UserService(DataContext context, UserManager<User> userManager,
             return new Response<List<GetUserDto>>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
-    
+
     #endregion
-    
-    #region GetUsersByRole
-    
+
+    #region GetUsersByRoleAsync
+
     public async Task<Response<List<GetUserDto>>> GetUsersByRoleAsync(string role)
     {
         try
         {
             if (string.IsNullOrWhiteSpace(role))
             {
-                return new Response<List<GetUserDto>>(HttpStatusCode.BadRequest, "Role is required");
+                return new Response<List<GetUserDto>>(HttpStatusCode.BadRequest, Messages.User.RoleRequired);
             }
-            
+
             var roleObj = await context.Roles.FirstOrDefaultAsync(r => r.Name == role);
             if (roleObj == null)
             {
-                return new Response<List<GetUserDto>>(HttpStatusCode.NotFound, $"Role '{role}' not found");
+                return new Response<List<GetUserDto>>(HttpStatusCode.NotFound, string.Format(Messages.User.RoleNotFound, role));
             }
-            
+
             var userIds = await context.UserRoles
                 .Where(ur => ur.RoleId == roleObj.Id)
                 .Select(ur => ur.UserId)
                 .ToListAsync();
-                
+
             var query = context.Users
                 .Where(u => !u.IsDeleted && userIds.Contains(u.Id));
             query = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(query, httpContextAccessor, u => u.CenterId);
             var users = await query.ToListAsync();
-                
+
             if (!users.Any())
             {
-                return new Response<List<GetUserDto>>(HttpStatusCode.NotFound, $"No users found with role '{role}'");
+                return new Response<List<GetUserDto>>(HttpStatusCode.NotFound, string.Format(Messages.User.NoUsersWithRole, role));
             }
-            
-            var userDtos = users.Select(user => new GetUserDto
-            {
-                UserId = user.Id,
-                FullName = user.FullName,
-                PhoneNumber = user.PhoneNumber,
-                Email = user.Email,
-                Address = user.Address,
-                Gender = user.Gender,
-                ActiveStatus = user.ActiveStatus,
-                Age = user.Age,
-                DateOfBirth = user.Birthday,
-                Image = user.ProfileImagePath,
-                Role = role,
-                CenterId = user.CenterId
-            }).ToList();
-            
+
+            var userDtos = users.Select(user => DtoMappingHelper.MapToGetUserDtoSync(user, role)).ToList();
             return new Response<List<GetUserDto>>(userDtos);
         }
         catch (Exception ex)
@@ -312,10 +222,11 @@ public class UserService(DataContext context, UserManager<User> userManager,
             return new Response<List<GetUserDto>>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
-    
+
     #endregion
-    
-    #region UpcomingBirthdays
+
+    #region GetUpcomingBirthdaysAsync
+
     public async Task<PaginationResponse<List<GetUserDto>>> GetUpcomingBirthdaysAsync(int page, int pageSize)
     {
         var today = DateTime.Today;
@@ -328,7 +239,7 @@ public class UserService(DataContext context, UserManager<User> userManager,
                     (u.Birthday.Month > today.Month && u.Birthday.Month < end.Month)
                 )
             );
-        
+
         var studentRoleId = await roleManager.FindByNameAsync("Student");
         if (studentRoleId != null)
         {
@@ -340,7 +251,6 @@ public class UserService(DataContext context, UserManager<User> userManager,
             .ThenBy(u => u.Birthday.Day)
             .ToListAsync();
 
-        // Filter to only those within the next 7 days (handles year wrap)
         var filtered = users.Where(u =>
         {
             var nextBirthday = new DateTime(today.Year, u.Birthday.Month, u.Birthday.Day);
@@ -356,29 +266,17 @@ public class UserService(DataContext context, UserManager<User> userManager,
         var result = new List<GetUserDto>();
         foreach (var user in paged)
         {
-            var roles = await userManager.GetRolesAsync(user);
-            var role = roles.FirstOrDefault();
-            result.Add(new GetUserDto
-            {
-                UserId = user.Id,
-                FullName = user.FullName,
-                PhoneNumber = user.PhoneNumber,
-                Email = user.Email,
-                Address = user.Address,
-                Gender = user.Gender,
-                ActiveStatus = user.ActiveStatus,
-                Age = user.Age,
-                DateOfBirth = user.Birthday,
-                Image = user.ProfileImagePath,
-                Role = role,
-                CenterId = user.CenterId
-            });
+            var dto = await DtoMappingHelper.MapToGetUserDtoAsync(user, userManager);
+            result.Add(dto);
         }
+        
         return new PaginationResponse<List<GetUserDto>>(result, page, pageSize, total);
     }
+
     #endregion
 
-    #region UpdateProfilePicture
+    #region UpdateProfilePictureAsync
+
     public async Task<Response<string>> UpdateProfilePictureAsync(UpdateProfilePictureDto updateProfilePictureDto)
     {
         try
@@ -386,12 +284,12 @@ public class UserService(DataContext context, UserManager<User> userManager,
             var currentUserIdRaw = httpContextAccessor.HttpContext?.User.FindFirst("UserId")?.Value
                                  ?? httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(currentUserIdRaw) || !int.TryParse(currentUserIdRaw, out int currentUserId))
-                return new Response<string>(HttpStatusCode.Unauthorized, "Корбар аутентификатӣ нашудааст");
+                return new Response<string>(HttpStatusCode.Unauthorized, Messages.User.UserNotAuthenticated);
 
             var user = await context.Users.FirstOrDefaultAsync(u => u.Id == currentUserId && !u.IsDeleted);
             if (user == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Корбар ёфт нашуд");
-            
+                return new Response<string>(HttpStatusCode.NotFound, Messages.User.NotFound);
+
             var imageResult = await FileUploadHelper.UploadFileAsync(
                 updateProfilePictureDto.ProfilePicture,
                 webHostEnvironment.WebRootPath,
@@ -411,14 +309,17 @@ public class UserService(DataContext context, UserManager<User> userManager,
             if (!result.Succeeded)
                 return new Response<string>(HttpStatusCode.BadRequest, IdentityHelper.FormatIdentityErrors(result));
 
-            return new Response<string>(HttpStatusCode.OK, "Расми профил бо муваффақият иваз карда шуд");
+            return new Response<string>(HttpStatusCode.OK, Messages.User.ProfileImageUpdated);
         }
         catch (Exception ex)
         {
-            return new Response<string>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми ивазкунии расми профил: {ex.Message}");
+            return new Response<string>(HttpStatusCode.InternalServerError, string.Format(Messages.User.ProfileImageUpdateError, ex.Message));
         }
     }
+
     #endregion
+
+    #region ChangeEmailAsync
 
     public async Task<Response<string>> ChangeEmailAsync(int userId, string newEmail)
     {
@@ -427,13 +328,13 @@ public class UserService(DataContext context, UserManager<User> userManager,
             var user = await userManager.FindByIdAsync(userId.ToString());
             if (user == null)
             {
-                return new Response<string>(HttpStatusCode.NotFound, "Корбар ёфт нашуд");
+                return new Response<string>(HttpStatusCode.NotFound, Messages.User.NotFound);
             }
 
             var existingUserWithEmail = await userManager.FindByEmailAsync(newEmail);
             if (existingUserWithEmail != null && existingUserWithEmail.Id != user.Id)
             {
-                return new Response<string>(HttpStatusCode.BadRequest, "Ин почтаи электронӣ аллакай истифода шудааст");
+                return new Response<string>(HttpStatusCode.BadRequest, Messages.User.EmailAlreadyInUse);
             }
 
             var setEmailResult = await userManager.SetEmailAsync(user, newEmail);
@@ -445,11 +346,13 @@ public class UserService(DataContext context, UserManager<User> userManager,
             user.UpdatedAt = DateTime.UtcNow;
             await context.SaveChangesAsync();
 
-            return new Response<string>(HttpStatusCode.OK, "Почтаи электронӣ бо муваффақият иваз карда шуд");
+            return new Response<string>(HttpStatusCode.OK, Messages.User.EmailUpdated);
         }
         catch (Exception ex)
         {
-            return new Response<string>(HttpStatusCode.InternalServerError, $"Хатогӣ ҳангоми ивазкунии почтаи электронӣ: {ex.Message}");
+            return new Response<string>(HttpStatusCode.InternalServerError, string.Format(Messages.User.EmailUpdateError, ex.Message));
         }
     }
+
+    #endregion
 }

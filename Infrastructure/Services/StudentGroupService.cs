@@ -8,38 +8,38 @@ using Domain.Responses;
 using Infrastructure.Data;
 using Infrastructure.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Infrastructure.Constants;
+using Infrastructure.Helpers;
 
 namespace Infrastructure.Services;
 
-public class StudentGroupService(DataContext context, IJournalService journalService, Infrastructure.Interfaces.IStudentAccountService studentAccountService, IDiscountService discountService) : IStudentGroupService
+public class StudentGroupService(
+    DataContext context,
+    IJournalService journalService,
+    IStudentAccountService studentAccountService,
+    IDiscountService discountService) : IStudentGroupService
 {
-    private async Task<Response<string>> AfterActivateChargeAsync(int studentId, int groupId)
-    {
-        var now = DateTime.UtcNow;
-        await studentAccountService.ChargeForGroupAsync(studentId, groupId, now.Month, now.Year);
-        await studentAccountService.RecalculateStudentPaymentStatusAsync(studentId, now.Month, now.Year);
-        return new Response<string>(HttpStatusCode.OK, "Студент успешно активирован в группе");
-    }
     #region CreateStudentGroupAsync
+
     public async Task<Response<string>> CreateStudentGroupAsync(CreateStudentGroup request)
     {
         try
         {
             var student = await context.Students.FirstOrDefaultAsync(s => s.Id == request.StudentId && !s.IsDeleted);
             if (student == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Студент не найден");
+                return new Response<string>(HttpStatusCode.NotFound, Messages.Student.NotFound);
 
             var group = await context.Groups.FirstOrDefaultAsync(g => g.Id == request.GroupId && !g.IsDeleted);
             if (group == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Группа не найдена");
+                return new Response<string>(HttpStatusCode.NotFound, Messages.Group.NotFound);
+
             var existingStudentGroup = await context.StudentGroups
-                .FirstOrDefaultAsync(sg => sg.StudentId == request.StudentId && 
-                                          sg.GroupId == request.GroupId);
-            
+                .FirstOrDefaultAsync(sg => sg.StudentId == request.StudentId && sg.GroupId == request.GroupId);
+
             if (existingStudentGroup != null)
             {
                 if (existingStudentGroup.IsActive && !existingStudentGroup.IsDeleted && !existingStudentGroup.IsLeft)
-                    return new Response<string>(HttpStatusCode.BadRequest, "Студент уже назначен в эту группу");
+                    return new Response<string>(HttpStatusCode.BadRequest, Messages.StudentGroup.StudentAlreadyAssigned);
 
                 existingStudentGroup.IsActive = true;
                 existingStudentGroup.IsDeleted = false;
@@ -49,18 +49,18 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                 existingStudentGroup.LeaveDate = null;
                 existingStudentGroup.UpdatedAt = DateTimeOffset.UtcNow;
                 context.StudentGroups.Update(existingStudentGroup);
-                
-                var updateResult = await context.SaveChangesAsync();
-                if (updateResult > 0)
+
+                var updated = await context.SaveChangesAsync();
+                if (updated > 0)
                 {
-                    _ = await journalService.BackfillCurrentWeekForStudentAsync(request.GroupId, request.StudentId);
-                    // charge immediately on re-activation as well
+                    await journalService.BackfillCurrentWeekForStudentAsync(request.GroupId, request.StudentId);
                     var now = DateTime.UtcNow;
-                    _ = await studentAccountService.ChargeForGroupAsync(request.StudentId, request.GroupId, now.Month, now.Year);
-                    _ = await studentAccountService.RecalculateStudentPaymentStatusAsync(request.StudentId, now.Month, now.Year);
-                    return new Response<string>(HttpStatusCode.OK, "Членство студента в группе переактивировано");
+                    await studentAccountService.ChargeForGroupAsync(request.StudentId, request.GroupId, now.Month, now.Year);
+                    await studentAccountService.RecalculateStudentPaymentStatusAsync(request.StudentId, now.Month, now.Year);
+                    return new Response<string>(HttpStatusCode.OK, Messages.StudentGroup.Reactivated);
                 }
-                return new Response<string>(HttpStatusCode.InternalServerError, "Не удалось переактивировать членство студента в группе");
+
+                return new Response<string>(HttpStatusCode.InternalServerError, Messages.StudentGroup.ReactivateFailed);
             }
 
             var studentGroup = new StudentGroup
@@ -78,38 +78,93 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
 
             if (result > 0)
             {
-                _ = await journalService.BackfillCurrentWeekForStudentAsync(request.GroupId, request.StudentId);
-                // attempt immediate monthly charge for the new group
+                await journalService.BackfillCurrentWeekForStudentAsync(request.GroupId, request.StudentId);
                 var now = DateTime.UtcNow;
-                _ = await studentAccountService.ChargeForGroupAsync(request.StudentId, request.GroupId, now.Month, now.Year);
-                // recalc status regardless of charge result (insufficient => Pending)
-                _ = await studentAccountService.RecalculateStudentPaymentStatusAsync(request.StudentId, now.Month, now.Year);
-                return new Response<string>(HttpStatusCode.Created, "Студент успешно добавлен в группу");
+                await studentAccountService.ChargeForGroupAsync(request.StudentId, request.GroupId, now.Month, now.Year);
+                await studentAccountService.RecalculateStudentPaymentStatusAsync(request.StudentId, now.Month, now.Year);
+                return new Response<string>(HttpStatusCode.Created, Messages.StudentGroup.Created);
             }
-            return new Response<string>(HttpStatusCode.InternalServerError, "Не удалось добавить студента в группу");
+
+            return new Response<string>(HttpStatusCode.InternalServerError, Messages.StudentGroup.CreateFailed);
         }
         catch (Exception ex)
         {
             return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
+
     #endregion
+
+    #region UpdateStudentGroupAsync
+
+    public async Task<Response<string>> UpdateStudentGroupAsync(int id, UpdateStudentGroupDto request)
+    {
+        try
+        {
+            var studentGroup = await context.StudentGroups
+                .FirstOrDefaultAsync(sg => sg.Id == id && !sg.IsDeleted);
+
+            if (studentGroup == null)
+                return new Response<string>(HttpStatusCode.NotFound, Messages.StudentGroup.MembershipNotFound);
+
+            if (request.GroupId.HasValue)
+            {
+                var group = await context.Groups.FirstOrDefaultAsync(g => g.Id == request.GroupId.Value && !g.IsDeleted);
+                if (group == null)
+                    return new Response<string>(HttpStatusCode.NotFound, Messages.Group.NotFound);
+                studentGroup.GroupId = request.GroupId.Value;
+            }
+
+            if (request.StudentId.HasValue)
+            {
+                var student = await context.Students.FirstOrDefaultAsync(s => s.Id == request.StudentId.Value && !s.IsDeleted);
+                if (student == null)
+                    return new Response<string>(HttpStatusCode.NotFound, Messages.Student.NotFound);
+                studentGroup.StudentId = request.StudentId.Value;
+            }
+
+            if (request.IsActive.HasValue)
+                studentGroup.IsActive = request.IsActive.Value;
+
+            if (request.IsLeft.HasValue)
+                studentGroup.IsLeft = request.IsLeft.Value;
+
+            if (request.LeftReason != null)
+                studentGroup.LeftReason = request.LeftReason;
+
+            if (request.LeftDate.HasValue)
+                studentGroup.LeftDate = request.LeftDate.Value;
+
+            studentGroup.UpdatedAt = DateTimeOffset.UtcNow;
+
+            context.StudentGroups.Update(studentGroup);
+            var result = await context.SaveChangesAsync();
+
+            return result > 0
+                ? new Response<string>(HttpStatusCode.OK, Messages.StudentGroup.Updated)
+                : new Response<string>(HttpStatusCode.InternalServerError, Messages.StudentGroup.UpdateFailed);
+        }
+        catch (Exception ex)
+        {
+            return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
+        }
+    }
+
+    #endregion
+
     #region GetLeftStudentsInGroupAsync
+
     public async Task<Response<List<LeftStudentDto>>> GetLeftStudentsInGroupAsync(int groupId)
     {
         try
         {
-            var group = await context.Groups
-                .FirstOrDefaultAsync(g => g.Id == groupId && !g.IsDeleted);
-
+            var group = await context.Groups.FirstOrDefaultAsync(g => g.Id == groupId && !g.IsDeleted);
             if (group == null)
-                return new Response<List<LeftStudentDto>>(HttpStatusCode.NotFound, "Группа не найдена");
+                return new Response<List<LeftStudentDto>>(HttpStatusCode.NotFound, Messages.Group.NotFound);
 
             var leftStudents = await context.StudentGroups
                 .Include(sg => sg.Student)
-                .Where(sg => sg.GroupId == groupId &&
-                            sg.IsLeft == true &&
-                            !sg.IsDeleted)
+                .Where(sg => sg.GroupId == groupId && sg.IsLeft && !sg.IsDeleted)
                 .Select(sg => new LeftStudentDto
                 {
                     StudentId = sg.StudentId,
@@ -134,114 +189,41 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
             return new Response<List<LeftStudentDto>>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
-    #endregion
 
-    #region UpdateStudentGroupAsync
-    public async Task<Response<string>> UpdateStudentGroupAsync(int id, UpdateStudentGroupDto request)
-    {
-        try
-        {
-            var studentGroup = await context.StudentGroups
-                .FirstOrDefaultAsync(sg => sg.Id == id && !sg.IsDeleted);
-            
-            if (studentGroup == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Членство студента в группе не найдено");
-
-            if (request.StudentId.HasValue && request.StudentId.Value != studentGroup.StudentId)
-            {
-                var student = await context.Students
-                    .FirstOrDefaultAsync(s => s.Id == request.StudentId.Value && !s.IsDeleted);
-                
-                if (student == null)
-                    return new Response<string>(HttpStatusCode.NotFound, "Студент не найден");
-                
-                studentGroup.StudentId = request.StudentId.Value;
-            }
-
-            if (request.GroupId.HasValue && request.GroupId.Value != studentGroup.GroupId)
-            {
-                var group = await context.Groups
-                    .FirstOrDefaultAsync(g => g.Id == request.GroupId.Value && !g.IsDeleted);
-                
-                if (group == null)
-                    return new Response<string>(HttpStatusCode.NotFound, "Группа не найдена");
-                
-                studentGroup.GroupId = request.GroupId.Value;
-            }
-
-            if (request.StudentId.HasValue && request.GroupId.HasValue)
-            {
-                var existingStudentGroup = await context.StudentGroups
-                    .FirstOrDefaultAsync(sg => sg.StudentId == request.StudentId.Value && 
-                                             sg.GroupId == request.GroupId.Value && 
-                                             sg.Id != id &&
-                                             !sg.IsDeleted);
-                
-                if (existingStudentGroup != null)
-                    return new Response<string>(HttpStatusCode.BadRequest, "Студент уже назначен в эту группу");
-            }
-
-            if (request.IsActive.HasValue)
-            {
-                studentGroup.IsActive = request.IsActive.Value;
-                
-                if (!request.IsActive.Value && studentGroup.LeaveDate == null)
-                {
-                    studentGroup.LeaveDate = DateTime.UtcNow;
-                }
-                else if (request.IsActive.Value)
-                {
-                    studentGroup.LeaveDate = null;
-                }
-            }
-
-            studentGroup.UpdatedAt = DateTimeOffset.UtcNow;
-            
-            context.StudentGroups.Update(studentGroup);
-            var result = await context.SaveChangesAsync();
-
-            return result > 0
-                ? new Response<string>(HttpStatusCode.OK, "Членство студента в группе успешно обновлено")
-                : new Response<string>(HttpStatusCode.InternalServerError, "Не удалось обновить членство студента в группе");
-        }
-        catch (Exception ex)
-        {
-            return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
-        }
-    }
     #endregion
 
     #region DeleteStudentGroupAsync
+
     public async Task<Response<string>> DeleteStudentGroupAsync(int id)
     {
         try
         {
-            var studentGroup = await context.StudentGroups
-                .FirstOrDefaultAsync(sg => sg.Id == id && !sg.IsDeleted);
-            
+            var studentGroup = await context.StudentGroups.FirstOrDefaultAsync(sg => sg.Id == id && !sg.IsDeleted);
             if (studentGroup == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Членство студента в группе не найдено");
+                return new Response<string>(HttpStatusCode.NotFound, Messages.StudentGroup.MembershipNotFound);
 
             studentGroup.IsDeleted = true;
             studentGroup.IsActive = false;
             studentGroup.LeaveDate = DateTime.UtcNow;
             studentGroup.UpdatedAt = DateTimeOffset.UtcNow;
-            
+
             context.StudentGroups.Update(studentGroup);
             var result = await context.SaveChangesAsync();
 
             return result > 0
-                ? new Response<string>(HttpStatusCode.OK, "Студент успешно удален из группы")
-                : new Response<string>(HttpStatusCode.InternalServerError, "Не удалось удалить студента из группы");
+                ? new Response<string>(HttpStatusCode.OK, Messages.StudentGroup.Deleted)
+                : new Response<string>(HttpStatusCode.InternalServerError, Messages.StudentGroup.DeleteFailed);
         }
         catch (Exception ex)
         {
             return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
+
     #endregion
 
     #region GetStudentGroupByIdAsync
+
     public async Task<Response<GetStudentGroupDto>> GetStudentGroupByIdAsync(int id)
     {
         try
@@ -250,54 +232,11 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
                 .Include(sg => sg.Student)
                 .Include(sg => sg.Group)
                 .FirstOrDefaultAsync(sg => sg.Id == id && !sg.IsDeleted);
-            
+
             if (studentGroup == null)
-                return new Response<GetStudentGroupDto>(HttpStatusCode.NotFound, "Членство студента в группе не найдено");
-            
-            var studentGroupDiscount = await context.StudentGroupDiscounts
-                .FirstOrDefaultAsync(sd => sd.StudentId == studentGroup.StudentId && sd.GroupId == studentGroup.GroupId);
+                return new Response<GetStudentGroupDto>(HttpStatusCode.NotFound, Messages.StudentGroup.MembershipNotFound);
 
-            var now = DateTime.UtcNow;
-            var dto = new GetStudentGroupDto
-            {
-                Id = studentGroup.Id,
-                GroupId = studentGroup.GroupId,
-                GroupName = studentGroup.Group?.Name,
-                student = new StudentDTO()
-                {
-                    Id = studentGroup.Student!.Id,
-                    ImagePath = context.Users.Where(u => u.Id == studentGroup.Student.UserId).Select(u => u.ProfileImagePath).FirstOrDefault() ?? studentGroup.Student.ProfileImage,
-                    Age = studentGroup.Student.Age,
-                    FullName = studentGroup.Student.FullName,
-                    PhoneNumber = studentGroup.Student.PhoneNumber,
-                    JoinedDate = studentGroup.JoinDate,  
-                    PaymentStatus = await context.Payments.AnyAsync(p => !p.IsDeleted && p.StudentId == studentGroup.StudentId && p.GroupId == studentGroup.GroupId && p.Year == now.Year && p.Month == now.Month && (p.Status == PaymentStatus.Completed || p.Status == PaymentStatus.Paid)) ? PaymentStatus.Completed : PaymentStatus.Pending,
-                    Discount = studentGroupDiscount != null ? new GetStudentGroupDiscountDto 
-                    {
-                        Id = studentGroupDiscount.Id,
-                        StudentId = studentGroupDiscount.StudentId,
-                        GroupId = studentGroupDiscount.GroupId,
-                        DiscountAmount = studentGroupDiscount.DiscountAmount
-                    } : new GetStudentGroupDiscountDto()
-                },
-                IsActive = studentGroup.IsActive,
-                IsLeft = studentGroup.IsLeft,
-                LeftReason = studentGroup.LeftReason,
-                LeftDate = studentGroup.LeftDate,
-                JoinDate = studentGroup.JoinDate,
-                LeaveDate = studentGroup.LeaveDate
-            };
-
-            // Treat zero payable (full discount) as paid for current month/year
-            if (dto.student.PaymentStatus != PaymentStatus.Completed)
-            {
-                var preview = await discountService.PreviewAsync(dto.student.Id, dto.GroupId, now.Month, now.Year);
-                if (preview.Data?.PayableAmount == 0)
-                {
-                    dto.student.PaymentStatus = PaymentStatus.Completed;
-                }
-            }
-
+            var dto = await BuildStudentGroupDtoAsync(studentGroup, studentGroup.Group?.Name, DateTime.UtcNow);
             return new Response<GetStudentGroupDto>(dto);
         }
         catch (Exception ex)
@@ -305,76 +244,37 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
             return new Response<GetStudentGroupDto>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
+
     #endregion
 
     #region GetAllStudentGroupsAsync
+
     public async Task<Response<List<GetStudentGroupDto>>> GetAllStudentGroupsAsync()
     {
         try
         {
-            var now1 = DateTime.UtcNow;
             var studentGroups = await context.StudentGroups
                 .Include(sg => sg.Student)
                 .Include(sg => sg.Group)
                 .Where(sg => !sg.IsDeleted && !sg.IsLeft)
-                .Select(sg => new GetStudentGroupDto
-                {
-                    Id = sg.Id,
-                    GroupId = sg.GroupId,
-                    GroupName = sg.Group!.Name,
-                    student = new StudentDTO{
-                        Id = sg.Student!.Id,
-                        ImagePath = sg.Student.ProfileImage ?? context.Users.Where(u => u.Id == sg.Student.UserId).Select(u => u.ProfileImagePath).FirstOrDefault(),
-                        Age = sg.Student.Age,
-                        FullName = sg.Student.FullName,
-                        PhoneNumber = sg.Student.PhoneNumber,
-                        JoinedDate = sg.JoinDate,
-                        PaymentStatus = context.Payments.Any(p => !p.IsDeleted && p.StudentId == sg.StudentId && p.GroupId == sg.GroupId && p.Year == now1.Year && p.Month == now1.Month && (p.Status == PaymentStatus.Completed || p.Status == PaymentStatus.Paid)) ? PaymentStatus.Completed : PaymentStatus.Pending,
-                        Discount = context.StudentGroupDiscounts
-                                            .Where(sgd => sgd.StudentId == sg.Student.Id && sgd.GroupId == sg.GroupId)
-                                            .Select(sgd => new GetStudentGroupDiscountDto 
-                                            { 
-                                                Id = sgd.Id, 
-                                                StudentId = sgd.StudentId, 
-                                                GroupId = sgd.GroupId, 
-                                                DiscountAmount = sgd.DiscountAmount 
-                                            }).FirstOrDefault() ?? new GetStudentGroupDiscountDto()
-                    },
-                    IsActive = sg.IsActive,
-                    IsLeft = sg.IsLeft,
-                    LeftReason = sg.LeftReason,
-                    LeftDate = sg.LeftDate,
-                    JoinDate = sg.JoinDate,
-                    LeaveDate = sg.LeaveDate
-                })
                 .ToListAsync();
 
             if (!studentGroups.Any())
-                return new Response<List<GetStudentGroupDto>>(HttpStatusCode.NotFound, "Членства студентов в группах не найдены");
+                return new Response<List<GetStudentGroupDto>>(HttpStatusCode.NotFound, Messages.StudentGroup.NoMembershipsFound);
 
-            // Adjust statuses for full-discount (zero payable) cases
-            foreach (var item in studentGroups)
-            {
-                if (item.student.PaymentStatus != PaymentStatus.Completed)
-                {
-                    var preview = await discountService.PreviewAsync(item.student.Id, item.GroupId, now1.Month, now1.Year);
-                    if (preview.Data?.PayableAmount == 0)
-                    {
-                        item.student.PaymentStatus = PaymentStatus.Completed;
-                    }
-                }
-            }
-
-            return new Response<List<GetStudentGroupDto>>(studentGroups);
+            var dtos = await BuildStudentGroupDtosAsync(studentGroups, DateTime.UtcNow);
+            return new Response<List<GetStudentGroupDto>>(dtos);
         }
         catch (Exception ex)
         {
             return new Response<List<GetStudentGroupDto>>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
+
     #endregion
 
     #region GetStudentGroupsPaginated
+
     public async Task<PaginationResponse<List<GetStudentGroupDto>>> GetStudentGroupsPaginated(StudentGroupFilter filter)
     {
         try
@@ -382,252 +282,116 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
             var query = context.StudentGroups
                 .Include(sg => sg.Student)
                 .Include(sg => sg.Group)
-                .Where(sg => !sg.IsDeleted && !sg.IsLeft)
-                .AsQueryable();
+                .Where(sg => !sg.IsDeleted && !sg.IsLeft);
 
-            if (!string.IsNullOrEmpty(filter.Search))
+            if (!string.IsNullOrWhiteSpace(filter.Search))
             {
-                query = query.Where(sg => sg.Student!.FullName.Contains(filter.Search) ||
-                                        sg.Group!.Name.Contains(filter.Search));
+                query = query.Where(sg =>
+                    sg.Student!.FullName.Contains(filter.Search) ||
+                    sg.Group!.Name.Contains(filter.Search));
             }
 
             if (filter.StudentId.HasValue)
-            {
-                query = query.Where(sg => sg.StudentId == filter.StudentId);
-            }
+                query = query.Where(sg => sg.StudentId == filter.StudentId.Value);
 
             if (filter.GroupId.HasValue)
-            {
-                query = query.Where(sg => sg.GroupId == filter.GroupId);
-            }
+                query = query.Where(sg => sg.GroupId == filter.GroupId.Value);
 
             if (filter.IsActive.HasValue)
-            {
-                query = query.Where(sg => sg.IsActive == filter.IsActive);
-            }
+                query = query.Where(sg => sg.IsActive == filter.IsActive.Value);
 
             if (filter.JoinedDateFrom.HasValue)
-            {
-                query = query.Where(sg => sg.JoinDate >= filter.JoinedDateFrom);
-            }
+                query = query.Where(sg => sg.JoinDate >= filter.JoinedDateFrom.Value);
 
             if (filter.JoinedDateTo.HasValue)
-            {
-                query = query.Where(sg => sg.JoinDate <= filter.JoinedDateTo);
-            }
+                query = query.Where(sg => sg.JoinDate <= filter.JoinedDateTo.Value);
 
             var totalCount = await query.CountAsync();
-
-            var now2 = DateTime.UtcNow;
             var studentGroups = await query
                 .OrderByDescending(sg => sg.JoinDate)
                 .Skip((filter.PageNumber - 1) * filter.PageSize)
                 .Take(filter.PageSize)
-                .Select(sg => new GetStudentGroupDto
-                {
-                    Id = sg.Id,
-                    GroupId = sg.GroupId,
-                    GroupName = sg.Group!.Name,
-                    student = new StudentDTO
-                    {
-                        Id = sg.Student!.Id,
-                        ImagePath = sg.Student.ProfileImage ?? context.Users.Where(u => u.Id == sg.Student.UserId).Select(u => u.ProfileImagePath).FirstOrDefault(),
-                        Age = sg.Student.Age,
-                        FullName = sg.Student.FullName,
-                        PhoneNumber = sg.Student.PhoneNumber,
-                        JoinedDate = sg.JoinDate,
-                        PaymentStatus = context.Payments.Any(p => !p.IsDeleted && p.StudentId == sg.StudentId && p.GroupId == sg.GroupId && p.Year == now2.Year && p.Month == now2.Month && (p.Status == PaymentStatus.Completed || p.Status == PaymentStatus.Paid)) ? PaymentStatus.Completed : PaymentStatus.Pending,
-                        Discount = context.StudentGroupDiscounts
-                                            .Where(sgd => sgd.StudentId == sg.Student.Id && sgd.GroupId == sg.GroupId)
-                                            .Select(sgd => new GetStudentGroupDiscountDto 
-                                            { 
-                                                Id = sgd.Id, 
-                                                StudentId = sgd.StudentId, 
-                                                GroupId = sgd.GroupId, 
-                                                DiscountAmount = sgd.DiscountAmount 
-                                            }).FirstOrDefault() ?? new GetStudentGroupDiscountDto()
-                    },
-                    IsActive = sg.IsActive,
-                    IsLeft = sg.IsLeft,
-                    LeftReason = sg.LeftReason,
-                    LeftDate = sg.LeftDate,
-                    JoinDate = sg.JoinDate,
-                    LeaveDate = sg.LeaveDate
-                })
                 .ToListAsync();
 
-            // Adjust statuses for zero payable (full discount)
-            foreach (var item in studentGroups)
-            {
-                if (item.student.PaymentStatus != PaymentStatus.Completed)
-                {
-                    var preview = await discountService.PreviewAsync(item.student.Id, item.GroupId, now2.Month, now2.Year);
-                    if (preview.Data?.PayableAmount == 0)
-                    {
-                        item.student.PaymentStatus = PaymentStatus.Completed;
-                    }
-                }
-            }
+            var dtos = await BuildStudentGroupDtosAsync(studentGroups, DateTime.UtcNow);
 
             return new PaginationResponse<List<GetStudentGroupDto>>(
-                studentGroups,
+                dtos,
+                totalCount,
                 filter.PageNumber,
-                filter.PageSize,
-                totalCount
-            );
+                filter.PageSize);
         }
         catch (Exception ex)
         {
-            return new PaginationResponse<List<GetStudentGroupDto>>(
-                HttpStatusCode.InternalServerError,
-                ex.Message
-            );
+            return new PaginationResponse<List<GetStudentGroupDto>>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
+
     #endregion
 
     #region GetStudentGroupsByStudentAsync
+
     public async Task<Response<List<GetStudentGroupDto>>> GetStudentGroupsByStudentAsync(int studentId)
     {
         try
         {
-            var student = await context.Students
-                .FirstOrDefaultAsync(s => s.Id == studentId && !s.IsDeleted);
-            
+            var student = await context.Students.FirstOrDefaultAsync(s => s.Id == studentId && !s.IsDeleted);
             if (student == null)
-                return new Response<List<GetStudentGroupDto>>(HttpStatusCode.NotFound, "Студент не найден");
+                return new Response<List<GetStudentGroupDto>>(HttpStatusCode.NotFound, Messages.Student.NotFound);
 
-            var now2 = DateTime.UtcNow;
             var studentGroups = await context.StudentGroups
-                .Include(sg => sg.Group)
                 .Include(sg => sg.Student)
+                .Include(sg => sg.Group)
                 .Where(sg => sg.StudentId == studentId && !sg.IsDeleted && !sg.IsLeft)
-                .Select(sg => new GetStudentGroupDto
-                {
-                    Id = sg.Id,
-                    GroupId = sg.GroupId,
-                    GroupName = sg.Group!.Name,
-                    student = new StudentDTO()
-                    {
-                        Id = sg.Student!.Id,
-                        ImagePath = sg.Student.ProfileImage ?? context.Users.Where(u => u.Id == sg.Student.UserId).Select(u => u.ProfileImagePath).FirstOrDefault(),
-                        Age = sg.Student.Age,
-                        FullName = sg.Student.FullName,
-                        PhoneNumber = sg.Student.PhoneNumber,
-                        JoinedDate = sg.JoinDate,
-                        PaymentStatus = context.Payments.Any(p => !p.IsDeleted && p.StudentId == sg.StudentId && p.GroupId == sg.GroupId && p.Year == now2.Year && p.Month == now2.Month && (p.Status == PaymentStatus.Completed || p.Status == PaymentStatus.Paid)) ? PaymentStatus.Completed : PaymentStatus.Pending,
-                        Discount = context.StudentGroupDiscounts
-                                            .Where(sgd => sgd.StudentId == sg.Student.Id && sgd.GroupId == sg.GroupId)
-                                            .Select(sgd => new GetStudentGroupDiscountDto 
-                                            { 
-                                                Id = sgd.Id, 
-                                                StudentId = sgd.StudentId, 
-                                                GroupId = sgd.GroupId, 
-                                                DiscountAmount = sgd.DiscountAmount 
-                                            }).FirstOrDefault() ?? new GetStudentGroupDiscountDto()
-                    },
-                    IsActive = sg.IsActive,
-                    IsLeft = sg.IsLeft,
-                    LeftReason = sg.LeftReason,
-                    LeftDate = sg.LeftDate,
-                    JoinDate = sg.JoinDate,
-                    LeaveDate = sg.LeaveDate
-                })
                 .ToListAsync();
 
             if (!studentGroups.Any())
-                return new Response<List<GetStudentGroupDto>>(HttpStatusCode.NotFound, "Студент не назначен ни в одну группу");
+                return new Response<List<GetStudentGroupDto>>(HttpStatusCode.NotFound, Messages.StudentGroup.StudentNotInGroups);
 
-            // Adjust statuses for zero payable (full discount) for current month
-            foreach (var item in studentGroups)
-            {
-                if (item.student.PaymentStatus != PaymentStatus.Completed)
-                {
-                    var preview = await discountService.PreviewAsync(item.student.Id, item.GroupId, now2.Month, now2.Year);
-                    if (preview.Data?.PayableAmount == 0)
-                    {
-                        item.student.PaymentStatus = PaymentStatus.Completed;
-                    }
-                }
-            }
-
-            return new Response<List<GetStudentGroupDto>>(studentGroups);
+            var dtos = await BuildStudentGroupDtosAsync(studentGroups, DateTime.UtcNow);
+            return new Response<List<GetStudentGroupDto>>(dtos);
         }
         catch (Exception ex)
         {
             return new Response<List<GetStudentGroupDto>>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
+
     #endregion
 
     #region GetStudentGroupsByGroupAsync
+
     public async Task<Response<List<GetStudentGroupDto>>> GetStudentGroupsByGroupAsync(int groupId)
     {
         try
         {
-            var group = await context.Groups
-                .FirstOrDefaultAsync(g => g.Id == groupId && !g.IsDeleted);
-            
+            var group = await context.Groups.FirstOrDefaultAsync(g => g.Id == groupId && !g.IsDeleted);
             if (group == null)
-                return new Response<List<GetStudentGroupDto>>(HttpStatusCode.NotFound, "Группа не найдена");
+                return new Response<List<GetStudentGroupDto>>(HttpStatusCode.NotFound, Messages.Group.NotFound);
 
-            var now3 = DateTime.UtcNow;
             var studentGroups = await context.StudentGroups
                 .Include(sg => sg.Student)
                 .Where(sg => sg.GroupId == groupId && !sg.IsDeleted && !sg.IsLeft)
-                .Select(sg => new GetStudentGroupDto
-                {
-                    Id = sg.Id,
-                    GroupId = sg.GroupId,
-                    GroupName = group.Name,
-                    student = new StudentDTO()
-                    {
-                        Id = sg.Student!.Id,
-                        ImagePath = sg.Student.ProfileImage ?? context.Users.Where(u => u.Id == sg.Student.UserId).Select(u => u.ProfileImagePath).FirstOrDefault(),
-                        Age = sg.Student.Age,
-                        FullName = sg.Student.FullName,
-                        PhoneNumber = sg.Student.PhoneNumber,
-                        JoinedDate = sg.JoinDate,
-                        PaymentStatus = context.Payments.Any(p => !p.IsDeleted && p.StudentId == sg.StudentId && p.GroupId == sg.GroupId && p.Year == now3.Year && p.Month == now3.Month && (p.Status == PaymentStatus.Completed || p.Status == PaymentStatus.Paid)) ? PaymentStatus.Completed : PaymentStatus.Pending,
-                        Discount = context.StudentGroupDiscounts
-                                            .Where(sgd => sgd.StudentId == sg.Student.Id && sgd.GroupId == sg.GroupId)
-                                            .Select(sgd => new GetStudentGroupDiscountDto 
-                                            { 
-                                                Id = sgd.Id, 
-                                                StudentId = sgd.StudentId, 
-                                                GroupId = sgd.GroupId, 
-                                                DiscountAmount = sgd.DiscountAmount 
-                                            }).FirstOrDefault() ?? new GetStudentGroupDiscountDto()
-                    },
-                    IsActive = sg.IsActive,
-                    IsLeft = sg.IsLeft,
-                    LeftReason = sg.LeftReason,
-                    LeftDate = sg.LeftDate,
-                    JoinDate = sg.JoinDate,
-                    LeaveDate = sg.LeaveDate
-                })
                 .ToListAsync();
-            
-            // Adjust statuses for zero payable (full discount) for current month
-            foreach (var item in studentGroups)
+
+            if (!studentGroups.Any())
+                return new Response<List<GetStudentGroupDto>>(new List<GetStudentGroupDto>());
+
+            var dtos = new List<GetStudentGroupDto>();
+            var nowUtc = DateTime.UtcNow;
+            foreach (var studentGroup in studentGroups)
             {
-                if (item.student.PaymentStatus != PaymentStatus.Completed)
-                {
-                    var preview = await discountService.PreviewAsync(item.student.Id, item.GroupId, now3.Month, now3.Year);
-                    if (preview.Data?.PayableAmount == 0)
-                    {
-                        item.student.PaymentStatus = PaymentStatus.Completed;
-                    }
-                }
+                dtos.Add(await BuildStudentGroupDtoAsync(studentGroup, group.Name, nowUtc));
             }
 
-            return new Response<List<GetStudentGroupDto>>(studentGroups);
+            return new Response<List<GetStudentGroupDto>>(dtos);
         }
         catch (Exception ex)
         {
             return new Response<List<GetStudentGroupDto>>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
+
     #endregion
 
     #region AddMultipleStudentsToGroupAsync
@@ -1251,5 +1015,86 @@ public class StudentGroupService(DataContext context, IJournalService journalSer
             return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
+    #endregion
+
+    #region Helper Methods
+
+    private async Task<GetStudentGroupDto> BuildStudentGroupDtoAsync(StudentGroup studentGroup, string? groupName, DateTime nowUtc)
+    {
+        var dto = new GetStudentGroupDto
+        {
+            Id = studentGroup.Id,
+            GroupId = studentGroup.GroupId,
+            GroupName = groupName,
+            student = new StudentDTO
+            {
+                Id = studentGroup.Student!.Id,
+                ImagePath = studentGroup.Student.ProfileImage ?? await context.Users
+                    .Where(u => u.Id == studentGroup.Student.UserId)
+                    .Select(u => u.ProfileImagePath)
+                    .FirstOrDefaultAsync(),
+                Age = studentGroup.Student.Age,
+                FullName = studentGroup.Student.FullName,
+                PhoneNumber = studentGroup.Student.PhoneNumber,
+                JoinedDate = studentGroup.JoinDate,
+                PaymentStatus = await context.Payments.AnyAsync(p =>
+                    !p.IsDeleted &&
+                    p.StudentId == studentGroup.StudentId &&
+                    p.GroupId == studentGroup.GroupId &&
+                    p.Year == nowUtc.Year &&
+                    p.Month == nowUtc.Month &&
+                    (p.Status == PaymentStatus.Completed || p.Status == PaymentStatus.Paid))
+                    ? PaymentStatus.Completed
+                    : PaymentStatus.Pending,
+                Discount = await context.StudentGroupDiscounts
+                    .Where(sgd => sgd.StudentId == studentGroup.Student.Id && sgd.GroupId == studentGroup.GroupId && !sgd.IsDeleted)
+                    .Select(sgd => new GetStudentGroupDiscountDto
+                    {
+                        Id = sgd.Id,
+                        StudentId = sgd.StudentId,
+                        GroupId = sgd.GroupId,
+                        DiscountAmount = sgd.DiscountAmount
+                    })
+                    .FirstOrDefaultAsync() ?? new GetStudentGroupDiscountDto()
+            },
+            IsActive = studentGroup.IsActive,
+            IsLeft = studentGroup.IsLeft,
+            LeftReason = studentGroup.LeftReason,
+            LeftDate = studentGroup.LeftDate,
+            JoinDate = studentGroup.JoinDate,
+            LeaveDate = studentGroup.LeaveDate
+        };
+
+        if (dto.student.PaymentStatus != PaymentStatus.Completed)
+        {
+            var preview = await discountService.PreviewAsync(dto.student.Id, dto.GroupId, nowUtc.Month, nowUtc.Year);
+            if (preview.Data?.PayableAmount == 0)
+            {
+                dto.student.PaymentStatus = PaymentStatus.Completed;
+            }
+        }
+
+        return dto;
+    }
+
+    private async Task<List<GetStudentGroupDto>> BuildStudentGroupDtosAsync(List<StudentGroup> studentGroups, DateTime nowUtc)
+    {
+        var dtos = new List<GetStudentGroupDto>();
+        foreach (var studentGroup in studentGroups)
+        {
+            dtos.Add(await BuildStudentGroupDtoAsync(studentGroup, studentGroup.Group?.Name, nowUtc));
+        }
+        return dtos;
+    }
+
+    private async Task<Response<string>> AfterActivateChargeAsync(int studentId, int groupId)
+    {
+        await journalService.BackfillCurrentWeekForStudentAsync(groupId, studentId);
+        var now = DateTime.UtcNow;
+        await studentAccountService.ChargeForGroupAsync(studentId, groupId, now.Month, now.Year);
+        await studentAccountService.RecalculateStudentPaymentStatusAsync(studentId, now.Month, now.Year);
+        return new Response<string>(HttpStatusCode.OK, Messages.StudentGroup.Reactivated);
+    }
+
     #endregion
 }

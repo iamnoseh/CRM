@@ -10,18 +10,20 @@ using Domain.Filters;
 using Domain.Responses;
 using Infrastructure.Data;
 using Infrastructure.Interfaces;
-using Microsoft.EntityFrameworkCore;
+using Infrastructure.Constants;
 using Infrastructure.Helpers;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Http;
 
 namespace Infrastructure.Services;
 
 public class CenterService(DataContext context, string uploadPath, IHttpContextAccessor httpContextAccessor) : ICenterService
 {
-    private readonly string[] _allowedImageExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" };
-    private const long MaxImageSize = 50 * 1024 * 1024; 
+    private readonly string[] _allowedImageExtensions = { ".jpg", ".jpeg", ".png", ".gif" };
+    private const long MaxImageSize = 50 * 1024 * 1024;
 
     #region CreateCenterAsync
+
     public async Task<Response<string>> CreateCenterAsync(CreateCenterDto createCenterDto)
     {
         try
@@ -31,12 +33,10 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
             {
                 var fileExtension = Path.GetExtension(createCenterDto.ImageFile.FileName).ToLowerInvariant();
                 if (!_allowedImageExtensions.Contains(fileExtension))
-                    return new Response<string>(HttpStatusCode.BadRequest, 
-                        "Invalid image format. Allowed formats: .jpg, .jpeg, .png, .gif");
+                    return new Response<string>(HttpStatusCode.BadRequest, Messages.File.InvalidFileFormat);
 
                 if (createCenterDto.ImageFile.Length > MaxImageSize)
-                    return new Response<string>(HttpStatusCode.BadRequest, 
-                        "Image size must be less than 10MB");
+                    return new Response<string>(HttpStatusCode.BadRequest, Messages.File.FileTooLarge);
 
                 var uploadsFolder = Path.Combine(uploadPath, "uploads", "centers");
                 if (!Directory.Exists(uploadsFolder))
@@ -53,8 +53,6 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
                 imagePath = $"/uploads/centers/{uniqueFileName}";
             }
 
-            // Manager is assigned later (by SuperAdmin) after center creation
-
             var center = new Center
             {
                 Name = createCenterDto.Name,
@@ -64,8 +62,8 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
                 Email = createCenterDto.ContactEmail,
                 ManagerId = null,
                 Image = imagePath,
-                MonthlyIncome = 0, 
-                YearlyIncome = 0, 
+                MonthlyIncome = 0,
+                YearlyIncome = 0,
                 StudentCapacity = createCenterDto.StudentCapacity,
                 IsActive = createCenterDto.IsActive,
                 CreatedAt = DateTime.UtcNow,
@@ -75,39 +73,39 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
             await context.Centers.AddAsync(center);
             var result = await context.SaveChangesAsync();
 
-            return result > 0 
-                ? new Response<string>(HttpStatusCode.Created, "Center created successfully")
-                : new Response<string>(HttpStatusCode.BadRequest, "Failed to create center");
+            return result > 0
+                ? new Response<string>(HttpStatusCode.Created, Messages.Center.Created)
+                : new Response<string>(HttpStatusCode.BadRequest, Messages.Center.CreationError);
         }
         catch (Exception ex)
         {
-            return new Response<string>(HttpStatusCode.InternalServerError, $"An error occurred: {ex.Message}");
+            return new Response<string>(HttpStatusCode.InternalServerError, string.Format(Messages.Center.CreationError, ex.Message));
         }
     }
+
     #endregion
 
     #region UpdateCenterAsync
+
     public async Task<Response<string>> UpdateCenterAsync(int id, UpdateCenterDto updateCenterDto)
     {
         try
         {
             var center = await context.Centers.FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
             if (center == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Center not found");
+                return new Response<string>(HttpStatusCode.NotFound, Messages.Center.NotFound);
 
             string imagePath = center.Image;
-            
+
             if (updateCenterDto.ImageFile != null && updateCenterDto.ImageFile.Length > 0)
             {
                 var fileExtension = Path.GetExtension(updateCenterDto.ImageFile.FileName).ToLowerInvariant();
                 if (!_allowedImageExtensions.Contains(fileExtension))
-                    return new Response<string>(HttpStatusCode.BadRequest, 
-                        "Invalid image format. Allowed formats: .jpg, .jpeg, .png, .gif");
+                    return new Response<string>(HttpStatusCode.BadRequest, Messages.File.InvalidFileFormat);
 
                 if (updateCenterDto.ImageFile.Length > MaxImageSize)
-                    return new Response<string>(HttpStatusCode.BadRequest, 
-                        "Image size must be less than 50MB");
-                
+                    return new Response<string>(HttpStatusCode.BadRequest, Messages.File.FileTooLarge);
+
                 if (!string.IsNullOrEmpty(center.Image))
                 {
                     var oldImagePath = Path.Combine(uploadPath, center.Image.TrimStart('/'));
@@ -134,7 +132,7 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
             {
                 var manager = await context.Users.FirstOrDefaultAsync(u => u.Id == updateCenterDto.ManagerId.Value && !u.IsDeleted);
                 if (manager == null)
-                    return new Response<string>(HttpStatusCode.BadRequest, "Manager not found");
+                    return new Response<string>(HttpStatusCode.BadRequest, Messages.User.NotFound);
             }
 
             center.Name = updateCenterDto.Name;
@@ -151,94 +149,79 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
             context.Centers.Update(center);
             var result = await context.SaveChangesAsync();
 
-            return result > 0 
-                ? new Response<string>(HttpStatusCode.OK, "Center updated successfully")
-                : new Response<string>(HttpStatusCode.BadRequest, "Failed to update center");
+            return result > 0
+                ? new Response<string>(HttpStatusCode.OK, Messages.Center.Updated)
+                : new Response<string>(HttpStatusCode.BadRequest, Messages.Center.UpdateError);
         }
         catch (Exception ex)
         {
-            return new Response<string>(HttpStatusCode.InternalServerError, $"An error occurred: {ex.Message}");
+            return new Response<string>(HttpStatusCode.InternalServerError, string.Format(Messages.Center.UpdateError, ex.Message));
         }
     }
+
     #endregion
 
     #region DeleteCenterAsync
+
     public async Task<Response<string>> DeleteCenterAsync(int id)
     {
         try
         {
             var center = await context.Centers.FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
             if (center == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Center not found");
+                return new Response<string>(HttpStatusCode.NotFound, Messages.Center.NotFound);
 
             var hasStudents = await context.Students.AnyAsync(s => s.CenterId == id && !s.IsDeleted);
             var hasMentors = await context.Mentors.AnyAsync(m => m.CenterId == id && !m.IsDeleted);
             var hasCourses = await context.Courses.AnyAsync(c => c.CenterId == id && !c.IsDeleted);
-            
+
             if (hasStudents || hasMentors || hasCourses)
-                return new Response<string>(HttpStatusCode.BadRequest, 
-                    "Cannot delete center with active students, mentors or courses");
-            
+                return new Response<string>(HttpStatusCode.BadRequest, "Невозможно удалить центр с активными студентами, преподавателями или курсами");
+
             center.IsDeleted = true;
             center.UpdatedAt = DateTime.UtcNow;
-            
+
             context.Centers.Update(center);
             var result = await context.SaveChangesAsync();
 
-            return result > 0 
-                ? new Response<string>(HttpStatusCode.OK, "Center deleted successfully")
-                : new Response<string>(HttpStatusCode.BadRequest, "Failed to delete center");
+            return result > 0
+                ? new Response<string>(HttpStatusCode.OK, Messages.Center.Deleted)
+                : new Response<string>(HttpStatusCode.BadRequest, Messages.Center.DeleteError);
         }
         catch (Exception ex)
         {
-            return new Response<string>(HttpStatusCode.InternalServerError, $"An error occurred: {ex.Message}");
+            return new Response<string>(HttpStatusCode.InternalServerError, string.Format(Messages.Center.DeleteError, ex.Message));
         }
     }
+
     #endregion
 
     #region GetCenters
+
     public async Task<Response<List<GetCenterDto>>> GetCenters()
     {
         try
         {
             var centers = await context.Centers
                 .Where(c => !c.IsDeleted)
-                .Include(c => c.Manager) 
-                .Select(c => new GetCenterDto
-                {
-                    Id = c.Id,
-                    Name = c.Name,
-                    Address = c.Address,
-                    Description = c.Description,
-                    Image = c.Image,
-                    MonthlyIncome = c.MonthlyIncome,
-                    YearlyIncome = c.YearlyIncome,
-                    StudentCapacity = c.StudentCapacity,
-                    IsActive = c.IsActive,
-                    ContactEmail = c.Email,
-                    ContactPhone = c.ContactPhone,
-                    ManagerId = c.ManagerId,
-                    ManagerFullName = c.Manager != null ? c.Manager.FullName : null,
-                    TotalStudents = context.Students.Count(s => s.CenterId == c.Id && !s.IsDeleted),
-                    TotalMentors = context.Mentors.Count(m => m.CenterId == c.Id && !m.IsDeleted),
-                    TotalCourses = context.Courses.Count(co => co.CenterId == c.Id && !co.IsDeleted),
-                    CreatedAt = c.CreatedAt,
-                    UpdatedAt = c.UpdatedAt
-                })
+                .Include(c => c.Manager)
+                .Select(c => MapToCenterDto(c))
                 .ToListAsync();
 
             return centers.Any()
                 ? new Response<List<GetCenterDto>>(centers)
-                : new Response<List<GetCenterDto>>(HttpStatusCode.NotFound, "No centers found");
+                : new Response<List<GetCenterDto>>(HttpStatusCode.NotFound, Messages.Center.NotFound);
         }
         catch (Exception ex)
         {
-            return new Response<List<GetCenterDto>>(HttpStatusCode.InternalServerError, $"An error occurred: {ex.Message}");
+            return new Response<List<GetCenterDto>>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
+
     #endregion
 
     #region GetCenterByIdAsync
+
     public async Task<Response<GetCenterDto>> GetCenterByIdAsync(int id)
     {
         try
@@ -246,149 +229,94 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
             var center = await context.Centers
                 .Where(c => c.Id == id && !c.IsDeleted)
                 .Include(c => c.Manager)
-                .Select(c => new GetCenterDto
-                {
-                    Id = c.Id,
-                    Name = c.Name,
-                    Address = c.Address,
-                    Description = c.Description,
-                    Image = c.Image,
-                    MonthlyIncome = c.MonthlyIncome,
-                    YearlyIncome = c.YearlyIncome,
-                    StudentCapacity = c.StudentCapacity,
-                    IsActive = c.IsActive,
-                    ContactEmail = c.Email,
-                    ContactPhone = c.ContactPhone,
-                    ManagerId = c.ManagerId,
-                    ManagerFullName = c.Manager != null ? c.Manager.FullName : null,
-                    TotalStudents = context.Students.Count(s => s.CenterId == c.Id && !s.IsDeleted),
-                    TotalMentors = context.Mentors.Count(m => m.CenterId == c.Id && !m.IsDeleted),
-                    TotalCourses = context.Courses.Count(co => co.CenterId == c.Id && !co.IsDeleted),
-                    CreatedAt = c.CreatedAt,
-                    UpdatedAt = c.UpdatedAt
-                })
+                .Select(c => MapToCenterDto(c))
                 .FirstOrDefaultAsync();
 
             return center != null
                 ? new Response<GetCenterDto>(center)
-                : new Response<GetCenterDto>(HttpStatusCode.NotFound, "Center not found");
+                : new Response<GetCenterDto>(HttpStatusCode.NotFound, Messages.Center.NotFound);
         }
         catch (Exception ex)
         {
-            return new Response<GetCenterDto>(HttpStatusCode.InternalServerError, $"An error occurred: {ex.Message}");
+            return new Response<GetCenterDto>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
+
     #endregion
 
     #region GetCentersPaginated
+
     public async Task<PaginationResponse<List<GetCenterDto>>> GetCentersPaginated(CenterFilter filter)
     {
+        var query = context.Centers.Where(c => !c.IsDeleted).AsQueryable();
 
-            var query = context.Centers.Where(c => !c.IsDeleted).AsQueryable();
-            
-            if (!string.IsNullOrWhiteSpace(filter.Name))
-                query = query.Where(c => c.Name.ToLower().Contains(filter.Name.ToLower()));
+        if (!string.IsNullOrWhiteSpace(filter.Name))
+            query = query.Where(c => c.Name.ToLower().Contains(filter.Name.ToLower()));
 
-            if (filter.IsActive.HasValue)
-                query = query.Where(c => c.IsActive == filter.IsActive.Value);
-            if (filter.FromDate.HasValue)
-                query = query.Where(c => c.CreatedAt >= filter.FromDate.Value);
+        if (filter.IsActive.HasValue)
+            query = query.Where(c => c.IsActive == filter.IsActive.Value);
 
-            if (filter.ToDate.HasValue)
-                query = query.Where(c => c.CreatedAt <= filter.ToDate.Value);
-            var totalRecords = await query.CountAsync();
-            var skip = (filter.PageNumber - 1) * filter.PageSize;
-            var centers = await query
-                .OrderByDescending(c => c.CreatedAt) 
-                .Include(c => c.Manager)
-                .Skip(skip)
-                .Take(filter.PageSize)
-                .Select(c => new GetCenterDto
-                {
-                    Id = c.Id,
-                    Name = c.Name,
-                    Address = c.Address,
-                    Description = c.Description,
-                    Image = c.Image,
-                    MonthlyIncome = c.MonthlyIncome,
-                    YearlyIncome = c.YearlyIncome,
-                    StudentCapacity = c.StudentCapacity,
-                    IsActive = c.IsActive,
-                    ContactEmail = c.Email,
-                    ContactPhone = c.ContactPhone,
-                    ManagerId = c.ManagerId,
-                    ManagerFullName = c.Manager != null ? c.Manager.FullName : null,
-                    TotalStudents = context.Students.Count(s => s.CenterId == c.Id && !s.IsDeleted),
-                    TotalMentors = context.Mentors.Count(m => m.CenterId == c.Id && !m.IsDeleted),
-                    TotalCourses = context.Courses.Count(co => co.CenterId == c.Id && !co.IsDeleted),
-                    CreatedAt = c.CreatedAt,
-                    UpdatedAt = c.UpdatedAt
-                })
-                .ToListAsync();
+        if (filter.FromDate.HasValue)
+            query = query.Where(c => c.CreatedAt >= filter.FromDate.Value);
 
-            return new PaginationResponse<List<GetCenterDto>>(
-                centers,
-                totalRecords,
-                filter.PageNumber,
-                filter.PageSize);
+        if (filter.ToDate.HasValue)
+            query = query.Where(c => c.CreatedAt <= filter.ToDate.Value);
 
+        var totalRecords = await query.CountAsync();
+        var skip = (filter.PageNumber - 1) * filter.PageSize;
+
+        var centers = await query
+            .OrderByDescending(c => c.CreatedAt)
+            .Include(c => c.Manager)
+            .Skip(skip)
+            .Take(filter.PageSize)
+            .Select(c => MapToCenterDto(c))
+            .ToListAsync();
+
+        return new PaginationResponse<List<GetCenterDto>>(centers, totalRecords, filter.PageNumber, filter.PageSize);
     }
+
     #endregion
 
     #region GetCentersSimplePaginated
+
     public async Task<PaginationResponse<List<GetCenterSimpleDto>>> GetCentersSimplePaginated(int page, int pageSize)
     {
         try
         {
             var query = context.Centers.Where(c => !c.IsDeleted).AsQueryable();
-            
             var totalRecords = await query.CountAsync();
             var skip = (page - 1) * pageSize;
-            
+
             var centers = await query
                 .OrderBy(c => c.Name)
                 .Skip(skip)
                 .Take(pageSize)
-                .Select(c => new GetCenterSimpleDto
-                {
-                    Id = c.Id,
-                    Name = c.Name
-                })
+                .Select(c => DtoMappingHelper.MapToGetCenterSimpleDto(c))
                 .ToListAsync();
 
-            return new PaginationResponse<List<GetCenterSimpleDto>>(
-                centers,
-                totalRecords,
-                page,
-                pageSize);
+            return new PaginationResponse<List<GetCenterSimpleDto>>(centers, totalRecords, page, pageSize);
         }
-        catch (Exception ex)
+        catch
         {
-            return new PaginationResponse<List<GetCenterSimpleDto>>(
-                new List<GetCenterSimpleDto>(),
-                0,
-                page,
-                pageSize);
+            return new PaginationResponse<List<GetCenterSimpleDto>>(new List<GetCenterSimpleDto>(), 0, page, pageSize);
         }
     }
+
     #endregion
 
     #region GetCenterGroupsAsync
+
     public async Task<Response<List<GetCenterGroupsDto>>> GetCenterGroupsAsync(int centerId)
     {
-        var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
-        var user = httpContextAccessor.HttpContext?.User;
-        var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
-        bool isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
-        if (!isSuperAdmin && userCenterId != centerId)
-            return new Response<List<GetCenterGroupsDto>>(System.Net.HttpStatusCode.Forbidden, "Access denied to this center");
+        if (!HasAccessToCenter(centerId))
+            return new Response<List<GetCenterGroupsDto>>(HttpStatusCode.Forbidden, Messages.Common.AccessDenied);
+
         try
         {
-            var center = await context.Centers
-                .FirstOrDefaultAsync(c => c.Id == centerId && !c.IsDeleted);
-
+            var center = await context.Centers.FirstOrDefaultAsync(c => c.Id == centerId && !c.IsDeleted);
             if (center == null)
-                return new Response<List<GetCenterGroupsDto>>(HttpStatusCode.NotFound, "Center not found");
+                return new Response<List<GetCenterGroupsDto>>(HttpStatusCode.NotFound, Messages.Center.NotFound);
 
             var groups = await context.Groups
                 .Where(g => g.Course.CenterId == centerId && !g.IsDeleted)
@@ -401,7 +329,7 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
                 {
                     CenterId = centerId,
                     CenterName = center.Name,
-                    Groups = groups.Select(g => new GetGroupDto()
+                    Groups = groups.Select(g => new GetGroupDto
                     {
                         Id = g.Id,
                         Name = g.Name,
@@ -422,27 +350,24 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
         }
         catch (Exception ex)
         {
-            return new Response<List<GetCenterGroupsDto>>(HttpStatusCode.InternalServerError, $"An error occurred: {ex.Message}");
+            return new Response<List<GetCenterGroupsDto>>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
+
     #endregion
 
     #region GetCenterStudentsAsync
+
     public async Task<Response<List<GetCenterStudentsDto>>> GetCenterStudentsAsync(int centerId)
     {
-        var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
-        var user = httpContextAccessor.HttpContext?.User;
-        var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
-        bool isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
-        if (!isSuperAdmin && userCenterId != centerId)
-            return new Response<List<GetCenterStudentsDto>>(System.Net.HttpStatusCode.Forbidden, "Access denied to this center");
+        if (!HasAccessToCenter(centerId))
+            return new Response<List<GetCenterStudentsDto>>(HttpStatusCode.Forbidden, Messages.Common.AccessDenied);
+
         try
         {
-            var center = await context.Centers
-                .FirstOrDefaultAsync(c => c.Id == centerId && !c.IsDeleted);
-
+            var center = await context.Centers.FirstOrDefaultAsync(c => c.Id == centerId && !c.IsDeleted);
             if (center == null)
-                return new Response<List<GetCenterStudentsDto>>(HttpStatusCode.NotFound, "Center not found");
+                return new Response<List<GetCenterStudentsDto>>(HttpStatusCode.NotFound, Messages.Center.NotFound);
 
             var students = await context.Students
                 .Where(s => s.CenterId == centerId && !s.IsDeleted)
@@ -471,7 +396,7 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
                         CenterId = s.CenterId
                     }).ToList(),
                     TotalStudents = students.Count,
-                    ActiveStudents = students.Count(s => s.ActiveStatus == Domain.Enums.ActiveStatus.Active)
+                    ActiveStudents = students.Count(s => s.ActiveStatus == ActiveStatus.Active)
                 }
             };
 
@@ -479,27 +404,24 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
         }
         catch (Exception ex)
         {
-            return new Response<List<GetCenterStudentsDto>>(HttpStatusCode.InternalServerError, $"An error occurred: {ex.Message}");
+            return new Response<List<GetCenterStudentsDto>>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
+
     #endregion
 
     #region GetCenterMentorsAsync
+
     public async Task<Response<List<GetCenterMentorsDto>>> GetCenterMentorsAsync(int centerId)
     {
-        var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
-        var user = httpContextAccessor.HttpContext?.User;
-        var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
-        bool isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
-        if (!isSuperAdmin && userCenterId != centerId)
-            return new Response<List<GetCenterMentorsDto>>(System.Net.HttpStatusCode.Forbidden, "Access denied to this center");
+        if (!HasAccessToCenter(centerId))
+            return new Response<List<GetCenterMentorsDto>>(HttpStatusCode.Forbidden, Messages.Common.AccessDenied);
+
         try
         {
-            var center = await context.Centers
-                .FirstOrDefaultAsync(c => c.Id == centerId && !c.IsDeleted);
-
+            var center = await context.Centers.FirstOrDefaultAsync(c => c.Id == centerId && !c.IsDeleted);
             if (center == null)
-                return new Response<List<GetCenterMentorsDto>>(HttpStatusCode.NotFound, "Center not found");
+                return new Response<List<GetCenterMentorsDto>>(HttpStatusCode.NotFound, Messages.Center.NotFound);
 
             var mentors = await context.Mentors
                 .Where(m => m.CenterId == centerId && !m.IsDeleted)
@@ -537,27 +459,24 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
         }
         catch (Exception ex)
         {
-            return new Response<List<GetCenterMentorsDto>>(HttpStatusCode.InternalServerError, $"An error occurred: {ex.Message}");
+            return new Response<List<GetCenterMentorsDto>>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
+
     #endregion
 
     #region GetCenterCoursesAsync
+
     public async Task<Response<List<GetCenterCoursesDto>>> GetCenterCoursesAsync(int centerId)
     {
-        var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
-        var user = httpContextAccessor.HttpContext?.User;
-        var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
-        bool isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
-        if (!isSuperAdmin && userCenterId != centerId)
-            return new Response<List<GetCenterCoursesDto>>(System.Net.HttpStatusCode.Forbidden, "Access denied to this center");
+        if (!HasAccessToCenter(centerId))
+            return new Response<List<GetCenterCoursesDto>>(HttpStatusCode.Forbidden, Messages.Common.AccessDenied);
+
         try
         {
-            var center = await context.Centers
-                .FirstOrDefaultAsync(c => c.Id == centerId && !c.IsDeleted);
-
+            var center = await context.Centers.FirstOrDefaultAsync(c => c.Id == centerId && !c.IsDeleted);
             if (center == null)
-                return new Response<List<GetCenterCoursesDto>>(HttpStatusCode.NotFound, "Center not found");
+                return new Response<List<GetCenterCoursesDto>>(HttpStatusCode.NotFound, Messages.Center.NotFound);
 
             var courses = await context.Courses
                 .Where(c => c.CenterId == centerId && !c.IsDeleted)
@@ -569,21 +488,9 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
                 {
                     CenterId = centerId,
                     CenterName = center.Name,
-                    Courses = courses.Select(c => new GetCourseDto
-                    {
-                        Id = c.Id,
-                        CourseName = c.CourseName,
-                        Description = c.Description,
-                        DurationInMonth = c.DurationInMonth,
-                        ImagePath = c.ImagePath,
-                        Price = c.Price,
-                        Status = c.Status,
-                        CenterId = c.CenterId,
-                        CenterName = c.CourseName,
-                       
-                    }).ToList(),
+                    Courses = courses.Select(c => DtoMappingHelper.MapToGetCourseDto(c)).ToList(),
                     TotalCourses = courses.Count,
-                    ActiveCourses = courses.Count(c => c.Status == Domain.Enums.ActiveStatus.Active)
+                    ActiveCourses = courses.Count(c => c.Status == ActiveStatus.Active)
                 }
             };
 
@@ -591,20 +498,19 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
         }
         catch (Exception ex)
         {
-            return new Response<List<GetCenterCoursesDto>>(HttpStatusCode.InternalServerError, $"An error occurred: {ex.Message}");
+            return new Response<List<GetCenterCoursesDto>>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
+
     #endregion
 
     #region GetCenterCoursesWithStatsAsync
+
     public async Task<Response<List<GetCourseWithStatsDto>>> GetCenterCoursesWithStatsAsync(int centerId)
     {
-        var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
-        var user = httpContextAccessor.HttpContext?.User;
-        var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
-        bool isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
-        if (!isSuperAdmin && userCenterId != centerId)
-            return new Response<List<GetCourseWithStatsDto>>(System.Net.HttpStatusCode.Forbidden, "Access denied to this center");
+        if (!HasAccessToCenter(centerId))
+            return new Response<List<GetCourseWithStatsDto>>(HttpStatusCode.Forbidden, Messages.Common.AccessDenied);
+
         var courses = await context.Courses
             .Where(c => c.CenterId == centerId && !c.IsDeleted)
             .Select(c => new GetCourseWithStatsDto
@@ -616,157 +522,186 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
                 GroupCount = context.Groups.Count(g => g.CourseId == c.Id && !g.IsDeleted),
                 StudentCount = context.Groups
                     .Where(g => g.CourseId == c.Id && !g.IsDeleted)
-                    .SelectMany(g => g.StudentGroups.Where(sg => !sg.IsDeleted && (bool)sg.IsActive))
+                    .SelectMany(g => g.StudentGroups.Where(sg => !sg.IsDeleted && sg.IsActive))
                     .Select(sg => sg.StudentId)
                     .Distinct()
                     .Count()
             })
             .ToListAsync();
+
         return new Response<List<GetCourseWithStatsDto>>(courses);
     }
+
     #endregion
 
     #region GetCenterStatisticsAsync
+
     public async Task<Response<CenterStatisticsDto>> GetCenterStatisticsAsync(int centerId)
     {
-        var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
-        var user = httpContextAccessor.HttpContext?.User;
-        var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
-        bool isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
-        if (!isSuperAdmin && userCenterId != centerId)
-            return new Response<CenterStatisticsDto>(System.Net.HttpStatusCode.Forbidden, "Access denied to this center");
+        if (!HasAccessToCenter(centerId))
+            return new Response<CenterStatisticsDto>(HttpStatusCode.Forbidden, Messages.Common.AccessDenied);
+
         try
         {
-            var center = await context.Centers
-                .FirstOrDefaultAsync(c => c.Id == centerId && !c.IsDeleted);
-
+            var center = await context.Centers.FirstOrDefaultAsync(c => c.Id == centerId && !c.IsDeleted);
             if (center == null)
-                return new Response<CenterStatisticsDto>(HttpStatusCode.NotFound, "Center not found");
-
-            var totalStudents = await context.Students.CountAsync(s => s.CenterId == centerId && !s.IsDeleted);
-            var totalMentors = await context.Mentors.CountAsync(m => m.CenterId == centerId && !m.IsDeleted);
-            var totalCourses = await context.Courses.CountAsync(c => c.CenterId == centerId && !c.IsDeleted);
-            var activeStudents = await context.Students.CountAsync(s => s.CenterId == centerId && !s.IsDeleted && s.ActiveStatus == Domain.Enums.ActiveStatus.Active);
-            var activeMentors = await context.Mentors.CountAsync(m => m.CenterId == centerId && !m.IsDeleted && m.ActiveStatus == Domain.Enums.ActiveStatus.Active);
-            var activeCourses = await context.Courses.CountAsync(c => c.CenterId == centerId && !c.IsDeleted && c.Status == Domain.Enums.ActiveStatus.Active);
+                return new Response<CenterStatisticsDto>(HttpStatusCode.NotFound, Messages.Center.NotFound);
 
             var result = new CenterStatisticsDto
             {
                 CenterId = centerId,
                 CenterName = center.Name,
-                TotalStudents = totalStudents,
-                TotalMentors = totalMentors,
-                TotalCourses = totalCourses,
-                ActiveStudents = activeStudents,
-                ActiveMentors = activeMentors,
-                ActiveCourses = activeCourses,
+                TotalStudents = await context.Students.CountAsync(s => s.CenterId == centerId && !s.IsDeleted),
+                TotalMentors = await context.Mentors.CountAsync(m => m.CenterId == centerId && !m.IsDeleted),
+                TotalCourses = await context.Courses.CountAsync(c => c.CenterId == centerId && !c.IsDeleted),
+                ActiveStudents = await context.Students.CountAsync(s => s.CenterId == centerId && !s.IsDeleted && s.ActiveStatus == ActiveStatus.Active),
+                ActiveMentors = await context.Mentors.CountAsync(m => m.CenterId == centerId && !m.IsDeleted && m.ActiveStatus == ActiveStatus.Active),
+                ActiveCourses = await context.Courses.CountAsync(c => c.CenterId == centerId && !c.IsDeleted && c.Status == ActiveStatus.Active),
             };
 
             return new Response<CenterStatisticsDto>(result);
         }
         catch (Exception ex)
         {
-            return new Response<CenterStatisticsDto>(HttpStatusCode.InternalServerError, $"An error occurred: {ex.Message}");
+            return new Response<CenterStatisticsDto>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
+
     #endregion
 
-    #region CalculateCenterIncome
+    #region CalculateCenterIncomeAsync
+
     public async Task<Response<string>> CalculateCenterIncomeAsync(int centerId)
     {
-        var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
-        var user = httpContextAccessor.HttpContext?.User;
-        var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
-        bool isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
-        if (!isSuperAdmin && userCenterId != centerId)
-            return new Response<string>(System.Net.HttpStatusCode.Forbidden, "Access denied to this center");
+        if (!HasAccessToCenter(centerId))
+            return new Response<string>(HttpStatusCode.Forbidden, Messages.Common.AccessDenied);
+
         try
         {
             var center = await context.Centers.FirstOrDefaultAsync(c => c.Id == centerId && !c.IsDeleted);
             if (center == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Center not found");
-            
-            // Текущий месяц и год
+                return new Response<string>(HttpStatusCode.NotFound, Messages.Center.NotFound);
+
             var currentMonth = DateTime.UtcNow.Month;
             var currentYear = DateTime.UtcNow.Year;
-            
-            // Расчет месячного дохода (текущий месяц)
+
             var monthlyIncome = await context.Payments
-                .Where(p => p.CenterId == centerId && 
-                            p.Month == currentMonth && 
+                .Where(p => p.CenterId == centerId &&
+                            p.Month == currentMonth &&
                             p.Year == currentYear &&
-                            p.Status == Domain.Enums.PaymentStatus.Paid && 
+                            p.Status == PaymentStatus.Paid &&
                             !p.IsDeleted)
                 .SumAsync(p => p.Amount);
-            
-            // Расчет годового дохода (за последние 12 месяцев)
-            // Определяем диапазон последних 12 месяцев
+
             var startDate = DateTime.UtcNow.AddMonths(-11);
             var startMonth = startDate.Month;
             var startYear = startDate.Year;
-            
+
             var yearlyIncome = await context.Payments
-                .Where(p => p.CenterId == centerId && 
-                          p.Status == Domain.Enums.PaymentStatus.Paid && 
+                .Where(p => p.CenterId == centerId &&
+                          p.Status == PaymentStatus.Paid &&
                           !p.IsDeleted &&
-                          ((p.Year == startYear && p.Month >= startMonth) || 
+                          ((p.Year == startYear && p.Month >= startMonth) ||
                            (p.Year == currentYear && p.Month <= currentMonth) ||
                            (p.Year > startYear && p.Year < currentYear)))
                 .SumAsync(p => p.Amount);
-            
-            // Обновляем данные центра
+
             center.MonthlyIncome = monthlyIncome;
             center.YearlyIncome = yearlyIncome;
             center.UpdatedAt = DateTime.UtcNow;
-            
+
             await context.SaveChangesAsync();
-            
-            return new Response<string>(HttpStatusCode.OK, $"Center income updated: Monthly: {monthlyIncome}, Yearly: {yearlyIncome}");
+
+            return new Response<string>(HttpStatusCode.OK, $"Доход центра обновлен: Месяц: {monthlyIncome}, Год: {yearlyIncome}");
         }
         catch (Exception ex)
         {
-            return new Response<string>(HttpStatusCode.InternalServerError, $"An error occurred: {ex.Message}");
+            return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
+
     #endregion
-    
-    #region CalculateAllCentersIncome
+
+    #region CalculateAllCentersIncomeAsync
+
     public async Task<Response<string>> CalculateAllCentersIncomeAsync()
     {
-        var user = httpContextAccessor.HttpContext?.User;
-        var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
-        bool isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
-        if (!isSuperAdmin)
-            return new Response<string>(System.Net.HttpStatusCode.Forbidden, "Only SuperAdmin can access all centers' income");
+        if (!IsSuperAdmin())
+            return new Response<string>(HttpStatusCode.Forbidden, "Только SuperAdmin может рассчитать доход всех центров");
+
         try
         {
             var centers = await context.Centers.Where(c => !c.IsDeleted).ToListAsync();
-            
             if (!centers.Any())
-                return new Response<string>(HttpStatusCode.NotFound, "No centers found");
-            
+                return new Response<string>(HttpStatusCode.NotFound, Messages.Center.NotFound);
+
             int successCount = 0;
-            List<string> errors = new List<string>();
-            
+            var errors = new List<string>();
+
             foreach (var center in centers)
             {
                 var result = await CalculateCenterIncomeAsync(center.Id);
-                if (result.StatusCode ==(int) HttpStatusCode.OK)
+                if (result.StatusCode == (int)HttpStatusCode.OK)
                     successCount++;
                 else
-                    errors.Add($"Center {center.Id}: {result.Message}");
+                    errors.Add($"Центр {center.Id}: {result.Message}");
             }
-            
+
             if (errors.Any())
-                return new Response<string>(HttpStatusCode.PartialContent, 
-                    $"Updated {successCount} centers. Errors: {string.Join("; ", errors)}");
-            
-            return new Response<string>(HttpStatusCode.OK, $"Successfully updated income for all {successCount} centers");
+                return new Response<string>(HttpStatusCode.PartialContent,
+                    $"Обновлено {successCount} центров. Ошибки: {string.Join("; ", errors)}");
+
+            return new Response<string>(HttpStatusCode.OK, $"Успешно обновлен доход для всех {successCount} центров");
         }
         catch (Exception ex)
         {
-            return new Response<string>(HttpStatusCode.InternalServerError, $"An error occurred: {ex.Message}");
+            return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
+
+    #endregion
+
+    #region Private Methods
+
+    private bool HasAccessToCenter(int centerId)
+    {
+        var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+        return IsSuperAdmin() || userCenterId == centerId;
+    }
+
+    private bool IsSuperAdmin()
+    {
+        var roles = httpContextAccessor.HttpContext?.User.Claims
+            .Where(c => c.Type == System.Security.Claims.ClaimTypes.Role)
+            .Select(c => c.Value)
+            .ToList();
+        return roles != null && roles.Contains("SuperAdmin");
+    }
+
+    private GetCenterDto MapToCenterDto(Center c)
+    {
+        return new GetCenterDto
+        {
+            Id = c.Id,
+            Name = c.Name,
+            Address = c.Address,
+            Description = c.Description,
+            Image = c.Image,
+            MonthlyIncome = c.MonthlyIncome,
+            YearlyIncome = c.YearlyIncome,
+            StudentCapacity = c.StudentCapacity,
+            IsActive = c.IsActive,
+            ContactEmail = c.Email,
+            ContactPhone = c.ContactPhone,
+            ManagerId = c.ManagerId,
+            ManagerFullName = c.Manager != null ? c.Manager.FullName : null,
+            TotalStudents = context.Students.Count(s => s.CenterId == c.Id && !s.IsDeleted),
+            TotalMentors = context.Mentors.Count(m => m.CenterId == c.Id && !m.IsDeleted),
+            TotalCourses = context.Courses.Count(co => co.CenterId == c.Id && !co.IsDeleted),
+            CreatedAt = c.CreatedAt,
+            UpdatedAt = c.UpdatedAt
+        };
+    }
+
     #endregion
 }

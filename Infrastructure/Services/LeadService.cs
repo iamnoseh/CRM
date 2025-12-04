@@ -5,6 +5,7 @@ using Domain.Filters;
 using Domain.Responses;
 using Infrastructure.Data;
 using Infrastructure.Helpers;
+using Infrastructure.Constants;
 using Infrastructure.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -15,14 +16,15 @@ public class LeadService(
     DataContext context,
     IHttpContextAccessor httpContextAccessor) : ILeadService
 {
+    #region CreateLead
+
     public async Task<Response<string>> CreateLead(CreateLeadDto request)
     {
         try
         {
             var centerId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
             if (centerId == null)
-                return new Response<string>(HttpStatusCode.BadRequest, "ID-и марказ дар токен ёфт нашуд");
-            
+                return new Response<string>(HttpStatusCode.BadRequest, Messages.Group.CenterIdNotFound);
 
             var lead = new Lead
             {
@@ -34,8 +36,8 @@ public class LeadService(
                 RegisterForMonth = request.RegisterForMonth,
                 Course = request.Course ?? string.Empty,
                 LessonTime = request.LessonTime,
-                Notes = request.Notes ?? string.Empty,
-                UtmSource = request.UtmSource ?? string.Empty,
+                Notes = request.Notes,
+                UtmSource = request.UtmSource,
                 CenterId = centerId.Value,
                 CreatedAt = DateTimeOffset.UtcNow,
                 UpdatedAt = DateTimeOffset.UtcNow,
@@ -45,15 +47,17 @@ public class LeadService(
             context.Leads.Add(lead);
             await context.SaveChangesAsync();
 
-            return new Response<string>(HttpStatusCode.Created, "Лид бомуваффақият эҷод шуд");
+            return new Response<string>(HttpStatusCode.Created, Messages.Common.Success);
         }
-        catch (Exception ex)
+        catch
         {
-            return new Response<string>(HttpStatusCode.InternalServerError, $"Хатогии эҷоди лид: {ex.Message}");
+            return new Response<string>(HttpStatusCode.InternalServerError, string.Format(Messages.Common.InternalError));
         }
     }
+    #endregion
 
-   
+    #region UpdateLead
+
     public async Task<Response<string>> UpdateLead(UpdateLeadDto request)
     {
         try
@@ -62,8 +66,7 @@ public class LeadService(
                 .FirstOrDefaultAsync(l => l.Id == request.Id && !l.IsDeleted);
 
             if (lead == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Лид ёфт нашуд");
-            
+                return new Response<string>(HttpStatusCode.NotFound, Messages.Common.NotFound);
 
             lead.FullName = request.FullName ?? lead.FullName;
             lead.PhoneNumber = request.PhoneNumber ?? lead.PhoneNumber;
@@ -72,19 +75,23 @@ public class LeadService(
             lead.OccupationStatus = request.OccupationStatus != default ? request.OccupationStatus : lead.OccupationStatus;
             lead.RegisterForMonth = request.RegisterForMonth ?? lead.RegisterForMonth;
             lead.Course = request.Course ?? lead.Course;
-            lead.LessonTime = request.LessonTime != default ? request.LessonTime : lead.LessonTime;
+            lead.LessonTime = request.LessonTime != TimeSpan.Zero ? request.LessonTime : lead.LessonTime;
             lead.Notes = request.Notes ?? lead.Notes;
             lead.UpdatedAt = DateTimeOffset.UtcNow;
 
             await context.SaveChangesAsync();
 
-            return new Response<string>(HttpStatusCode.OK, "Лид бомуваффақият навсозӣ шуд");
+            return new Response<string>(HttpStatusCode.OK, Messages.Common.Success);
         }
         catch (Exception ex)
         {
-            return new Response<string>(HttpStatusCode.InternalServerError, $"Хатогии навсозии лид: {ex.Message}");
+            return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
+
+    #endregion
+
+    #region DeleteLead
 
     public async Task<Response<string>> DeleteLead(int id)
     {
@@ -94,21 +101,25 @@ public class LeadService(
                 .FirstOrDefaultAsync(l => l.Id == id && !l.IsDeleted);
 
             if (lead == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Лид ёфт нашуд");
+                return new Response<string>(HttpStatusCode.NotFound, Messages.Common.NotFound);
 
             lead.IsDeleted = true;
             lead.UpdatedAt = DateTimeOffset.UtcNow;
 
             await context.SaveChangesAsync();
 
-            return new Response<string>(HttpStatusCode.OK, "Лид бомуваффақият нест карда шуд");
+            return new Response<string>(HttpStatusCode.OK, Messages.Common.Success);
         }
         catch (Exception ex)
         {
-            return new Response<string>(HttpStatusCode.InternalServerError, $"Хатогии нест кардани лид: {ex.Message}");
+            return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
-    
+
+    #endregion
+
+    #region GetLeads
+
     public async Task<PaginationResponse<List<GetLeadDto>>> GetLeads(LeadFilter filter)
     {
         try
@@ -116,7 +127,7 @@ public class LeadService(
             var centerId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
             if (centerId == null)
                 return new PaginationResponse<List<GetLeadDto>>(HttpStatusCode.BadRequest,
-                    "ID-и марказ дар токен ёфт нашуд");
+                    Messages.Group.CenterIdNotFound);
 
             var leadsQuery = context.Leads
                 .Include(l => l.Center)
@@ -135,12 +146,12 @@ public class LeadService(
                 leadsQuery = leadsQuery.Where(l => l.OccupationStatus == filter.OccupationStatus.Value);
 
             if (filter.RegisterForMonth.HasValue)
-                leadsQuery = leadsQuery.Where(l => l.RegisterForMonth.HasValue && 
+                leadsQuery = leadsQuery.Where(l => l.RegisterForMonth.HasValue &&
                                        l.RegisterForMonth.Value.Month == filter.RegisterForMonth.Value.Month &&
                                        l.RegisterForMonth.Value.Year == filter.RegisterForMonth.Value.Year);
 
             if (!string.IsNullOrEmpty(filter.Course))
-                leadsQuery = leadsQuery.Where(l => EF.Functions.ILike(l.Course, $"%{filter.Course}%"));
+                leadsQuery = leadsQuery.Where(l => EF.Functions.ILike(l.Course!, $"%{filter.Course}%"));
 
             if (!string.IsNullOrEmpty(filter.UtmSource))
                 leadsQuery = leadsQuery.Where(l => EF.Functions.ILike(l.UtmSource, $"%{filter.UtmSource}%"));
@@ -167,7 +178,7 @@ public class LeadService(
                     Gender = l.Gender,
                     OccupationStatus = l.OccupationStatus,
                     RegisterForMonth = l.RegisterForMonth,
-                    Course = l.Course,
+                    Course = l.Course!,
                     LessonTime = l.LessonTime,
                     Notes = l.Notes,
                     UtmSource = l.UtmSource,
@@ -179,7 +190,7 @@ public class LeadService(
                 .ToListAsync();
 
             if (leads.Count == 0)
-                return new PaginationResponse<List<GetLeadDto>>(HttpStatusCode.NotFound, "Лидҳо ёфт нашуданд");
+                return new PaginationResponse<List<GetLeadDto>>(HttpStatusCode.NotFound, Messages.Common.NotFound);
 
             return new PaginationResponse<List<GetLeadDto>>(
                 leads,
@@ -190,17 +201,21 @@ public class LeadService(
         }
         catch (Exception ex)
         {
-            return new PaginationResponse<List<GetLeadDto>>(HttpStatusCode.InternalServerError, $"Хатогии гирифтани лидҳо: {ex.Message}");
+            return new PaginationResponse<List<GetLeadDto>>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
-    
+
+    #endregion
+
+    #region GetLead
+
     public async Task<Response<GetLeadDto>> GetLead(int id)
     {
         try
         {
             var centerId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
             if (centerId == null)
-                return new Response<GetLeadDto>(HttpStatusCode.BadRequest, "ID-и марказ дар токен ёфт нашуд");
+                return new Response<GetLeadDto>(HttpStatusCode.BadRequest, Messages.Group.CenterIdNotFound);
 
             var lead = await context.Leads
                 .Include(l => l.Center)
@@ -214,7 +229,7 @@ public class LeadService(
                     Gender = l.Gender,
                     OccupationStatus = l.OccupationStatus,
                     RegisterForMonth = l.RegisterForMonth,
-                    Course = l.Course,
+                    Course = l.Course!,
                     LessonTime = l.LessonTime,
                     Notes = l.Notes,
                     UtmSource = l.UtmSource,
@@ -226,15 +241,15 @@ public class LeadService(
                 .FirstOrDefaultAsync();
 
             if (lead == null)
-                return new Response<GetLeadDto>(HttpStatusCode.NotFound, "Лид ёфт нашуд");
+                return new Response<GetLeadDto>(HttpStatusCode.NotFound, Messages.Common.NotFound);
 
             return new Response<GetLeadDto>(lead);
         }
         catch (Exception ex)
         {
-            return new Response<GetLeadDto>(HttpStatusCode.InternalServerError, $"Хатогии гирифтани лид: {ex.Message}");
+            return new Response<GetLeadDto>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
 
-
+    #endregion
 }
