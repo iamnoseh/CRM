@@ -39,7 +39,6 @@ public static class Register
         services.AddScoped<Infrastructure.Services.HangfireBackgroundTaskService>();
         
         services.AddScoped<Infrastructure.BackgroundTasks.GroupExpirationService>();
-        services.AddScoped<Infrastructure.BackgroundTasks.StudentStatusUpdaterService>();
         services.AddScoped<Infrastructure.BackgroundTasks.WeeklyJournalSchedulerService>();
         services.AddScoped<Infrastructure.BackgroundTasks.MonthlyFinanceAggregatorService>();
         services.AddScoped<Infrastructure.BackgroundTasks.DailyAutoChargeService>();

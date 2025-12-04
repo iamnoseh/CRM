@@ -48,6 +48,14 @@ public class StudentAccountsController(IStudentAccountService service) : Control
         return StatusCode(res.StatusCode, res);
     }
 
+    [HttpPost("withdraw")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
+    public async Task<ActionResult<Response<GetStudentAccountDto>>> Withdraw([FromBody] WithdrawDto dto)
+    {
+        var res = await service.WithdrawAsync(dto);
+        return StatusCode(res.StatusCode, res);
+    }
+
     [HttpPost("monthly-charge-run")]
     [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<ActionResult<Response<int>>> MonthlyChargeRun([FromQuery] int month, [FromQuery] int year)
@@ -64,6 +72,17 @@ public class StudentAccountsController(IStudentAccountService service) : Control
         var m = month ?? now.Month;
         var y = year ?? now.Year;
         var res = await service.RunMonthlyChargeForGroupAsync(groupId, m, y);
+        return StatusCode(res.StatusCode, res);
+    }
+
+    [HttpPost("manual-charge")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
+    public async Task<ActionResult<Response<string>>> ManualChargeForStudentGroup([FromQuery] int studentId, [FromQuery] int groupId, [FromQuery] int? month = null, [FromQuery] int? year = null)
+    {
+        var now = DateTime.UtcNow;
+        var m = month ?? now.Month;
+        var y = year ?? now.Year;
+        var res = await service.ChargeForGroupAsync(studentId, groupId, m, y);
         return StatusCode(res.StatusCode, res);
     }
 }

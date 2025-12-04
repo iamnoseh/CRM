@@ -11,14 +11,6 @@ namespace WebApp.Controllers;
 [Route("api/[controller]")]
 public class AccountController(IAccountService service) : ControllerBase
 {
-    [HttpPost("register")]
-    [AllowAnonymous]
-    public async Task<IActionResult> Register([FromForm] RegisterDto request)
-    {
-        var response = await service.Register(request);
-        return StatusCode(response.StatusCode, response);
-    }
-
     [HttpPost("login")]
     [AllowAnonymous]
     public async Task<IActionResult> Login(LoginDto request)
@@ -51,11 +43,19 @@ public class AccountController(IAccountService service) : ControllerBase
         return StatusCode(response.StatusCode, response);
     }
 
-    [HttpPost("forgot-password")]
+    [HttpPost("send-otp")]
     [AllowAnonymous]
-    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto forgotPasswordDto)
+    public async Task<IActionResult> SendOtp([FromBody] SendOtpDto sendOtpDto)
     {
-        var response = await service.ForgotPasswordCodeGenerator(forgotPasswordDto);
+        var response = await service.SendOtp(sendOtpDto);
+        return StatusCode(response.StatusCode, response);
+    }
+
+    [HttpPost("verify-otp")]
+    [AllowAnonymous]
+    public async Task<IActionResult> VerifyOtp([FromBody] VerifyOtpDto verifyOtpDto)
+    {
+        var response = await service.VerifyOtp(verifyOtpDto);
         return StatusCode(response.StatusCode, response);
     }
 
@@ -63,7 +63,7 @@ public class AccountController(IAccountService service) : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto resetPasswordDto)
     {
-        var response = await service.ResetPassword(resetPasswordDto);
+        var response = await service.ResetPasswordWithOtp(resetPasswordDto);
         return StatusCode(response.StatusCode, response);
     }
 }

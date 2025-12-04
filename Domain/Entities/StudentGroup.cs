@@ -13,4 +13,6 @@ public class StudentGroup : BaseEntity
     public DateTime? LeftDate { get; set; }
     public DateTime JoinDate { get; set; } = DateTime.UtcNow;
     public DateTime? LeaveDate { get; set; }
+    
+    public DateTime? LastPaymentReminderSentDate { get; set; }
 }
