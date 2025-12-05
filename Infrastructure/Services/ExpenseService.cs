@@ -14,11 +14,9 @@ using System.Net;
 
 namespace Infrastructure.Services;
 
-public class ExpenseService(DataContext dbContext, IHttpContextAccessor httpContextAccessor) : IExpenseService
+public class ExpenseService(DataContext dbContext,
+    IHttpContextAccessor httpContextAccessor) : IExpenseService
 {
-    private readonly DataContext _dbContext = dbContext;
-    private readonly IHttpContextAccessor _httpContextAccessor = httpContextAccessor;
-
     #region CreateAsync
 
     public async Task<Response<GetExpenseDto>> CreateAsync(CreateExpenseDto dto)
@@ -28,16 +26,16 @@ public class ExpenseService(DataContext dbContext, IHttpContextAccessor httpCont
             if (dto.Amount <= 0)
                 return new Response<GetExpenseDto>(HttpStatusCode.BadRequest, Messages.Finance.InvalidAmount);
 
-            var userCenterId = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
+            var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
             var effectiveCenterId = userCenterId ?? dto.CenterId;
 
-            var centerExists = await _dbContext.Centers.AnyAsync(c => c.Id == effectiveCenterId);
+            var centerExists = await dbContext.Centers.AnyAsync(c => c.Id == effectiveCenterId);
             if (!centerExists)
                 return new Response<GetExpenseDto>(HttpStatusCode.NotFound, Messages.Center.NotFound);
 
             if (dto.Category == ExpenseCategory.Salary && dto.MentorId is not null)
             {
-                var mentorExists = await _dbContext.Mentors.AnyAsync(m => m.Id == dto.MentorId && m.CenterId == effectiveCenterId);
+                var mentorExists = await dbContext.Mentors.AnyAsync(m => m.Id == dto.MentorId && m.CenterId == effectiveCenterId);
                 if (!mentorExists)
                     return new Response<GetExpenseDto>(HttpStatusCode.NotFound, Messages.Mentor.NotFound);
             }
@@ -45,7 +43,7 @@ public class ExpenseService(DataContext dbContext, IHttpContextAccessor httpCont
             var month = dto.Month ?? dto.ExpenseDate.Month;
             var year = dto.Year ?? dto.ExpenseDate.Year;
 
-            var financeService = new FinanceService(_dbContext, _httpContextAccessor);
+            var financeService = new FinanceService(dbContext, httpContextAccessor);
             if (await financeService.IsMonthClosedAsync(effectiveCenterId, year, month))
                 return new Response<GetExpenseDto>(HttpStatusCode.BadRequest, "Этот месяц закрыт, создание расходов запрещено");
 
@@ -64,10 +62,10 @@ public class ExpenseService(DataContext dbContext, IHttpContextAccessor httpCont
                 UpdatedAt = DateTimeOffset.UtcNow
             };
 
-            _dbContext.Expenses.Add(entity);
-            await _dbContext.SaveChangesAsync();
+            dbContext.Expenses.Add(entity);
+            await dbContext.SaveChangesAsync();
 
-            var user = _httpContextAccessor.HttpContext?.User?.Identity?.Name ?? "anonymous";
+            var user = httpContextAccessor.HttpContext?.User?.Identity?.Name ?? "anonymous";
             Log.Information("Пользователь {User} создал расход: {@Expense}", user, entity);
 
             return new Response<GetExpenseDto>(MapToGetDto(entity));
@@ -87,8 +85,8 @@ public class ExpenseService(DataContext dbContext, IHttpContextAccessor httpCont
     {
         try
         {
-            var userCenterId = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
-            var entity = await _dbContext.Expenses.FirstOrDefaultAsync(e => e.Id == id && !e.IsDeleted && (userCenterId == null || e.CenterId == userCenterId.Value));
+            var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+            var entity = await dbContext.Expenses.FirstOrDefaultAsync(e => e.Id == id && !e.IsDeleted && (userCenterId == null || e.CenterId == userCenterId.Value));
             if (entity is null)
                 return new Response<GetExpenseDto>(HttpStatusCode.NotFound, Messages.Common.NotFound);
 
@@ -97,12 +95,12 @@ public class ExpenseService(DataContext dbContext, IHttpContextAccessor httpCont
 
             if (dto.Category == ExpenseCategory.Salary && dto.MentorId is not null)
             {
-                var mentorExists = await _dbContext.Mentors.AnyAsync(m => m.Id == dto.MentorId && m.CenterId == entity.CenterId);
+                var mentorExists = await dbContext.Mentors.AnyAsync(m => m.Id == dto.MentorId && m.CenterId == entity.CenterId);
                 if (!mentorExists)
                     return new Response<GetExpenseDto>(HttpStatusCode.NotFound, Messages.Mentor.NotFound);
             }
 
-            var isClosed = await new FinanceService(_dbContext, _httpContextAccessor).IsMonthClosedAsync(entity.CenterId, entity.Year, entity.Month);
+            var isClosed = await new FinanceService(dbContext, httpContextAccessor).IsMonthClosedAsync(entity.CenterId, entity.Year, entity.Month);
             if (isClosed)
                 return new Response<GetExpenseDto>(HttpStatusCode.BadRequest, "Этот месяц закрыт, изменение запрещено");
 
@@ -116,9 +114,9 @@ public class ExpenseService(DataContext dbContext, IHttpContextAccessor httpCont
             entity.Year = dto.Year ?? dto.ExpenseDate.Year;
             entity.UpdatedAt = DateTimeOffset.UtcNow;
 
-            await _dbContext.SaveChangesAsync();
+            await dbContext.SaveChangesAsync();
 
-            var user = _httpContextAccessor.HttpContext?.User?.Identity?.Name ?? "anonymous";
+            var user = httpContextAccessor.HttpContext?.User?.Identity?.Name ?? "anonymous";
             Log.Information("Пользователь {User} обновил расход: {@Expense}", user, entity);
 
             return new Response<GetExpenseDto>(MapToGetDto(entity));
@@ -138,20 +136,20 @@ public class ExpenseService(DataContext dbContext, IHttpContextAccessor httpCont
     {
         try
         {
-            var userCenterId = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
-            var entity = await _dbContext.Expenses.FirstOrDefaultAsync(e => e.Id == id && !e.IsDeleted && (userCenterId == null || e.CenterId == userCenterId.Value));
+            var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+            var entity = await dbContext.Expenses.FirstOrDefaultAsync(e => e.Id == id && !e.IsDeleted && (userCenterId == null || e.CenterId == userCenterId.Value));
             if (entity is null)
                 return new Response<bool>(HttpStatusCode.NotFound, Messages.Common.NotFound);
 
-            var isClosed = await new FinanceService(_dbContext, _httpContextAccessor).IsMonthClosedAsync(entity.CenterId, entity.Year, entity.Month);
+            var isClosed = await new FinanceService(dbContext, httpContextAccessor).IsMonthClosedAsync(entity.CenterId, entity.Year, entity.Month);
             if (isClosed)
                 return new Response<bool>(HttpStatusCode.BadRequest, "Этот месяц закрыт, удаление запрещено");
 
             entity.IsDeleted = true;
             entity.UpdatedAt = DateTimeOffset.UtcNow;
-            await _dbContext.SaveChangesAsync();
+            await dbContext.SaveChangesAsync();
 
-            var user = _httpContextAccessor.HttpContext?.User?.Identity?.Name ?? "anonymous";
+            var user = httpContextAccessor.HttpContext?.User?.Identity?.Name ?? "anonymous";
             Log.Information("Пользователь {User} удалил (soft) расход: {ExpenseId}", user, id);
             return new Response<bool>(true);
         }
@@ -170,8 +168,8 @@ public class ExpenseService(DataContext dbContext, IHttpContextAccessor httpCont
     {
         try
         {
-            var userCenterId = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
-            var entity = await _dbContext.Expenses.AsNoTracking().FirstOrDefaultAsync(e => e.Id == id && !e.IsDeleted && (userCenterId == null || e.CenterId == userCenterId.Value));
+            var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+            var entity = await dbContext.Expenses.AsNoTracking().FirstOrDefaultAsync(e => e.Id == id && !e.IsDeleted && (userCenterId == null || e.CenterId == userCenterId.Value));
             if (entity is null)
                 return new Response<GetExpenseDto>(HttpStatusCode.NotFound, Messages.Common.NotFound);
 
@@ -192,9 +190,9 @@ public class ExpenseService(DataContext dbContext, IHttpContextAccessor httpCont
     {
         try
         {
-            var userCenterId = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
+            var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
             var effectiveCenterId = userCenterId ?? filter.CenterId;
-            var query = _dbContext.Expenses.AsNoTracking().Where(e => !e.IsDeleted && e.CenterId == effectiveCenterId);
+            var query = dbContext.Expenses.AsNoTracking().Where(e => !e.IsDeleted && e.CenterId == effectiveCenterId);
 
             if (filter.Category.HasValue)
                 query = query.Where(e => e.Category == filter.Category);

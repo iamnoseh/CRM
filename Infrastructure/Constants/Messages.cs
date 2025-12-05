@@ -150,6 +150,20 @@ public static class Messages
         public const string NoMentorsFound = "Преподаватели не найдены";
     }
 
+    public static class Employee
+    {
+        public const string NotFound = "Сотрудник не найден";
+        public const string Created = "Сотрудник успешно создан";
+        public const string Updated = "Сотрудник успешно обновлен";
+        public const string Deleted = "Сотрудник успешно удален";
+        public const string CreationError = "Ошибка при создании сотрудника: {0}";
+        public const string UpdateError = "Ошибка при обновлении сотрудника: {0}";
+        public const string DeleteError = "Ошибка при удалении сотрудника: {0}";
+        public const string GetError = "Ошибка при получении сотрудника: {0}";
+        public const string GetListError = "Ошибка при получении списка сотрудников: {0}";
+        public const string CreatedWithAuth = "Сотрудник успешно добавлен. Данные для входа отправлены на email и/или SMS. Username: {0}";
+    }
+
     public static class Finance
     {
         public const string InsufficientBalance = "Недостаточно средств на счете";
@@ -177,6 +191,31 @@ public static class Messages
         public const string LogPayrollGenerationError = "Ошибка при формировании начисления зарплат для центра {0} {1}-{2}";
         public const string LogDebtCalculationError = "Ошибка при расчёте задолженностей для центра {0} {1}-{2}";
         public const string LogMonthCloseError = "Ошибка при закрытии/открытии месяца {0}-{1} для центра {2}";
+    }
+
+    public static class Discount
+    {
+        public const string NotFound = "Скидка не найдена";
+        public const string Created = "Скидка успешно создана";
+        public const string Updated = "Скидка успешно обновлена";
+        public const string Deleted = "Скидка успешно удалена";
+        public const string StudentNotMember = "Студент не является членом этой группы";
+        
+        // Log messages
+        public const string LogAssigned = "Скидка назначена | DiscountId={0} StudentId={1} GroupId={2} Discount={3}";
+        public const string LogUpdated = "Скидка обновлена | Id={0} Discount={1}";
+        public const string LogDeleted = "Скидка удалена | Id={0}";
+        public const string LogFound = "Скидка найдена | Id={0} StudentId={1} GroupId={2}";
+        public const string LogList = "Список скидок получен | StudentId={0} GroupId={1} Count={2}";
+        public const string LogPreview = "Preview рассчитан | StudentId={0} GroupId={1} Original={2} Discount={3} Net={4}";
+        public const string LogRecalculateError = "RecalculateStudentPaymentStatusAsync failed in DiscountService for StudentId={0}";
+        public const string LogAssignRequest = "Запрос: назначить скидку | StudentId={0} GroupId={1} Discount={2}";
+        public const string LogInvalidAmount = "Сумма скидки некорректна (отрицательная) | Discount={0}";
+        public const string LogNotMember = "Студент не является членом этой группы | StudentId={0} GroupId={1}";
+        public const string LogInternalError = "Внутренняя ошибка при назначении скидки | StudentId={0} GroupId={1}";
+        public const string LogUpdateError = "Внутренняя ошибка при обновлении скидки | Id={0}";
+        public const string LogNotFound = "Скидка не найдена | Id={0}";
+        public const string LogGroupNotFound = "Группа не найдена | GroupId={0}";
     }
 
     public static class Journal
@@ -322,6 +361,7 @@ public static class Messages
         public const string ChargeNotification = "Здравствуйте, {0}! С вашего счета списано {1:0.##} сомони за группу {2}. Остаток: {3:0.##} сомони.";
         public const string InsufficientFunds = "Здравствуйте, {0}! Для оплаты группы {1} за {2:MM.yyyy} не хватает {3:0.##} сомони. Пожалуйста, пополните кошелек с кодом {4}.";
         public const string WelcomeMentor = "Здравствуйте, {0}!\nUsername: {1}\nPassword: {2}\nПожалуйста, перейдите по ссылке для входа в систему: {3}\nKavsar Academy";
+        public const string WelcomeEmployee = "Здравствуйте, {0}!\nUsername: {1},\nPassword: {2}\nПожалуйста, для входа в систему перейдите по этому адресу: {3}\nKavsar Academy";
     }
 
     public static class Email

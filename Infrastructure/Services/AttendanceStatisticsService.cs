@@ -1,5 +1,4 @@
 using Domain.DTOs.Statistics;
-using Domain.Entities;
 using Domain.Enums;
 using Domain.Responses;
 using Infrastructure.Data;
@@ -11,11 +10,9 @@ using Serilog;
 
 namespace Infrastructure.Services;
 
-public class AttendanceStatisticsService(DataContext db, IHttpContextAccessor httpContextAccessor) : IAttendanceStatisticsService
+public class AttendanceStatisticsService(DataContext db, 
+    IHttpContextAccessor httpContextAccessor) : IAttendanceStatisticsService
 {
-    private readonly DataContext _db = db;
-    private readonly IHttpContextAccessor _http = httpContextAccessor;
-
     public async Task<Response<DailyAttendanceSummaryDto>> GetDailyAttendanceSummaryAsync(DateTime date, int? centerId = null)
     {
         try
@@ -26,30 +23,28 @@ public class AttendanceStatisticsService(DataContext db, IHttpContextAccessor ht
                 date = DateTime.Now.Date;
             }
 
-            var userCenterId = UserContextHelper.GetCurrentUserCenterId(_http);
-            var user = _http.HttpContext?.User;
+            var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+            var user = httpContextAccessor.HttpContext?.User;
             var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
             bool isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
             
             var effectiveCenterId = isSuperAdmin ? centerId : userCenterId;
 
-            // Донишҷӯёне ки вақти дарсиашон шудааст (пардохт кардаанд)
-            var studentsWithPaidLessons = await _db.Students
+            var studentsWithPaidLessons = await db.Students
                 .Where(s => !s.IsDeleted && 
                            s.ActiveStatus == ActiveStatus.Active &&
                            s.PaymentStatus == PaymentStatus.Paid &&
                            (effectiveCenterId == null || s.CenterId == effectiveCenterId))
                 .CountAsync();
 
-            // Донишҷӯёне ки дар рӯзи мушаххас ҳозиранд
-            var presentStudentsQuery = _db.JournalEntries
+            var presentStudentsQuery = db.JournalEntries
                 .Where(je => je.EntryDate.Date == date.Date &&
                            je.AttendanceStatus == AttendanceStatus.Present &&
                            !je.IsDeleted);
             
             if (effectiveCenterId.HasValue)
             {
-                presentStudentsQuery = presentStudentsQuery.Where(je => je.Student.CenterId == effectiveCenterId.Value);
+                presentStudentsQuery = presentStudentsQuery.Where(je => je.Student!.CenterId == effectiveCenterId.Value);
             }
             
             var presentStudents = await presentStudentsQuery
@@ -58,14 +53,14 @@ public class AttendanceStatisticsService(DataContext db, IHttpContextAccessor ht
                 .CountAsync();
 
             // Донишҷӯёне ки дар рӯзи мушаххас ғоибанд
-            var absentStudentsQuery = _db.JournalEntries
+            var absentStudentsQuery = db.JournalEntries
                 .Where(je => je.EntryDate.Date == date.Date &&
                            je.AttendanceStatus == AttendanceStatus.Absent &&
                            !je.IsDeleted);
             
             if (effectiveCenterId.HasValue)
             {
-                absentStudentsQuery = absentStudentsQuery.Where(je => je.Student.CenterId == effectiveCenterId.Value);
+                absentStudentsQuery = absentStudentsQuery.Where(je => je.Student!.CenterId == effectiveCenterId.Value);
             }
             
             var absentStudents = await absentStudentsQuery
@@ -74,14 +69,14 @@ public class AttendanceStatisticsService(DataContext db, IHttpContextAccessor ht
                 .CountAsync();
 
             // Донишҷӯёне ки дар рӯзи мушаххас дер омадаанд
-            var lateStudentsQuery = _db.JournalEntries
+            var lateStudentsQuery = db.JournalEntries
                 .Where(je => je.EntryDate.Date == date.Date &&
                            je.AttendanceStatus == AttendanceStatus.Late &&
                            !je.IsDeleted);
             
             if (effectiveCenterId.HasValue)
             {
-                lateStudentsQuery = lateStudentsQuery.Where(je => je.Student.CenterId == effectiveCenterId.Value);
+                lateStudentsQuery = lateStudentsQuery.Where(je => je.Student!.CenterId == effectiveCenterId.Value);
             }
             
             var lateStudents = await lateStudentsQuery
@@ -127,8 +122,8 @@ public class AttendanceStatisticsService(DataContext db, IHttpContextAccessor ht
                 date = DateTime.Now.Date;
             }
 
-            var userCenterId = UserContextHelper.GetCurrentUserCenterId(_http);
-            var user = _http.HttpContext?.User;
+            var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+            var user = httpContextAccessor.HttpContext?.User;
             var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
             bool isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
             
@@ -137,7 +132,7 @@ public class AttendanceStatisticsService(DataContext db, IHttpContextAccessor ht
             var absentStudents = new List<AbsentStudentDto>();
 
             // Ҳисоб кардани донишҷӯёни ғоиб бо назардошти вақти дарс
-            var groupsWithLessonsToday = await _db.Groups
+            var groupsWithLessonsToday = await db.Groups
                 .Where(g => !g.IsDeleted && 
                            g.Started && 
                            g.Status == ActiveStatus.Active &&
@@ -165,7 +160,7 @@ public class AttendanceStatisticsService(DataContext db, IHttpContextAccessor ht
                 // Агар вақти ҷорӣ аз вақти оғози дарс калонтар бошад, дарс сар шудааст
                 if (currentTime >= lessonStartTime)
                 {
-                    var groupStudents = await _db.StudentGroups
+                    var groupStudents = await db.StudentGroups
                         .Where(sg => sg.GroupId == group.Id && 
                                    sg.IsActive && 
                                    !sg.IsDeleted &&
@@ -174,7 +169,7 @@ public class AttendanceStatisticsService(DataContext db, IHttpContextAccessor ht
 
                     foreach (var studentGroup in groupStudents)
                     {
-                        var journalEntry = await _db.JournalEntries
+                        var journalEntry = await db.JournalEntries
                             .Where(je => je.StudentId == studentGroup.StudentId &&
                                        je.EntryDate.Date == date.Date &&
                                        !je.IsDeleted)
@@ -183,7 +178,7 @@ public class AttendanceStatisticsService(DataContext db, IHttpContextAccessor ht
                         // Агар дар журнал қайд набошад ё ғоиб қайд шуда бошад
                         if (journalEntry == null || journalEntry.AttendanceStatus == AttendanceStatus.Absent)
                         {
-                            var lastAttendanceDate = await _db.JournalEntries
+                            var lastAttendanceDate = await db.JournalEntries
                                 .Where(je => je.StudentId == studentGroup.StudentId && 
                                             je.AttendanceStatus == AttendanceStatus.Present &&
                                             !je.IsDeleted)
@@ -198,7 +193,7 @@ public class AttendanceStatisticsService(DataContext db, IHttpContextAccessor ht
                                 
                                 while (checkDate >= lastAttendanceDate)
                                 {
-                                    var wasPresent = await _db.JournalEntries
+                                    var wasPresent = await db.JournalEntries
                                         .AnyAsync(je => je.StudentId == studentGroup.StudentId &&
                                                       je.EntryDate.Date == checkDate.Date &&
                                                       je.AttendanceStatus == AttendanceStatus.Present &&
@@ -244,8 +239,8 @@ public class AttendanceStatisticsService(DataContext db, IHttpContextAccessor ht
     {
         try
         {
-            var userCenterId = UserContextHelper.GetCurrentUserCenterId(_http);
-            var user = _http.HttpContext?.User;
+            var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+            var user = httpContextAccessor.HttpContext?.User;
             var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
             bool isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
             
@@ -315,8 +310,8 @@ public class AttendanceStatisticsService(DataContext db, IHttpContextAccessor ht
     {
         try
         {
-            var userCenterId = UserContextHelper.GetCurrentUserCenterId(_http);
-            var user = _http.HttpContext?.User;
+            var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+            var user = httpContextAccessor.HttpContext?.User;
             var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
             bool isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
             
@@ -351,13 +346,13 @@ public class AttendanceStatisticsService(DataContext db, IHttpContextAccessor ht
     {
         try
         {
-            var userCenterId = UserContextHelper.GetCurrentUserCenterId(_http);
-            var user = _http.HttpContext?.User;
+            var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+            var user = httpContextAccessor.HttpContext?.User;
             var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
             bool isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
             
             // Санҷидани дастрасӣ ба гурӯҳ
-            var group = await _db.Groups
+            var group = await db.Groups
                 .FirstOrDefaultAsync(g => g.Id == groupId && !g.IsDeleted);
             
             if (group == null)
@@ -367,7 +362,7 @@ public class AttendanceStatisticsService(DataContext db, IHttpContextAccessor ht
             if (!isSuperAdmin && userCenterId != null && group.Mentor.CenterId != userCenterId)
                 return new Response<List<StudentAttendanceStatisticsDto>>(System.Net.HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
 
-            var students = await _db.StudentGroups
+            var students = await db.StudentGroups
                 .Where(sg => sg.GroupId == groupId && 
                            sg.IsActive && 
                            !sg.IsDeleted &&
@@ -379,17 +374,17 @@ public class AttendanceStatisticsService(DataContext db, IHttpContextAccessor ht
                     GroupId = groupId,
                     GroupName = group.Name,
                     TotalLessons = 1, 
-                    PresentCount = _db.JournalEntries
+                    PresentCount = db.JournalEntries
                         .Count(je => je.StudentId == sg.StudentId &&
                                    je.EntryDate.Date == date.Date &&
                                    je.AttendanceStatus == AttendanceStatus.Present &&
                                    !je.IsDeleted),
-                    AbsentCount = _db.JournalEntries
+                    AbsentCount = db.JournalEntries
                         .Count(je => je.StudentId == sg.StudentId &&
                                    je.EntryDate.Date == date.Date &&
                                    je.AttendanceStatus == AttendanceStatus.Absent &&
                                    !je.IsDeleted),
-                    LateCount = _db.JournalEntries
+                    LateCount = db.JournalEntries
                         .Count(je => je.StudentId == sg.StudentId &&
                                    je.EntryDate.Date == date.Date &&
                                    je.AttendanceStatus == AttendanceStatus.Late &&
@@ -435,8 +430,8 @@ public class AttendanceStatisticsService(DataContext db, IHttpContextAccessor ht
                 date = DateTime.Now.Date;
             }
 
-            var userCenterId = UserContextHelper.GetCurrentUserCenterId(_http);
-            var user = _http.HttpContext?.User;
+            var userCenterId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+            var user = httpContextAccessor.HttpContext?.User;
             var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
             bool isSuperAdmin = roles != null && roles.Contains("SuperAdmin");
             
@@ -445,7 +440,7 @@ public class AttendanceStatisticsService(DataContext db, IHttpContextAccessor ht
             var presentStudents = new List<StudentAttendanceStatisticsDto>();
 
             // Ҳисоб кардани донишҷӯёни ҳозир бо назардошти вақти дарс
-            var groupsWithLessonsToday = await _db.Groups
+            var groupsWithLessonsToday = await db.Groups
                 .Where(g => !g.IsDeleted && 
                            g.Started && 
                            g.Status == ActiveStatus.Active &&
@@ -473,7 +468,7 @@ public class AttendanceStatisticsService(DataContext db, IHttpContextAccessor ht
                 // Агар вақти ҷорӣ аз вақти оғози дарс калонтар бошад, дарс сар шудааст
                 if (currentTime >= lessonStartTime)
                 {
-                    var groupStudents = await _db.StudentGroups
+                    var groupStudents = await db.StudentGroups
                         .Where(sg => sg.GroupId == group.Id && 
                                    sg.IsActive && 
                                    !sg.IsDeleted &&
@@ -482,7 +477,7 @@ public class AttendanceStatisticsService(DataContext db, IHttpContextAccessor ht
 
                     foreach (var studentGroup in groupStudents)
                     {
-                        var journalEntry = await _db.JournalEntries
+                        var journalEntry = await db.JournalEntries
                             .Where(je => je.StudentId == studentGroup.StudentId &&
                                        je.EntryDate.Date == date.Date &&
                                        !je.IsDeleted)

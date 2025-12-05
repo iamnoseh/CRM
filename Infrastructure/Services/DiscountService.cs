@@ -12,10 +12,9 @@ using Serilog;
 
 namespace Infrastructure.Services;
 
-public class DiscountService(DataContext db, IHttpContextAccessor httpContextAccessor) : IDiscountService
+public class DiscountService(DataContext db,
+    IHttpContextAccessor httpContextAccessor) : IDiscountService
 {
-    public IHttpContextAccessor HttpContextAccessor { get; } = httpContextAccessor;
-
     #region AssignDiscountAsync
 
     public async Task<Response<string>> AssignDiscountAsync(CreateStudentGroupDiscountDto dto)
@@ -113,7 +112,9 @@ public class DiscountService(DataContext db, IHttpContextAccessor httpContextAcc
                     account = new StudentAccount
                     {
                         StudentId = dto.StudentId,
-                        AccountCode = db.StudentAccounts != null && await db.StudentAccounts.AnyAsync() ? (await db.StudentAccounts.OrderByDescending(a => a.Id).Select(a => a.AccountCode).FirstOrDefaultAsync()) : Guid.NewGuid().ToString("N").Substring(0, 6),
+                        AccountCode = db.StudentAccounts != null && await db.StudentAccounts.AnyAsync() 
+                            ? await db.StudentAccounts.OrderByDescending(a => a.Id).Select(a => a.AccountCode).FirstOrDefaultAsync() 
+                            : Guid.NewGuid().ToString("N").Substring(0, 6),
                         Balance = 0,
                         IsActive = true,
                         CreatedAt = DateTimeOffset.UtcNow,

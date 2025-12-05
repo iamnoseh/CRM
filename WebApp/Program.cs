@@ -36,7 +36,6 @@ builder.Services.AddHangfireServer();
 
 builder.Services.AddApplicationServices(builder.Configuration, uploadPath);
 builder.Services.AddSwaggerServices();
-// Removed BackgroundService hosting to avoid duplicate execution with Hangfire recurring jobs
 builder.Services.AddControllers();
 
 var app = builder.Build();

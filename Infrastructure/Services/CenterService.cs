@@ -19,7 +19,7 @@ namespace Infrastructure.Services;
 
 public class CenterService(DataContext context, string uploadPath, IHttpContextAccessor httpContextAccessor) : ICenterService
 {
-    private readonly string[] _allowedImageExtensions = { ".jpg", ".jpeg", ".png", ".gif" };
+    private readonly string[] _allowedImageExtensions = [".jpg", ".jpeg", ".png", ".gif"];
     private const long MaxImageSize = 50 * 1024 * 1024;
 
     #region CreateCenterAsync
@@ -29,7 +29,7 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
         try
         {
             string imagePath = string.Empty;
-            if (createCenterDto.ImageFile != null && createCenterDto.ImageFile.Length > 0)
+            if (createCenterDto.ImageFile is { Length: > 0 })
             {
                 var fileExtension = Path.GetExtension(createCenterDto.ImageFile.FileName).ToLowerInvariant();
                 if (!_allowedImageExtensions.Contains(fileExtension))
@@ -321,7 +321,7 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
                 return new Response<List<GetCenterGroupsDto>>(HttpStatusCode.NotFound, Messages.Center.NotFound);
 
             var groups = await context.Groups
-                .Where(g => g.Course.CenterId == centerId && !g.IsDeleted)
+                .Where(g => g.Course!.CenterId == centerId && !g.IsDeleted)
                 .Include(g => g.Course)
                 .ToListAsync();
 

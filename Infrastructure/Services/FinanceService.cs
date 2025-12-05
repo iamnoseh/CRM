@@ -14,7 +14,8 @@ using Serilog;
 
 namespace Infrastructure.Services;
 
-public class FinanceService(DataContext dbContext, IHttpContextAccessor httpContextAccessor) : IFinanceService
+public class FinanceService(DataContext dbContext,
+    IHttpContextAccessor httpContextAccessor) : IFinanceService
 {
     #region GetFinancialSummaryAsync
 

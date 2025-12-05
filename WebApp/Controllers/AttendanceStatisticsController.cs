@@ -33,7 +33,7 @@ public class AttendanceStatisticsController(IAttendanceStatisticsService attenda
             {
                 StatusCode = 500,
                 Message = "Хатогии дохилӣ дар сервер",
-                Data = default
+                Data = null!
             });
         }
     }
@@ -56,7 +56,7 @@ public class AttendanceStatisticsController(IAttendanceStatisticsService attenda
             {
                 StatusCode = 500,
                 Message = "Хатогии дохилӣ дар сервер",
-                Data = default
+                Data = null!
             });
         }
     }
@@ -83,7 +83,7 @@ public class AttendanceStatisticsController(IAttendanceStatisticsService attenda
             {
                 StatusCode = 500,
                 Message = "Хатогии дохилӣ дар сервер",
-                Data = default
+                Data = null!
             });
         }
     }
@@ -110,7 +110,7 @@ public class AttendanceStatisticsController(IAttendanceStatisticsService attenda
             {
                 StatusCode = 500,
                 Message = "Хатогии дохилӣ дар сервер",
-                Data = default
+                Data = null!
             });
         }
     }
@@ -133,7 +133,7 @@ public class AttendanceStatisticsController(IAttendanceStatisticsService attenda
             {
                 StatusCode = 500,
                 Message = "Хатогии дохилӣ дар сервер",
-                Data = default
+                Data = null!
             });
         }
     }
@@ -156,7 +156,7 @@ public class AttendanceStatisticsController(IAttendanceStatisticsService attenda
             {
                 StatusCode = 500,
                 Message = "Хатогии дохилӣ дар сервер",
-                Data = default
+                Data = null!
             });
         }
     }
@@ -179,7 +179,7 @@ public class AttendanceStatisticsController(IAttendanceStatisticsService attenda
             {
                 StatusCode = 500,
                 Message = "Хатогии дохилӣ дар сервер",
-                Data = default
+                Data = null!
             });
         }
     }
@@ -202,8 +202,8 @@ public class AttendanceStatisticsController(IAttendanceStatisticsService attenda
                 DailySummary = dailySummary.Data,
                 AbsentStudents = absentStudents.Data,
                 PresentStudents = presentStudents.Data,
-                TotalAbsentCount = absentStudents.Data?.Count ?? 0,
-                TotalPresentCount = presentStudents.Data?.Count ?? 0
+                TotalAbsentCount = absentStudents.Data.Count,
+                TotalPresentCount = presentStudents.Data.Count
             };
 
             return Ok(new Response<object>(dashboardData));

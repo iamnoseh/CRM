@@ -15,6 +15,8 @@ using Infrastructure.Data;
 using Infrastructure.Constants;
 using Domain.DTOs.Payments;
 using Microsoft.EntityFrameworkCore;
+using Domain.DTOs.User.Employee;
+using Domain.DTOs.Discounts;
 
 namespace Infrastructure.Helpers;
 
@@ -343,6 +345,22 @@ public static class DtoMappingHelper
         };
     }
 
+    public static GetScheduleSimpleDto MapToGetScheduleSimpleDto(Schedule schedule)
+    {
+        return new GetScheduleSimpleDto
+        {
+            Id = schedule.Id,
+            GroupName = schedule.Group?.Name ?? Messages.Common.Unknown,
+            StartTime = schedule.StartTime,
+            EndTime = schedule.EndTime,
+            DayOfWeek = schedule.DayOfWeek,
+            StartDate = schedule.StartDate,
+            EndDate = schedule.EndDate,
+            IsRecurring = schedule.IsRecurring,
+            Status = schedule.Status
+        };
+    }
+
     #endregion
 
     #region Journal Mapping
@@ -488,6 +506,101 @@ public static class DtoMappingHelper
             CenterId = payment.CenterId,
             Month = payment.Month,
             Year = payment.Year
+        };
+    }
+
+    #endregion
+
+    #region Classroom Mapping
+
+    public static GetClassroomDto MapToGetClassroomDto(Classroom classroom)
+    {
+        return new GetClassroomDto
+        {
+            Id = classroom.Id,
+            Name = classroom.Name,
+            Description = classroom.Description,
+            Capacity = classroom.Capacity,
+            IsActive = classroom.IsActive,
+            CenterId = classroom.CenterId,
+            Center = classroom.Center != null ? new GetCenterSimpleDto
+            {
+                Id = classroom.Center.Id,
+                Name = classroom.Center.Name
+            } : null!,
+            CreatedAt = classroom.CreatedAt,
+            UpdatedAt = classroom.UpdatedAt
+        };
+    }
+
+    public static GetSimpleClassroomDto MapToGetSimpleClassroomDto(Classroom classroom)
+    {
+        return new GetSimpleClassroomDto
+        {
+            Id = classroom.Id,
+            Name = classroom.Name
+        };
+    }
+
+    #endregion
+
+    #region Employee Mapping
+
+    public static GetEmployeeDto MapToGetEmployeeDto(User user, string? role = null)
+    {
+        return new GetEmployeeDto
+        {
+            Id = user.Id,
+            FullName = user.FullName,
+            Email = user.Email,
+            Address = user.Address,
+            PhoneNumber = user.PhoneNumber,
+            Role = role,
+            Salary = user.Salary,
+            Birthday = user.Birthday,
+            Age = user.Age,
+            Experience = user.Experience,
+            Gender = user.Gender,
+            ActiveStatus = user.ActiveStatus,
+            PaymentStatus = user.PaymentStatus,
+            ImagePath = user.ProfileImagePath,
+            DocumentPath = user.DocumentPath,
+            CenterId = user.CenterId
+        };
+    }
+
+    public static ManagerSelectDto MapToManagerSelectDto(User user)
+    {
+        return new ManagerSelectDto
+        {
+            Id = user.Id,
+            FullName = user.FullName
+        };
+    }
+
+    #endregion
+    #region Discount Mapping
+
+    public static GetStudentGroupDiscountDto MapToGetStudentGroupDiscountDto(StudentGroupDiscount entity)
+    {
+        return new GetStudentGroupDiscountDto
+        {
+            Id = entity.Id,
+            StudentId = entity.StudentId,
+            GroupId = entity.GroupId,
+            DiscountAmount = entity.DiscountAmount,
+            CreatedAt = entity.CreatedAt,
+            UpdatedAt = entity.UpdatedAt
+        };
+    }
+
+    public static DiscountPreviewDto MapToDiscountPreviewDto(decimal original, decimal discount, decimal net)
+    {
+        return new DiscountPreviewDto
+        {
+            OriginalAmount = original,
+            DiscountAmount = discount,
+            PayableAmount = net
         };
     }
 
