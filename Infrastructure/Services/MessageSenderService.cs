@@ -40,7 +40,7 @@ public class MessageSenderService(
         foreach (var studentId in sendMessageDto.StudentIds)
         {
             var studentResponse = await studentService.GetStudentByIdAsync(studentId);
-            if (studentResponse.StatusCode != (int)HttpStatusCode.OK || studentResponse.Data == null)
+            if (studentResponse.StatusCode != (int)HttpStatusCode.OK)
             {
                 return new Response<GetMessageDto>(HttpStatusCode.NotFound, Messages.Student.NotFound);
             }
@@ -58,10 +58,10 @@ public class MessageSenderService(
                 List<string>? attachments = null;
                 if (!string.IsNullOrEmpty(attachmentPath))
                 {
-                    attachments = new List<string> { Path.Combine(webHostEnvironment.WebRootPath, attachmentPath.TrimStart('/')) };
+                    attachments = [Path.Combine(webHostEnvironment.WebRootPath, attachmentPath.TrimStart('/'))];
                 }
 
-                var emailDto = new EmailMessageDto(new[] { student.Email }, "Kavsar Academy", emailMessage, attachments);
+                var emailDto = new EmailMessageDto([student.Email], "Kavsar Academy", emailMessage, attachments);
                 await emailService.SendEmail(emailDto, TextFormat.Html);
             }
             else if (sendMessageDto.MessageType == MessageType.SMS)
@@ -118,7 +118,7 @@ public class MessageSenderService(
         List<string>? attachments = null;
         if (!string.IsNullOrEmpty(attachmentPath))
         {
-            attachments = new List<string> { Path.Combine(webHostEnvironment.WebRootPath, attachmentPath.TrimStart('/')) };
+            attachments = [Path.Combine(webHostEnvironment.WebRootPath, attachmentPath.TrimStart('/'))];
         }
 
         var emailDto = new EmailMessageDto(new[] { request.EmailAddress }, request.Subject, request.MessageContent, attachments);

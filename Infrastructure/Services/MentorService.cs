@@ -94,7 +94,7 @@ public class MentorService(
             if (!string.IsNullOrEmpty(user.PhoneNumber))
             {
                 var loginUrl = configuration["AppSettings:LoginUrl"];
-                var smsMessage = string.Format(Messages.Sms.WelcomeStudent, user.FullName, username, password, loginUrl);
+                var smsMessage = string.Format(Messages.Sms.WelcomeMentor, user.FullName, username, password, loginUrl);
                 await osonSmsService.SendSmsAsync(user.PhoneNumber, smsMessage);
             }
 
@@ -308,8 +308,8 @@ public class MentorService(
         var res = await context.SaveChangesAsync();
 
         return res > 0
-            ? new Response<string>(HttpStatusCode.OK, "Документ преподавателя успешно обновлен")
-            : new Response<string>(HttpStatusCode.BadRequest, "Не удалось обновить документ преподавателя");
+            ? new Response<string>(HttpStatusCode.OK, Messages.Mentor.DocumentUpdated)
+            : new Response<string>(HttpStatusCode.BadRequest, Messages.Mentor.DocumentUpdateFailed);
     }
 
     #endregion
@@ -375,7 +375,7 @@ public class MentorService(
                 .ToListAsync();
 
             if (mentorIds.Count == 0)
-                return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound, "Преподаватели для этой группы не найдены");
+                return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound, Messages.Mentor.NoMentorsFoundForGroup);
 
             var mentors = await GetMentorDtosWithRolesAsync(mentorIds);
             return new Response<List<GetMentorDto>>(mentors);
@@ -404,7 +404,7 @@ public class MentorService(
                 .ToListAsync();
 
             if (groupIds.Count == 0)
-                return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound, "Группы для этого курса не найдены");
+                return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound, Messages.Group.NoGroupsFoundForCourse);
 
             var mentorIds = await context.MentorGroups
                 .Where(mg => groupIds.Contains(mg.GroupId) && mg.IsActive == true && !mg.IsDeleted)
@@ -413,7 +413,7 @@ public class MentorService(
                 .ToListAsync();
 
             if (mentorIds.Count == 0)
-                return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound, "Преподаватели для этого курса не найдены");
+                return new Response<List<GetMentorDto>>(HttpStatusCode.NotFound, Messages.Mentor.NoMentorsFoundForCourse);
 
             var mentors = await GetMentorDtosWithRolesAsync(mentorIds);
             return new Response<List<GetMentorDto>>(mentors);
@@ -457,7 +457,7 @@ public class MentorService(
 
         return res > 0
             ? new Response<string>(HttpStatusCode.OK, Messages.User.ProfileImageUpdated)
-            : new Response<string>(HttpStatusCode.BadRequest, "Не удалось обновить фото профиля");
+            : new Response<string>(HttpStatusCode.BadRequest, Messages.Mentor.ProfileImageUpdateFailed);
     }
 
     #endregion
@@ -474,7 +474,7 @@ public class MentorService(
             return new Response<string>(HttpStatusCode.NotFound, Messages.Mentor.NotFound);
 
         if (mentor.PaymentStatus == status)
-            return new Response<string>(HttpStatusCode.OK, "Статус оплаты уже установлен");
+            return new Response<string>(HttpStatusCode.OK, Messages.Mentor.PaymentStatusAlreadySet);
 
         mentor.PaymentStatus = status;
         mentor.UpdatedAt = DateTimeOffset.UtcNow;
@@ -494,8 +494,8 @@ public class MentorService(
         var res = await context.SaveChangesAsync();
 
         return res > 0
-            ? new Response<string>(HttpStatusCode.OK, "Статус оплаты успешно обновлен")
-            : new Response<string>(HttpStatusCode.BadRequest, "Не удалось обновить статус оплаты");
+            ? new Response<string>(HttpStatusCode.OK, Messages.Mentor.PaymentStatusUpdated)
+            : new Response<string>(HttpStatusCode.BadRequest, Messages.Mentor.PaymentStatusUpdateFailed);
     }
 
     #endregion
@@ -516,7 +516,7 @@ public class MentorService(
 
             return mentors.Count > 0
                 ? new Response<List<GetSimpleDto>>(mentors)
-                : new Response<List<GetSimpleDto>>(HttpStatusCode.NotFound, "Преподаватели не найдены");
+                : new Response<List<GetSimpleDto>>(HttpStatusCode.NotFound, Messages.Mentor.NoMentorsFound);
         }
         catch
         {

@@ -97,6 +97,7 @@ public static class Messages
         public const string GetSimpleListError = "Ошибка при получении простого списка групп: {0}";
         public const string GetByStudentIdError = "Ошибка при получении групп по studentId: {0}";
         public const string GetByMentorIdError = "Ошибка при получении групп по mentorId: {0}";
+        public const string NoGroupsFoundForCourse = "Группы для этого курса не найдены";
     }
 
     public static class Center
@@ -138,6 +139,15 @@ public static class Messages
         public const string CreationError = "Ошибка при создании преподавателя: {0}";
         public const string UpdateError = "Ошибка при обновлении преподавателя: {0}";
         public const string DeleteError = "Ошибка при удалении преподавателя: {0}";
+        public const string DocumentUpdated = "Документ преподавателя успешно обновлен";
+        public const string DocumentUpdateFailed = "Не удалось обновить документ преподавателя";
+        public const string NoMentorsFoundForGroup = "Преподаватели для этой группы не найдены";
+        public const string NoMentorsFoundForCourse = "Преподаватели для этого курса не найдены";
+        public const string ProfileImageUpdateFailed = "Не удалось обновить фото профиля";
+        public const string PaymentStatusAlreadySet = "Статус оплаты уже установлен";
+        public const string PaymentStatusUpdated = "Статус оплаты успешно обновлен";
+        public const string PaymentStatusUpdateFailed = "Не удалось обновить статус оплаты";
+        public const string NoMentorsFound = "Преподаватели не найдены";
     }
 
     public static class Finance
@@ -264,11 +274,23 @@ public static class Messages
         public const string ConflictCheckError = "Ошибка при проверке конфликтов: {0}";
         public const string AvailableSlotsError = "Ошибка при получении доступных временных промежутков: {0}";
         public const string WeeklyError = "Ошибка при получении недельного расписания: {0}";
+        public const string ConflictMessage = "Время занятия пересекается с {0} в аудитории {1}";
     }
 
     public static class Classroom
     {
         public const string NotFound = "Аудитория не найдена";
+        public const string AlreadyExists = "Аудитория с таким названием уже существует в этом центре";
+        public const string CreationError = "Ошибка при создании аудитории: {0}";
+        public const string GetListError = "Ошибка при получении списка аудиторий: {0}";
+        public const string GetError = "Ошибка при получении аудитории: {0}";
+        public const string GetByCenterError = "Ошибка при получении аудиторий центра: {0}";
+        public const string UpdateError = "Ошибка при обновлении аудитории: {0}";
+        public const string CannotDeleteWithActiveSchedules = "Невозможно удалить аудиторию, так как в ней есть активные занятия";
+        public const string Deleted = "Аудитория успешно удалена";
+        public const string DeleteError = "Ошибка при удалении аудитории: {0}";
+        public const string GetScheduleError = "Ошибка при получении расписания аудитории: {0}";
+        public const string GetAvailableError = "Ошибка при получении свободных аудиторий: {0}";
     }
 
     public static class File
@@ -299,6 +321,7 @@ public static class Messages
         public const string TopUpNotification = "Здравствуйте, {0}! Ваш счет пополнен на {1:0.##} сомони. Текущий баланс: {2:0.##} сомони.";
         public const string ChargeNotification = "Здравствуйте, {0}! С вашего счета списано {1:0.##} сомони за группу {2}. Остаток: {3:0.##} сомони.";
         public const string InsufficientFunds = "Здравствуйте, {0}! Для оплаты группы {1} за {2:MM.yyyy} не хватает {3:0.##} сомони. Пожалуйста, пополните кошелек с кодом {4}.";
+        public const string WelcomeMentor = "Здравствуйте, {0}!\nUsername: {1}\nPassword: {2}\nПожалуйста, перейдите по ссылке для входа в систему: {3}\nKavsar Academy";
     }
 
     public static class Email

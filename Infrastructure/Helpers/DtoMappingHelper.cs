@@ -1,5 +1,6 @@
 using Domain.DTOs.User;
 using Domain.DTOs.Student;
+using Domain.DTOs.Lead;
 using Domain.DTOs.Group;
 using Domain.DTOs.Center;
 using Domain.DTOs.Course;
@@ -12,6 +13,7 @@ using Domain.Enums;
 using Microsoft.AspNetCore.Identity;
 using Infrastructure.Data;
 using Infrastructure.Constants;
+using Domain.DTOs.Payments;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Helpers;
@@ -434,6 +436,58 @@ public static class DtoMappingHelper
             6 => "Ша",
             7 => "Як",
             _ => "Н"
+        };
+    }
+
+    #endregion
+
+    #region Lead Mapping
+
+    public static GetLeadDto MapToGetLeadDto(Lead lead)
+    {
+        return new GetLeadDto
+        {
+            Id = lead.Id,
+            FullName = lead.FullName,
+            PhoneNumber = lead.PhoneNumber,
+            BirthDate = lead.BirthDate,
+            Gender = lead.Gender,
+            OccupationStatus = lead.OccupationStatus,
+            RegisterForMonth = lead.RegisterForMonth,
+            Course = lead.Course ?? string.Empty,
+            LessonTime = lead.LessonTime,
+            Notes = lead.Notes,
+            UtmSource = lead.UtmSource,
+            CenterId = lead.CenterId,
+            CenterName = lead.Center != null ? lead.Center.Name : string.Empty,
+            CreatedAt = lead.CreatedAt,
+            UpdatedAt = lead.UpdatedAt
+        };
+    }
+
+    #endregion
+
+    #region Payment Mapping
+
+    public static GetPaymentDto MapToGetPaymentDto(Payment payment)
+    {
+        return new GetPaymentDto
+        {
+            Id = payment.Id,
+            StudentId = payment.StudentId,
+            GroupId = payment.GroupId,
+            ReceiptNumber = payment.ReceiptNumber,
+            OriginalAmount = payment.OriginalAmount,
+            DiscountAmount = payment.DiscountAmount,
+            Amount = payment.Amount,
+            PaymentMethod = payment.PaymentMethod,
+            TransactionId = payment.TransactionId,
+            Description = payment.Description,
+            Status = payment.Status,
+            PaymentDate = payment.PaymentDate,
+            CenterId = payment.CenterId,
+            Month = payment.Month,
+            Year = payment.Year
         };
     }
 

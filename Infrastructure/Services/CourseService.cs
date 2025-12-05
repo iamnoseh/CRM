@@ -3,9 +3,9 @@ using Domain.DTOs.Course;
 using Domain.Entities;
 using Domain.Filters;
 using Domain.Responses;
-using Infrastructure.Data;
 using Infrastructure.Helpers;
 using Infrastructure.Constants;
+using Infrastructure.Data;
 using Infrastructure.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -218,18 +218,7 @@ public class CourseService(DataContext context, string uploadPath,
             if (course == null)
                 return new Response<GetCourseDto>(HttpStatusCode.NotFound, Messages.Course.NotFound);
 
-            var courseDto = new GetCourseDto
-            {
-                Id = course.Id,
-                CourseName = course.CourseName,
-                Description = course.Description,
-                DurationInMonth = course.DurationInMonth,
-                Price = course.Price,
-                Status = course.Status,
-                ImagePath = course.ImagePath,
-                CenterId = course.CenterId,
-                CenterName = course.Center!.Name
-            };
+            var courseDto = DtoMappingHelper.MapToGetCourseDto(course);
 
             return new Response<GetCourseDto>(courseDto);
         }
@@ -275,18 +264,7 @@ public class CourseService(DataContext context, string uploadPath,
                 .OrderBy(c => c.Id)
                 .Skip(skip)
                 .Take(filter.PageSize)
-                .Select(c => new GetCourseDto
-                {
-                    Id = c.Id,
-                    CourseName = c.CourseName,
-                    Description = c.Description,
-                    DurationInMonth = c.DurationInMonth,
-                    Price = c.Price,
-                    Status = c.Status,
-                    ImagePath = c.ImagePath,
-                    CenterId = c.CenterId,
-                    CenterName = c.Center!.Name
-                })
+                .Select(c => DtoMappingHelper.MapToGetCourseDto(c))
                 .ToListAsync();
 
             return new PaginationResponse<List<GetCourseDto>>(
@@ -325,18 +303,7 @@ public class CourseService(DataContext context, string uploadPath,
                 .AsQueryable();
             courses = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
                 courses, httpContextAccessor, c => c.CenterId);
-            var courseDtos = courses.Select(c => new GetCourseDto
-            {
-                Id = c.Id,
-                CourseName = c.CourseName,
-                Description = c.Description,
-                DurationInMonth = c.DurationInMonth,
-                Price = c.Price,
-                Status = c.Status,
-                ImagePath = c.ImagePath,
-                CenterId = c.CenterId,
-                CenterName = c.Center!.Name
-            }).ToList();
+            var courseDtos = courses.Select(c => DtoMappingHelper.MapToGetCourseDto(c)).ToList();
 
             return courseDtos.Any()
                 ? new Response<List<GetCourseDto>>(courseDtos)
@@ -362,27 +329,7 @@ public class CourseService(DataContext context, string uploadPath,
             groupsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
                 groupsQuery, httpContextAccessor, g => g.Course!.CenterId);
             var groups = await groupsQuery.ToListAsync();
-            var groupDtos = groups.Select(g => new Domain.DTOs.Group.GetGroupDto
-            {
-                Id = g.Id,
-                Name = g.Name,
-                Description = g.Description,
-                DurationMonth = g.DurationMonth,
-                LessonInWeek = g.LessonInWeek,
-                TotalWeeks = g.TotalWeeks,
-                Started = g.Started,
-                Status = g.Status,
-                ImagePath = g.PhotoPath,
-                CurrentWeek = g.CurrentWeek,
-                StartDate = g.StartDate,
-                EndDate = g.EndDate,
-                CurrentStudentsCount = 0,
-                DayOfWeek = 0,
-                ClassroomId = g.ClassroomId,
-                LessonDays = g.LessonDays,
-                LessonStartTime = g.LessonStartTime,
-                LessonEndTime = g.LessonEndTime
-            }).ToList();
+            var groupDtos = groups.Select(g => DtoMappingHelper.MapToGetGroupDto(g)).ToList();
             var dto = new GetCourseGroupsDto
             {
                 Groups = groupDtos,
@@ -418,11 +365,7 @@ public class CourseService(DataContext context, string uploadPath,
                 .OrderBy(c => c.CourseName)
                 .Skip(skip)
                 .Take(filter.PageSize)
-                .Select(c => new GetSimpleCourseDto
-                {
-                    Id = c.Id,
-                    CourseName = c.CourseName
-                })
+                .Select(c => DtoMappingHelper.MapToGetSimpleCourseDto(c))
                 .ToListAsync();
 
             return new PaginationResponse<List<GetSimpleCourseDto>>(

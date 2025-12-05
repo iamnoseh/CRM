@@ -3,9 +3,9 @@ using Domain.DTOs.Lead;
 using Domain.Entities;
 using Domain.Filters;
 using Domain.Responses;
+using Infrastructure.Constants;
 using Infrastructure.Data;
 using Infrastructure.Helpers;
-using Infrastructure.Constants;
 using Infrastructure.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -51,7 +51,7 @@ public class LeadService(
         }
         catch
         {
-            return new Response<string>(HttpStatusCode.InternalServerError, string.Format(Messages.Common.InternalError));
+            return new Response<string>(HttpStatusCode.InternalServerError, Messages.Common.InternalError);
         }
     }
     #endregion
@@ -220,24 +220,7 @@ public class LeadService(
             var lead = await context.Leads
                 .Include(l => l.Center)
                 .Where(l => l.Id == id && !l.IsDeleted && l.CenterId == centerId.Value)
-                .Select(l => new GetLeadDto
-                {
-                    Id = l.Id,
-                    FullName = l.FullName,
-                    PhoneNumber = l.PhoneNumber,
-                    BirthDate = l.BirthDate,
-                    Gender = l.Gender,
-                    OccupationStatus = l.OccupationStatus,
-                    RegisterForMonth = l.RegisterForMonth,
-                    Course = l.Course!,
-                    LessonTime = l.LessonTime,
-                    Notes = l.Notes,
-                    UtmSource = l.UtmSource,
-                    CenterId = l.CenterId,
-                    CenterName = l.Center != null ? l.Center.Name : string.Empty,
-                    CreatedAt = l.CreatedAt,
-                    UpdatedAt = l.UpdatedAt
-                })
+                .Select(l => DtoMappingHelper.MapToGetLeadDto(l))
                 .FirstOrDefaultAsync();
 
             if (lead == null)

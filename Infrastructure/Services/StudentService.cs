@@ -358,25 +358,20 @@ public class StudentService(
             .OrderBy(s => s.Id)
             .Skip(skip)
             .Take(filter.PageSize)
-            .Select(s => new GetStudentDto
-            {
-                Id = s.Id,
-                FullName = s.FullName,
-                Email = s.Email,
-                Address = s.Address,
-                Phone = s.PhoneNumber,
-                Birthday = s.Birthday,
-                Age = s.Age,
-                Gender = s.Gender,
-                ActiveStatus = s.ActiveStatus,
-                PaymentStatus = s.PaymentStatus,
-                ImagePath = context.Users.Where(u => u.Id == s.UserId).Select(u => u.ProfileImagePath).FirstOrDefault() ?? s.ProfileImage,
-                UserId = s.UserId,
-                CenterId = s.CenterId
-            })
             .ToListAsync();
 
-        return new PaginationResponse<List<GetStudentDto>>(students, totalRecords, filter.PageNumber, filter.PageSize);
+        var userIds = students.Select(s => s.UserId).Distinct().ToList();
+        var userImages = await context.Users
+            .Where(u => userIds.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, u => u.ProfileImagePath);
+
+        var studentDtos = students.Select(s =>
+        {
+            var imagePath = userImages.TryGetValue(s.UserId, out var img) ? img : s.ProfileImage;
+            return DtoMappingHelper.MapToGetStudentDto(s, imagePath);
+        }).ToList();
+
+        return new PaginationResponse<List<GetStudentDto>>(studentDtos, totalRecords, filter.PageNumber, filter.PageSize);
     }
 
     #endregion
@@ -486,10 +481,11 @@ public class StudentService(
                 .OrderBy(s => s.FullName)
                 .Skip(skip)
                 .Take(filter.PageSize)
-                .Select(s => new GetSimpleDto { Id = s.Id, FullName = s.FullName })
                 .ToListAsync();
 
-            return new PaginationResponse<List<GetSimpleDto>>(students, totalRecords, filter.PageNumber, filter.PageSize);
+            var simpleDtos = students.Select(s => DtoMappingHelper.MapToGetSimpleDto(s.Id, s.FullName)).ToList();
+
+            return new PaginationResponse<List<GetSimpleDto>>(simpleDtos, totalRecords, filter.PageNumber, filter.PageSize);
         }
         catch
         {
@@ -522,27 +518,11 @@ public class StudentService(
                 .OrderByDescending(p => p.PaymentDate)
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize)
-                .Select(p => new GetPaymentDto
-                {
-                    Id = p.Id,
-                    StudentId = p.StudentId,
-                    GroupId = p.GroupId,
-                    ReceiptNumber = p.ReceiptNumber,
-                    OriginalAmount = p.OriginalAmount,
-                    DiscountAmount = p.DiscountAmount,
-                    Amount = p.Amount,
-                    PaymentMethod = p.PaymentMethod,
-                    TransactionId = p.TransactionId,
-                    Description = p.Description,
-                    Status = p.Status,
-                    PaymentDate = p.PaymentDate,
-                    CenterId = p.CenterId,
-                    Month = p.Month,
-                    Year = p.Year
-                })
                 .ToListAsync();
 
-            return new PaginationResponse<List<GetPaymentDto>>(list, total, pageNumber, pageSize);
+            var paymentDtos = list.Select(DtoMappingHelper.MapToGetPaymentDto).ToList();
+
+            return new PaginationResponse<List<GetPaymentDto>>(paymentDtos, total, pageNumber, pageSize);
         }
         catch (Exception ex)
         {

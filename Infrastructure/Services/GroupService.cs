@@ -699,15 +699,11 @@ public class GroupService(DataContext context,
                 }
             }
 
-            var simple = await query
+            var groups = await query
                 .OrderBy(g => g.Name)
-                .Select(g => new GetSimpleGroupInfoDto
-                {
-                    Id = g.Id,
-                    Name = g.Name,
-                    ImagePath = g.PhotoPath
-                })
                 .ToListAsync();
+
+            var simple = groups.Select(DtoMappingHelper.MapToGetSimpleGroupInfoDto).ToList();
 
             return new Response<List<GetSimpleGroupInfoDto>>
             {

@@ -4,7 +4,6 @@ using Domain.DTOs.OsonSms;
 using Domain.Responses;
 using Infrastructure.Interfaces;
 using Microsoft.Extensions.Configuration;
-using Newtonsoft.Json;
 using RestSharp;
 using System.Net;
 
@@ -37,7 +36,7 @@ public class OsonSmsService(IConfiguration configuration) : IOsonSmsService
             var txnId = GenerateTxnId();
             var strHash = Sha256Hash(txnId + _dlm + _login + _dlm + _sender + _dlm + phoneNumber + _dlm + _passHash);
 
-            var request = new RestRequest(_sendSmsUrl, Method.Get);
+            var request = new RestRequest(_sendSmsUrl);
             request.AddParameter("from", _sender);
             request.AddParameter("login", _login);
             request.AddParameter("t", _t);
@@ -48,7 +47,7 @@ public class OsonSmsService(IConfiguration configuration) : IOsonSmsService
 
             var response = await _restClient.ExecuteAsync<OsonSmsSendResponseDto>(request);
 
-            if (response.IsSuccessful && response.Data != null)
+            if (response is { IsSuccessful: true, Data: not null })
             {
                 if (response.Data.Error != null)
                 {
@@ -77,7 +76,7 @@ public class OsonSmsService(IConfiguration configuration) : IOsonSmsService
             var txnId = GenerateTxnId();
             var strHash = Sha256Hash(_login + _dlm + txnId + _dlm + _passHash);
 
-            var request = new RestRequest(_checkSmsStatusUrl, Method.Get);
+            var request = new RestRequest(_checkSmsStatusUrl);
             request.AddParameter("t", _t);
             request.AddParameter("login", _login);
             request.AddParameter("msg_id", msgId);
@@ -86,7 +85,7 @@ public class OsonSmsService(IConfiguration configuration) : IOsonSmsService
 
             var response = await _restClient.ExecuteAsync<OsonSmsStatusResponseDto>(request);
 
-            if (response.IsSuccessful && response.Data != null)
+            if (response is { IsSuccessful: true, Data: not null })
             {
                 if (response.Data.Error != null)
                 {
@@ -116,7 +115,7 @@ public class OsonSmsService(IConfiguration configuration) : IOsonSmsService
             var txnId = GenerateTxnId();
             var strHash = Sha256Hash(txnId + _dlm + _login + _dlm + _passHash);
 
-            var request = new RestRequest(_checkBalanceUrl, Method.Get);
+            var request = new RestRequest(_checkBalanceUrl);
             request.AddParameter("t", _t);
             request.AddParameter("login", _login);
             request.AddParameter("str_hash", strHash);
@@ -124,7 +123,7 @@ public class OsonSmsService(IConfiguration configuration) : IOsonSmsService
 
             var response = await _restClient.ExecuteAsync<OsonSmsBalanceResponseDto>(request);
 
-            if (response.IsSuccessful && response.Data != null)
+            if (response is { IsSuccessful: true, Data: not null })
             {
                 if (response.Data.Error != null)
                 {
@@ -149,14 +148,12 @@ public class OsonSmsService(IConfiguration configuration) : IOsonSmsService
 
     private string Sha256Hash(string value)
     {
-        using (SHA256 hash = SHA256.Create())
-        {
-            byte[] result = hash.ComputeHash(Encoding.UTF8.GetBytes(value));
-            StringBuilder sb = new StringBuilder();
-            foreach (byte b in result)
-                sb.Append(b.ToString("x2"));
-            return sb.ToString();
-        }
+        using SHA256 hash = SHA256.Create();
+        byte[] result = hash.ComputeHash(Encoding.UTF8.GetBytes(value));
+        StringBuilder sb = new StringBuilder();
+        foreach (byte b in result)
+            sb.Append(b.ToString("x2"));
+        return sb.ToString();
     }
 
     private string GenerateTxnId()
