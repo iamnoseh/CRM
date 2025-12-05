@@ -96,8 +96,8 @@ public class FinanceService(DataContext dbContext, IHttpContextAccessor httpCont
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Ошибка при расчёте финансового отчёта для центра {CenterId}", centerId);
-            return new Response<CenterFinancialSummaryDto>(HttpStatusCode.InternalServerError, "Не удалось рассчитать сводку");
+            Log.Error(ex, Messages.Finance.LogSummaryError, centerId);
+            return new Response<CenterFinancialSummaryDto>(HttpStatusCode.InternalServerError, Messages.Finance.SummaryCalculationFailed);
         }
     }
 
@@ -154,8 +154,8 @@ public class FinanceService(DataContext dbContext, IHttpContextAccessor httpCont
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Ошибка при расчёте месячной сводки {Year}-{Month} для центра {CenterId}", year, month, centerId);
-            return new Response<MonthlyFinancialSummaryDto>(HttpStatusCode.InternalServerError, "Не удалось рассчитать месячную сводку");
+            Log.Error(ex, Messages.Finance.LogMonthlySummaryError, year, month, centerId);
+            return new Response<MonthlyFinancialSummaryDto>(HttpStatusCode.InternalServerError, Messages.Finance.MonthlySummaryFailed);
         }
     }
 
@@ -187,8 +187,8 @@ public class FinanceService(DataContext dbContext, IHttpContextAccessor httpCont
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Ошибка при расчёте годовой сводки {Year} для центра {CenterId}", year, centerId);
-            return new Response<YearlyFinancialSummaryDto>(HttpStatusCode.InternalServerError, "Не удалось рассчитать годовую сводку");
+            Log.Error(ex, Messages.Finance.LogYearlySummaryError, year, centerId);
+            return new Response<YearlyFinancialSummaryDto>(HttpStatusCode.InternalServerError, Messages.Finance.YearlySummaryFailed);
         }
     }
 
@@ -213,8 +213,8 @@ public class FinanceService(DataContext dbContext, IHttpContextAccessor httpCont
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Ошибка при расчёте разбивки по категориям для центра {CenterId}", centerId);
-            return new Response<List<CategoryAmountDto>>(HttpStatusCode.InternalServerError, "Не удалось рассчитать разбивку по категориям");
+            Log.Error(ex, Messages.Finance.LogCategoryBreakdownError, centerId);
+            return new Response<List<CategoryAmountDto>>(HttpStatusCode.InternalServerError, Messages.Finance.CategoryBreakdownFailed);
         }
     }
 
@@ -268,13 +268,13 @@ public class FinanceService(DataContext dbContext, IHttpContextAccessor httpCont
                 await dbContext.SaveChangesAsync();
 
             var user = httpContextAccessor.HttpContext?.User?.Identity?.Name ?? "system";
-            Log.Information("Пользователь {User} сформировал начисление зарплат для центра {CenterId} {Year}-{Month}: {Count} записей", user, centerId, year, month, createdCount);
+            Log.Information(Messages.Finance.LogPayrollGenerationSuccess, user, centerId, year, month, createdCount);
             return new Response<int>(createdCount);
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Ошибка при формировании начисления зарплат для центра {CenterId} {Year}-{Month}", centerId, year, month);
-            return new Response<int>(HttpStatusCode.InternalServerError, "Не удалось сформировать начисление зарплат");
+            Log.Error(ex, Messages.Finance.LogPayrollGenerationError, centerId, year, month);
+            return new Response<int>(HttpStatusCode.InternalServerError, Messages.Finance.PayrollGenerationFailed);
         }
     }
 
@@ -351,8 +351,8 @@ public class FinanceService(DataContext dbContext, IHttpContextAccessor httpCont
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Ошибка при расчёте задолженностей для центра {CenterId} {Year}-{Month}", centerId, year, month);
-            return new Response<List<DebtDto>>(HttpStatusCode.InternalServerError, "Не удалось рассчитать задолженности");
+            Log.Error(ex, Messages.Finance.LogDebtCalculationError, centerId, year, month);
+            return new Response<List<DebtDto>>(HttpStatusCode.InternalServerError, Messages.Finance.DebtCalculationFailed);
         }
     }
 
@@ -405,8 +405,8 @@ public class FinanceService(DataContext dbContext, IHttpContextAccessor httpCont
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Ошибка при закрытии/открытии месяца {Year}-{Month} для центра {CenterId}", year, month, centerId);
-            return new Response<bool>(HttpStatusCode.InternalServerError, "Операция не выполнена");
+            Log.Error(ex, Messages.Finance.LogMonthCloseError, year, month, centerId);
+            return new Response<bool>(HttpStatusCode.InternalServerError, Messages.Finance.OperationFailed);
         }
     }
 

@@ -6,7 +6,13 @@ using Domain.DTOs.Course;
 using Domain.DTOs.Mentor;
 using Domain.DTOs.Classroom;
 using Domain.Entities;
+using Domain.DTOs.Schedule;
+using Domain.DTOs.Journal;
+using Domain.Enums;
 using Microsoft.AspNetCore.Identity;
+using Infrastructure.Data;
+using Infrastructure.Constants;
+using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Helpers;
 
@@ -188,24 +194,28 @@ public static class DtoMappingHelper
 
     #region Center Mapping
 
-    public static GetCenterDto MapToGetCenterDto(Center center)
+    public static GetCenterDto MapToGetCenterDto(Center c, DataContext context)
     {
         return new GetCenterDto
         {
-            Id = center.Id,
-            Name = center.Name,
-            Address = center.Address,
-            Description = center.Description,
-            Image = center.Image,
-            MonthlyIncome = 0,
-            YearlyIncome = 0,
-            StudentCapacity = center.StudentCapacity,
-            IsActive = center.IsActive,
-            ContactEmail = center.Email,
-            ContactPhone = center.ContactPhone,
-            ManagerId = center.ManagerId,
-            CreatedAt = center.CreatedAt,
-            UpdatedAt = center.UpdatedAt
+            Id = c.Id,
+            Name = c.Name,
+            Address = c.Address,
+            Description = c.Description,
+            Image = c.Image,
+            MonthlyIncome = c.MonthlyIncome,
+            YearlyIncome = c.YearlyIncome,
+            StudentCapacity = c.StudentCapacity,
+            IsActive = c.IsActive,
+            ContactEmail = c.Email,
+            ContactPhone = c.ContactPhone,
+            ManagerId = c.ManagerId,
+            ManagerFullName = c.Manager != null ? c.Manager.FullName : null,
+            TotalStudents = context.Students.Count(s => s.CenterId == c.Id && !s.IsDeleted),
+            TotalMentors = context.Mentors.Count(m => m.CenterId == c.Id && !m.IsDeleted),
+            TotalCourses = context.Courses.Count(co => co.CenterId == c.Id && !co.IsDeleted),
+            CreatedAt = c.CreatedAt,
+            UpdatedAt = c.UpdatedAt
         };
     }
 
@@ -283,6 +293,147 @@ public static class DtoMappingHelper
         {
             Id = id,
             FullName = fullName
+        };
+    }
+
+    #endregion
+    #region Schedule Mapping
+
+    public static GetScheduleDto MapToGetScheduleDto(Schedule schedule)
+    {
+        return new GetScheduleDto
+        {
+            Id = schedule.Id,
+            ClassroomId = schedule.ClassroomId,
+            Classroom = new GetClassroomDto
+            {
+                Id = schedule.Classroom.Id,
+                Name = schedule.Classroom.Name,
+                Description = schedule.Classroom.Description,
+                Capacity = schedule.Classroom.Capacity,
+                IsActive = schedule.Classroom.IsActive,
+                CenterId = schedule.Classroom.CenterId,
+                Center = new GetCenterSimpleDto
+                {
+                    Id = schedule.Classroom.Center.Id,
+                    Name = schedule.Classroom.Center.Name
+                },
+                CreatedAt = schedule.Classroom.CreatedAt,
+                UpdatedAt = schedule.Classroom.UpdatedAt
+            },
+            GroupId = schedule.GroupId,
+            Group = schedule.Group != null ? new GetGroupDto
+            {
+                Id = schedule.Group.Id,
+                Name = schedule.Group.Name,
+                Description = schedule.Group.Description
+            } : null,
+            StartTime = schedule.StartTime,
+            EndTime = schedule.EndTime,
+            DayOfWeek = schedule.DayOfWeek,
+            StartDate = schedule.StartDate,
+            EndDate = schedule.EndDate,
+            IsRecurring = schedule.IsRecurring,
+            Status = schedule.Status,
+            Notes = schedule.Notes,
+            CreatedAt = schedule.CreatedAt,
+            UpdatedAt = schedule.UpdatedAt
+        };
+    }
+
+    #endregion
+
+    #region Journal Mapping
+
+    public static async Task<GetJournalDto> MapToJournalDtoAsync(Journal journal, DataContext context, bool includeDayNames = true)
+    {
+        var studentIds = journal.Entries.Select(e => e.StudentId).Distinct().ToList();
+        var students = await context.Students
+            .Where(s => studentIds.Contains(s.Id) && !s.IsDeleted)
+            .Select(s => new { s.Id, s.FullName, IsActive = s.ActiveStatus == ActiveStatus.Active })
+            .ToListAsync();
+
+        var totalsByStudent = journal.Entries
+            .Where(e => !e.IsDeleted)
+            .GroupBy(e => e.StudentId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Where(x => x.Grade.HasValue).Sum(x => x.Grade!.Value)
+                     + g.Where(x => x.BonusPoints.HasValue).Sum(x => x.BonusPoints!.Value)
+            );
+
+        var progresses = students
+            .Select(s => new { s, total = totalsByStudent.TryGetValue(s.Id, out var t) ? t : 0m })
+            .OrderByDescending(x => x.total)
+            .ThenByDescending(x => x.s.IsActive)
+            .ThenBy(x => x.s.FullName)
+            .Select(x => new StudentProgress
+            {
+                StudentId = x.s.Id,
+                StudentName = x.s.FullName.Trim(),
+                WeeklyTotalScores = (double)x.total,
+                StudentEntries = journal.Entries
+                    .Where(e => e.StudentId == x.s.Id)
+                    .OrderBy(e => e.LessonNumber)
+                    .ThenBy(e => e.DayOfWeek)
+                    .Select(e => new GetJournalEntryDto
+                    {
+                        Id = e.Id,
+                        DayOfWeek = e.DayOfWeek,
+                        DayName = includeDayNames ? GetDayNameInTajik(e.DayOfWeek) : string.Empty,
+                        DayShortName = includeDayNames ? GetDayShortNameInTajik(e.DayOfWeek) : string.Empty,
+                        LessonNumber = e.LessonNumber,
+                        LessonType = e.LessonType,
+                        Grade = e.Grade ?? 0,
+                        BonusPoints = e.BonusPoints ?? 0,
+                        AttendanceStatus = e.AttendanceStatus,
+                        Comment = e.Comment,
+                        CommentCategory = e.CommentCategory ?? CommentCategory.General,
+                        EntryDate = e.EntryDate,
+                        StartTime = e.StartTime,
+                        EndTime = e.EndTime
+                    }).ToList()
+            }).ToList();
+
+        return new GetJournalDto
+        {
+            Id = journal.Id,
+            GroupId = journal.GroupId,
+            GroupName = journal.Group?.Name,
+            WeekNumber = journal.WeekNumber,
+            WeekStartDate = journal.WeekStartDate,
+            WeekEndDate = journal.WeekEndDate,
+            Progresses = progresses
+        };
+    }
+
+    private static string GetDayNameInTajik(int crmDayOfWeek)
+    {
+        return crmDayOfWeek switch
+        {
+            1 => "Душанбе",
+            2 => "Сешанбе",
+            3 => "Чоршанбе",
+            4 => "Панҷшанбе",
+            5 => "Ҷумъа",
+            6 => "Шанбе",
+            7 => "Якшанбе",
+            _ => Messages.Common.Unknown
+        };
+    }
+
+    private static string GetDayShortNameInTajik(int crmDayOfWeek)
+    {
+        return crmDayOfWeek switch
+        {
+            1 => "Ду",
+            2 => "Се",
+            3 => "Чо",
+            4 => "Па",
+            5 => "Ҷу",
+            6 => "Ша",
+            7 => "Як",
+            _ => "Н"
         };
     }
 

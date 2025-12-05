@@ -14,6 +14,7 @@ public static class Messages
         public const string AccessDenied = "Доступ запрещен";
         public const string AlreadyExists = "Уже существует";
         public const string InvalidData = "Недопустимые данные";
+        public const string Unknown = "Неизвестно";
     }
 
     public static class User
@@ -108,6 +109,12 @@ public static class Messages
         public const string CreationError = "Ошибка при создании учебного центра: {0}";
         public const string UpdateError = "Ошибка при обновлении учебного центра: {0}";
         public const string DeleteError = "Ошибка при удалении учебного центра: {0}";
+        public const string CannotDeleteWithDependencies = "Невозможно удалить центр с активными студентами, преподавателями или курсами";
+        public const string SuperAdminOnly = "Только SuperAdmin может рассчитать доход всех центров";
+        public const string IncomeUpdated = "Доход центра обновлен: Месяц: {0}, Год: {1}";
+        public const string AllIncomesUpdated = "Успешно обновлен доход для всех {0} центров";
+        public const string IncomeUpdatePartial = "Обновлено {0} центров. Ошибки: {1}";
+        public const string IncomeUpdateErrorFormat = "Центр {0}: {1}";
     }
 
     public static class Course
@@ -143,6 +150,23 @@ public static class Messages
         public const string AccountNotFound = "Счет не найден";
         public const string TransactionFailed = "Транзакция не выполнена";
         public const string InvalidAmount = "Некорректная сумма";
+        public const string SummaryCalculationFailed = "Не удалось рассчитать сводку";
+        public const string MonthlySummaryFailed = "Не удалось рассчитать месячную сводку";
+        public const string YearlySummaryFailed = "Не удалось рассчитать годовую сводку";
+        public const string CategoryBreakdownFailed = "Не удалось рассчитать разбивку по категориям";
+        public const string PayrollGenerationFailed = "Не удалось сформировать начисление зарплат";
+        public const string DebtCalculationFailed = "Не удалось рассчитать задолженности";
+        public const string OperationFailed = "Операция не выполнена";
+        
+        // Log messages
+        public const string LogSummaryError = "Ошибка при расчёте финансового отчёта для центра {0}";
+        public const string LogMonthlySummaryError = "Ошибка при расчёте месячной сводки {0}-{1} для центра {2}";
+        public const string LogYearlySummaryError = "Ошибка при расчёте годовой сводки {0} для центра {1}";
+        public const string LogCategoryBreakdownError = "Ошибка при расчёте разбивки по категориям для центра {0}";
+        public const string LogPayrollGenerationSuccess = "Пользователь {0} сформировал начисление зарплат для центра {1} {2}-{3}: {4} записей";
+        public const string LogPayrollGenerationError = "Ошибка при формировании начисления зарплат для центра {0} {1}-{2}";
+        public const string LogDebtCalculationError = "Ошибка при расчёте задолженностей для центра {0} {1}-{2}";
+        public const string LogMonthCloseError = "Ошибка при закрытии/открытии месяца {0}-{1} для центра {2}";
     }
 
     public static class Journal
@@ -178,6 +202,27 @@ public static class Messages
         public const string AllDeleted = "Все журналы группы ({0} шт.) успешно удалены";
         public const string AllDeleteFailed = "Не удалось удалить журналы";
         public const string NoJournalsToDelete = "Журналов для удаления не найдено";
+        
+        public static class Days
+        {
+            public const string Monday = "Понедельник";
+            public const string Tuesday = "Вторник";
+            public const string Wednesday = "Среда";
+            public const string Thursday = "Четверг";
+            public const string Friday = "Пятница";
+            public const string Saturday = "Суббота";
+            public const string Sunday = "Воскресенье";
+        }
+
+        public static class Comments
+        {
+            public const string General = "Общий";
+            public const string Positive = "Положительный";
+            public const string Warning = "Предупреждение";
+            public const string Behavior = "Поведение";
+            public const string Homework = "Домашнее задание";
+            public const string Participation = "Участие";
+        }
     }
 
     public static class StudentAccount
@@ -209,6 +254,21 @@ public static class Messages
         public const string Deleted = "Расписание успешно удалено";
         public const string ConflictDetected = "Обнаружен конфликт расписания";
         public const string TimeSlotOccupied = "Временной слот занят";
+        public const string AccessDeniedClassroom = "Доступ к выбранной аудитории запрещен";
+        public const string AccessDeniedGroup = "Доступ к выбранной группе запрещен";
+        public const string ClassroomGroupMismatch = "Аудитория и группа должны принадлежать одному учебному центру";
+        public const string CreateError = "Ошибка при создании расписания: {0}";
+        public const string UpdateError = "Ошибка при обновлении расписания: {0}";
+        public const string DeleteError = "Ошибка при удалении расписания: {0}";
+        public const string FetchError = "Ошибка при получении расписания: {0}";
+        public const string ConflictCheckError = "Ошибка при проверке конфликтов: {0}";
+        public const string AvailableSlotsError = "Ошибка при получении доступных временных промежутков: {0}";
+        public const string WeeklyError = "Ошибка при получении недельного расписания: {0}";
+    }
+
+    public static class Classroom
+    {
+        public const string NotFound = "Аудитория не найдена";
     }
 
     public static class File

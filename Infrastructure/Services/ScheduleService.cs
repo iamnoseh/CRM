@@ -1,227 +1,129 @@
 using System.Net;
-using Domain.DTOs.Center;
-using Domain.DTOs.Classroom;
-using Domain.DTOs.Group;
 using Domain.DTOs.Schedule;
 using Domain.Entities;
 using Domain.Enums;
 using Domain.Responses;
+using Infrastructure.Constants;
 using Infrastructure.Data;
-using Infrastructure.Interfaces;
 using Infrastructure.Helpers;
+using Infrastructure.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Services;
 
-public class ScheduleService : IScheduleService
+public class ScheduleService(DataContext context, IHttpContextAccessor httpContextAccessor)
+    : IScheduleService
 {
-    private readonly DataContext _context;
-    private readonly IHttpContextAccessor _httpContextAccessor;
+    #region CreateScheduleAsync
 
-    public ScheduleService(DataContext context, IHttpContextAccessor httpContextAccessor)
-    {
-        _context = context;
-        _httpContextAccessor = httpContextAccessor;
-    }
-
-    private int? CurrentCenterId => UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
-
-    private async Task<bool> IsClassroomAllowedAsync(int classroomId)
-    {
-        var centerId = await _context.Classrooms.Where(c => c.Id == classroomId)
-            .Select(c => (int?)c.CenterId).FirstOrDefaultAsync();
-        if (centerId == null) return false;
-        var userCenter = CurrentCenterId;
-        return userCenter == null || userCenter.Value == centerId.Value;
-    }
-
-    private async Task<(bool allowed, int? centerId)> IsGroupAllowedAsync(int? groupId)
-    {
-        if (!groupId.HasValue)
-        {
-            return (true, null);
-        }
-        var centerId = await _context.Groups.Include(g => g.Course)
-            .Where(g => g.Id == groupId.Value)
-            .Select(g => (int?)g.Course!.CenterId)
-            .FirstOrDefaultAsync();
-        if (centerId == null) return (false, null);
-        var userCenter = CurrentCenterId;
-        return (userCenter == null || userCenter.Value == centerId.Value, centerId);
-    }
-
-    public async Task<Response<GetScheduleDto>> CreateScheduleAsync(CreateScheduleDto createDto)
+    public async Task<Response<GetScheduleDto>> CreateScheduleAsync(CreateScheduleDto dto)
     {
         try
         {
-            if (!await IsClassroomAllowedAsync(createDto.ClassroomId))
-            {
-                return new Response<GetScheduleDto>
-                {
-                    StatusCode = (int)HttpStatusCode.Forbidden,
-                    Message = "Дастрасӣ манъ аст (Classroom)"
-                };
-            }
-            var (groupAllowed, groupCenterId) = await IsGroupAllowedAsync(createDto.GroupId);
-            if (!groupAllowed)
-            {
-                return new Response<GetScheduleDto>
-                {
-                    StatusCode = (int)HttpStatusCode.Forbidden,
-                    Message = "Дастрасӣ манъ аст (Group)"
-                };
-            }
-            var classroomCenter = await _context.Classrooms.Where(c => c.Id == createDto.ClassroomId)
-                .Select(c => (int?)c.CenterId).FirstOrDefaultAsync();
-            if (groupCenterId.HasValue && classroomCenter != groupCenterId)
-            {
-                return new Response<GetScheduleDto>
-                {
-                    StatusCode = (int)HttpStatusCode.BadRequest,
-                    Message = "Синфхона ва гурӯҳ бояд ба як марказ тааллуқ дошта бошанд"
-                };
-            }
-            var conflictCheck = await CheckScheduleConflictAsync(createDto);
-            if (conflictCheck.StatusCode != 200)
-            {
-                return new Response<GetScheduleDto>
-                {
-                    StatusCode = (int)HttpStatusCode.InternalServerError,
-                    Message = conflictCheck.Message
-                };
-            }
+            var access = await EnsureAccessAsync(dto.ClassroomId, dto.GroupId);
+            if (access.StatusCode != (int)HttpStatusCode.OK)
+                return new Response<GetScheduleDto>((HttpStatusCode)access.StatusCode, access.Message ?? Messages.Common.AccessDenied);
 
-            if (conflictCheck.Data?.HasConflict == true)
-            {
-                return new Response<GetScheduleDto>
-                {
-                    StatusCode = (int)HttpStatusCode.Conflict,
-                    Message = "Вақти дарс бо дарсҳои дигар мутобиқат дорад"
-                };
-            }
+            var conflictCheck = await CheckScheduleConflictAsync(dto);
+            if (conflictCheck.StatusCode != (int)HttpStatusCode.OK)
+                return new Response<GetScheduleDto>((HttpStatusCode)conflictCheck.StatusCode, conflictCheck.Message ?? Messages.Schedule.ConflictCheckError);
+
+            if (conflictCheck.Data.HasConflict)
+                return new Response<GetScheduleDto>(HttpStatusCode.Conflict, Messages.Schedule.ConflictDetected);
 
             var schedule = new Schedule
             {
-                ClassroomId = createDto.ClassroomId,
-                GroupId = createDto.GroupId,
-                StartTime = createDto.StartTime,
-                EndTime = createDto.EndTime,
-                DayOfWeek = createDto.DayOfWeek,
-                StartDate = createDto.StartDate,
-                EndDate = createDto.EndDate,
-                IsRecurring = createDto.IsRecurring,
-                Notes = createDto.Notes,
+                ClassroomId = dto.ClassroomId,
+                GroupId = dto.GroupId,
+                StartTime = dto.StartTime,
+                EndTime = dto.EndTime,
+                DayOfWeek = dto.DayOfWeek,
+                StartDate = dto.StartDate,
+                EndDate = dto.EndDate,
+                IsRecurring = dto.IsRecurring,
+                Notes = dto.Notes,
                 CreatedAt = DateTimeOffset.UtcNow,
                 UpdatedAt = DateTimeOffset.UtcNow
             };
 
-            _context.Schedules.Add(schedule);
-            await _context.SaveChangesAsync();
-
+            context.Schedules.Add(schedule);
+            await context.SaveChangesAsync();
             return await GetScheduleByIdAsync(schedule.Id);
         }
         catch (Exception ex)
         {
-            return new Response<GetScheduleDto>
-            {
-                StatusCode = (int)HttpStatusCode.InternalServerError,
-                Message = $"Хатогӣ ҳангоми сохтани ҷадвали дарс: {ex.Message}"
-            };
+            return new Response<GetScheduleDto>(HttpStatusCode.InternalServerError, string.Format(Messages.Schedule.CreateError, ex.Message));
         }
     }
+
+    #endregion
+
+    #region GetScheduleByIdAsync
 
     public async Task<Response<GetScheduleDto>> GetScheduleByIdAsync(int id)
     {
         try
         {
-            var schedule = await _context.Schedules
+            var schedule = await context.Schedules
                 .Include(s => s.Classroom)
-                .ThenInclude(c => c.Center)
+                    .ThenInclude(c => c!.Center)
                 .Include(s => s.Group)
                 .FirstOrDefaultAsync(s => s.Id == id && !s.IsDeleted);
 
             if (schedule == null)
-            {
-                return new Response<GetScheduleDto>
-                {
-                    StatusCode = (int)HttpStatusCode.NotFound,
-                    Message = "Ҷадвали дарс ёфт нашуд"
-                };
-            }
+                return new Response<GetScheduleDto>(HttpStatusCode.NotFound, Messages.Schedule.NotFound);
+
             var userCenter = CurrentCenterId;
-            if (userCenter != null && schedule.Classroom.CenterId != userCenter.Value)
-            {
-                return new Response<GetScheduleDto>
-                {
-                    StatusCode = (int)HttpStatusCode.Forbidden,
-                    Message = "Дастрасӣ манъ аст"
-                };
-            }
+            if (userCenter != null && schedule.Classroom!.CenterId != userCenter)
+                return new Response<GetScheduleDto>(HttpStatusCode.Forbidden, Messages.Common.AccessDenied);
 
-            var scheduleDto = MapToGetScheduleDto(schedule);
-
-            return new Response<GetScheduleDto>
-            {
-                StatusCode = (int)HttpStatusCode.OK,
-                Data = scheduleDto
-            };
+            return new Response<GetScheduleDto>(DtoMappingHelper.MapToGetScheduleDto(schedule));
         }
         catch (Exception ex)
         {
-            return new Response<GetScheduleDto>
-            {
-                StatusCode = (int)HttpStatusCode.InternalServerError,
-                Message = $"Хатогӣ ҳангоми гирифтани ҷадвали дарс: {ex.Message}"
-            };
+            return new Response<GetScheduleDto>(HttpStatusCode.InternalServerError, string.Format(Messages.Schedule.FetchError, ex.Message));
         }
     }
+
+    #endregion
+
+    #region GetSchedulesByClassroomAsync
 
     public async Task<Response<List<GetScheduleDto>>> GetSchedulesByClassroomAsync(int classroomId, DateOnly? startDate = null, DateOnly? endDate = null)
     {
         try
         {
             if (!await IsClassroomAllowedAsync(classroomId))
-            {
-                return new Response<List<GetScheduleDto>>
-                {
-                    StatusCode = (int)HttpStatusCode.Forbidden,
-                    Message = "Дастрасӣ манъ аст"
-                };
-            }
-            startDate ??= DateOnly.FromDateTime(DateTime.UtcNow.Date);
-            endDate ??= startDate.Value.AddDays(6);
+                return new Response<List<GetScheduleDto>>(HttpStatusCode.Forbidden, Messages.Schedule.AccessDeniedClassroom);
 
-            var schedules = await _context.Schedules
+            var from = startDate ?? DateOnly.FromDateTime(DateTime.UtcNow.Date);
+            var to = endDate ?? from.AddDays(6);
+
+            var schedules = await context.Schedules
                 .Include(s => s.Classroom)
-                .ThenInclude(c => c.Center)
+                    .ThenInclude(c => c!.Center)
                 .Include(s => s.Group)
                 .Where(s => s.ClassroomId == classroomId &&
-                           s.Status == ActiveStatus.Active &&
-                           !s.IsDeleted &&
-                           s.StartDate <= endDate &&
-                           (s.EndDate == null || s.EndDate >= startDate))
+                            s.Status == ActiveStatus.Active &&
+                            !s.IsDeleted &&
+                            s.StartDate <= to &&
+                            (s.EndDate == null || s.EndDate >= from))
                 .OrderBy(s => s.DayOfWeek)
                 .ThenBy(s => s.StartTime)
                 .ToListAsync();
 
-            var scheduleDtos = schedules.Select(MapToGetScheduleDto).ToList();
-
-            return new Response<List<GetScheduleDto>>
-            {
-                StatusCode = (int)HttpStatusCode.OK,
-                Data = scheduleDtos
-            };
+            return new Response<List<GetScheduleDto>>(schedules.Select(DtoMappingHelper.MapToGetScheduleDto).ToList());
         }
         catch (Exception ex)
         {
-            return new Response<List<GetScheduleDto>>
-            {
-                StatusCode = (int)HttpStatusCode.InternalServerError,
-                Message = $"Хатогӣ ҳангоми гирифтани ҷадвалҳои синфхона: {ex.Message}"
-            };
+            return new Response<List<GetScheduleDto>>(HttpStatusCode.InternalServerError, string.Format(Messages.Schedule.FetchError, ex.Message));
         }
     }
+
+    #endregion
+
+    #region GetSchedulesByGroupAsync
 
     public async Task<Response<List<GetScheduleDto>>> GetSchedulesByGroupAsync(int groupId)
     {
@@ -229,365 +131,243 @@ public class ScheduleService : IScheduleService
         {
             var (groupAllowed, _) = await IsGroupAllowedAsync(groupId);
             if (!groupAllowed)
-            {
-                return new Response<List<GetScheduleDto>>
-                {
-                    StatusCode = (int)HttpStatusCode.Forbidden,
-                    Message = "Дастрасӣ манъ аст"
-                };
-            }
-            var schedules = await _context.Schedules
+                return new Response<List<GetScheduleDto>>(HttpStatusCode.Forbidden, Messages.Schedule.AccessDeniedGroup);
+
+            var schedules = await context.Schedules
                 .Include(s => s.Classroom)
-                .ThenInclude(c => c.Center)
                 .Include(s => s.Group)
-                .Where(s => s.GroupId == groupId &&
-                           s.Status == ActiveStatus.Active &&
-                           !s.IsDeleted)
+                .Where(s => s.GroupId == groupId && s.Status == ActiveStatus.Active && !s.IsDeleted)
                 .OrderBy(s => s.DayOfWeek)
                 .ThenBy(s => s.StartTime)
                 .ToListAsync();
 
-            var scheduleDtos = schedules.Select(MapToGetScheduleDto).ToList();
-
-            return new Response<List<GetScheduleDto>>
-            {
-                StatusCode = (int)HttpStatusCode.OK,
-                Data = scheduleDtos
-            };
+            return new Response<List<GetScheduleDto>>(schedules.Select(DtoMappingHelper.MapToGetScheduleDto).ToList());
         }
         catch (Exception ex)
         {
-            return new Response<List<GetScheduleDto>>
-            {
-                StatusCode = (int)HttpStatusCode.InternalServerError,
-                Message = $"Хатогӣ ҳангоми гирифтани ҷадвалҳои гурӯҳ: {ex.Message}"
-            };
+            return new Response<List<GetScheduleDto>>(HttpStatusCode.InternalServerError, string.Format(Messages.Schedule.FetchError, ex.Message));
         }
     }
 
-    public async Task<Response<GetScheduleDto>> UpdateScheduleAsync(UpdateScheduleDto updateDto)
+    #endregion
+
+    #region UpdateScheduleAsync
+
+    public async Task<Response<GetScheduleDto>> UpdateScheduleAsync(UpdateScheduleDto dto)
     {
         try
         {
-            var schedule = await _context.Schedules
-                .FirstOrDefaultAsync(s => s.Id == updateDto.Id && !s.IsDeleted);
-
+            var schedule = await context.Schedules.FirstOrDefaultAsync(s => s.Id == dto.Id && !s.IsDeleted);
             if (schedule == null)
-            {
-                return new Response<GetScheduleDto>
-                {
-                    StatusCode = (int)HttpStatusCode.NotFound,
-                    Message = "Ҷадвали дарс ёфт нашуд"
-                };
-            }
-            if (!await IsClassroomAllowedAsync(updateDto.ClassroomId))
-            {
-                return new Response<GetScheduleDto>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст (Classroom)");
-            }
-            var (groupAllowed2, groupCenter2) = await IsGroupAllowedAsync(updateDto.GroupId);
-            if (!groupAllowed2)
-            {
-                return new Response<GetScheduleDto>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст (Group)");
-            }
-            var classroomCenter2 = await _context.Classrooms.Where(c => c.Id == updateDto.ClassroomId)
-                .Select(c => (int?)c.CenterId).FirstOrDefaultAsync();
-            if (groupCenter2.HasValue && classroomCenter2 != groupCenter2)
-            {
-                return new Response<GetScheduleDto>(HttpStatusCode.BadRequest, "Синфхона ва гурӯҳ бояд ба як марказ тааллуқ дошта бошанд");
-            }
-            var conflictDto = new CreateScheduleDto
-            {
-                ClassroomId = updateDto.ClassroomId,
-                GroupId = updateDto.GroupId,
-                StartTime = updateDto.StartTime,
-                EndTime = updateDto.EndTime,
-                DayOfWeek = updateDto.DayOfWeek,
-                StartDate = updateDto.StartDate,
-                EndDate = updateDto.EndDate,
-                IsRecurring = updateDto.IsRecurring,
-                Notes = updateDto.Notes
-            };
+                return new Response<GetScheduleDto>(HttpStatusCode.NotFound, Messages.Schedule.NotFound);
 
-            var conflicts = await _context.Schedules
-                .Where(s => s.ClassroomId == updateDto.ClassroomId &&
-                           s.Id != updateDto.Id &&
-                           s.Status == ActiveStatus.Active &&
-                           !s.IsDeleted &&
-                           s.DayOfWeek == updateDto.DayOfWeek &&
-                           s.StartDate <= updateDto.StartDate &&
-                           (s.EndDate == null || s.EndDate >= updateDto.StartDate) &&
-                           s.StartTime < updateDto.EndTime && s.EndTime > updateDto.StartTime)
+            var access = await EnsureAccessAsync(dto.ClassroomId, dto.GroupId);
+            if (access.StatusCode != (int)HttpStatusCode.OK)
+                return new Response<GetScheduleDto>((HttpStatusCode)access.StatusCode, access.Message ?? Messages.Common.AccessDenied);
+
+            var conflictExists = await context.Schedules
+                .Where(s => s.ClassroomId == dto.ClassroomId &&
+                            s.Id != dto.Id &&
+                            s.Status == ActiveStatus.Active &&
+                            !s.IsDeleted &&
+                            s.DayOfWeek == dto.DayOfWeek &&
+                            s.StartDate <= dto.StartDate &&
+                            (s.EndDate == null || s.EndDate >= dto.StartDate) &&
+                            s.StartTime < dto.EndTime && s.EndTime > dto.StartTime)
                 .AnyAsync();
 
-            if (conflicts)
-            {
-                return new Response<GetScheduleDto>
-                {
-                    StatusCode = (int)HttpStatusCode.Conflict,
-                    Message = "Вақти дарс бо дарсҳои дигар мутобиқат дорад"
-                };
-            }
+            if (conflictExists)
+                return new Response<GetScheduleDto>(HttpStatusCode.Conflict, Messages.Schedule.ConflictDetected);
 
-            // Update schedule properties
-            schedule.ClassroomId = updateDto.ClassroomId;
-            schedule.GroupId = updateDto.GroupId;
-            schedule.StartTime = updateDto.StartTime;
-            schedule.EndTime = updateDto.EndTime;
-            schedule.DayOfWeek = updateDto.DayOfWeek;
-            schedule.StartDate = updateDto.StartDate;
-            schedule.EndDate = updateDto.EndDate;
-            schedule.IsRecurring = updateDto.IsRecurring;
-            schedule.Notes = updateDto.Notes;
+            schedule.ClassroomId = dto.ClassroomId;
+            schedule.GroupId = dto.GroupId;
+            schedule.StartTime = dto.StartTime;
+            schedule.EndTime = dto.EndTime;
+            schedule.DayOfWeek = dto.DayOfWeek;
+            schedule.StartDate = dto.StartDate;
+            schedule.EndDate = dto.EndDate;
+            schedule.IsRecurring = dto.IsRecurring;
+            schedule.Notes = dto.Notes;
             schedule.UpdatedAt = DateTimeOffset.UtcNow;
 
-            await _context.SaveChangesAsync();
-
+            await context.SaveChangesAsync();
             return await GetScheduleByIdAsync(schedule.Id);
         }
         catch (Exception ex)
         {
-            return new Response<GetScheduleDto>
-            {
-                StatusCode = (int)HttpStatusCode.InternalServerError,
-                Message = $"Хатогӣ ҳангоми навсозии ҷадвали дарс: {ex.Message}"
-            };
+            return new Response<GetScheduleDto>(HttpStatusCode.InternalServerError, string.Format(Messages.Schedule.UpdateError, ex.Message));
         }
     }
+
+    #endregion
+
+    #region DeleteScheduleAsync
 
     public async Task<Response<bool>> DeleteScheduleAsync(int id)
     {
         try
         {
-            var schedule = await _context.Schedules
-                .FirstOrDefaultAsync(s => s.Id == id && !s.IsDeleted);
-
+            var schedule = await context.Schedules.FirstOrDefaultAsync(s => s.Id == id && !s.IsDeleted);
             if (schedule == null)
-            {
-                return new Response<bool>
-                {
-                    StatusCode = (int)HttpStatusCode.NotFound,
-                    Message = "Ҷадвали дарс ёфт нашуд"
-                };
-            }
-            var allowed = await IsClassroomAllowedAsync(schedule.ClassroomId);
-            if (!allowed)
-            {
-                return new Response<bool>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
-            }
+                return new Response<bool>(HttpStatusCode.NotFound, Messages.Schedule.NotFound);
+
+            if (!await IsClassroomAllowedAsync(schedule.ClassroomId))
+                return new Response<bool>(HttpStatusCode.Forbidden, Messages.Common.AccessDenied);
 
             schedule.IsDeleted = true;
             schedule.UpdatedAt = DateTimeOffset.UtcNow;
+            await context.SaveChangesAsync();
 
-            await _context.SaveChangesAsync();
-
-            return new Response<bool>
-            {
-                StatusCode = (int)HttpStatusCode.OK,
-                Data = true,
-                Message = "Ҷадвали дарс бо муваффақият нест карда шуд"
-            };
+            var response = new Response<bool>(true) { Message = Messages.Schedule.Deleted };
+            return response;
         }
         catch (Exception ex)
         {
-            return new Response<bool>
-            {
-                StatusCode = (int)HttpStatusCode.InternalServerError,
-                Message = $"Хатогӣ ҳангоми несткунии ҷадвали дарс: {ex.Message}"
-            };
+            return new Response<bool>(HttpStatusCode.InternalServerError, string.Format(Messages.Schedule.DeleteError, ex.Message));
         }
     }
 
-    public async Task<Response<ScheduleConflictDto>> CheckScheduleConflictAsync(CreateScheduleDto scheduleDto)
+    #endregion
+
+    #region CheckScheduleConflictAsync
+
+    public async Task<Response<ScheduleConflictDto>> CheckScheduleConflictAsync(CreateScheduleDto dto)
     {
         try
         {
-            var conflictDto = new ScheduleConflictDto();
-            if (!await IsClassroomAllowedAsync(scheduleDto.ClassroomId))
-            {
-                return new Response<ScheduleConflictDto>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст (Classroom)");
-            }
-            var (groupAllowed, groupCenter) = await IsGroupAllowedAsync(scheduleDto.GroupId);
-            if (!groupAllowed)
-            {
-                return new Response<ScheduleConflictDto>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст (Group)");
-            }
-            var classroomCenter = await _context.Classrooms.Where(c => c.Id == scheduleDto.ClassroomId)
-                .Select(c => c.CenterId).FirstOrDefaultAsync();
-            if (classroomCenter != groupCenter)
-            {
-                return new Response<ScheduleConflictDto>(HttpStatusCode.BadRequest, "Синфхона ва гурӯҳ бояд ба як марказ тааллуқ дошта бошанд");
-            }
+            var access = await EnsureAccessAsync(dto.ClassroomId, dto.GroupId);
+            if (access.StatusCode != (int)HttpStatusCode.OK)
+                return new Response<ScheduleConflictDto>((HttpStatusCode)access.StatusCode, access.Message ?? Messages.Common.AccessDenied);
 
-            var conflicts = await _context.Schedules
+            var conflicts = await context.Schedules
                 .Include(s => s.Classroom)
                 .Include(s => s.Group)
-                .Where(s => s.ClassroomId == scheduleDto.ClassroomId &&
-                           s.Status == ActiveStatus.Active &&
-                           !s.IsDeleted &&
-                           s.DayOfWeek == scheduleDto.DayOfWeek &&
-                           s.StartDate <= scheduleDto.StartDate &&
-                           (s.EndDate == null || s.EndDate >= scheduleDto.StartDate) &&
-                           s.StartTime < scheduleDto.EndTime && s.EndTime > scheduleDto.StartTime)
+                .Where(s => s.ClassroomId == dto.ClassroomId &&
+                            s.Status == ActiveStatus.Active &&
+                            !s.IsDeleted &&
+                            s.DayOfWeek == dto.DayOfWeek &&
+                            s.StartDate <= dto.StartDate &&
+                            (s.EndDate == null || s.EndDate >= dto.StartDate) &&
+                            s.StartTime < dto.EndTime && s.EndTime > dto.StartTime)
                 .ToListAsync();
 
+            var conflictDto = new ScheduleConflictDto();
             if (conflicts.Any())
             {
                 conflictDto.HasConflict = true;
                 conflictDto.Conflicts = conflicts.Select(c => new ConflictDetail
                 {
                     ScheduleId = c.Id,
-                    ClassroomName = c.Classroom?.Name ?? "Номи синфхона маълум нест",
+                    ClassroomName = c.Classroom?.Name ?? string.Empty,
                     GroupName = c.Group?.Name,
                     StartTime = c.StartTime,
                     EndTime = c.EndTime,
                     DayOfWeek = c.DayOfWeek,
-                    Message = $"Вақти дарс бо {c.Group?.Name ?? "дарси дигар"} дар синфхонаи {c.Classroom?.Name ?? "синфхонаи дигар"} мутобиқат дорад"
+                    Message = Messages.Schedule.ConflictDetected
                 }).ToList();
+
+                var suggestions = await GetAvailableTimeSlotsAsync(dto.ClassroomId, dto.DayOfWeek, dto.StartDate, dto.EndTime - dto.StartTime);
+                if (suggestions.StatusCode == (int)HttpStatusCode.OK)
+                    conflictDto.Suggestions = suggestions.Data;
             }
 
-            // Get suggestions for available time slots
-            if (conflictDto.HasConflict)
-            {
-                var suggestionsResponse = await GetAvailableTimeSlotsAsync(
-                    scheduleDto.ClassroomId,
-                    scheduleDto.DayOfWeek,
-                    scheduleDto.StartDate,
-                    scheduleDto.EndTime - scheduleDto.StartTime);
-
-                if (suggestionsResponse.StatusCode == 200 && suggestionsResponse.Data != null)
-                {
-                    conflictDto.Suggestions = suggestionsResponse.Data;
-                }
-            }
-
-            return new Response<ScheduleConflictDto>
-            {
-                StatusCode = (int)HttpStatusCode.OK,
-                Data = conflictDto
-            };
+            return new Response<ScheduleConflictDto>(conflictDto);
         }
         catch (Exception ex)
         {
-            return new Response<ScheduleConflictDto>
-            {
-                StatusCode = (int)HttpStatusCode.InternalServerError,
-                Message = $"Хатогӣ ҳангоми санҷиши вақти бархӯрд: {ex.Message}"
-            };
+            return new Response<ScheduleConflictDto>(HttpStatusCode.InternalServerError, string.Format(Messages.Schedule.ConflictCheckError, ex.Message));
         }
     }
+
+    #endregion
+
+    #region GetAvailableTimeSlotsAsync
 
     public async Task<Response<List<TimeSlotSuggestion>>> GetAvailableTimeSlotsAsync(int classroomId, DayOfWeek dayOfWeek, DateOnly date, TimeSpan duration)
     {
         try
         {
             if (!await IsClassroomAllowedAsync(classroomId))
-            {
-                return new Response<List<TimeSlotSuggestion>>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
-            }
-            var classroom = await _context.Classrooms
-                .FirstOrDefaultAsync(c => c.Id == classroomId && !c.IsDeleted);
+                return new Response<List<TimeSlotSuggestion>>(HttpStatusCode.Forbidden, Messages.Schedule.AccessDeniedClassroom);
 
+            var classroom = await context.Classrooms.FirstOrDefaultAsync(c => c.Id == classroomId && !c.IsDeleted);
             if (classroom == null)
-            {
-                return new Response<List<TimeSlotSuggestion>>
-                {
-                    StatusCode = (int)HttpStatusCode.NotFound,
-                    Message = "Синфхона ёфт нашуд"
-                };
-            }
+                return new Response<List<TimeSlotSuggestion>>(HttpStatusCode.NotFound, Messages.Classroom.NotFound);
 
-            // Get occupied time slots for the day
-            var occupiedSlots = await _context.Schedules
+            var occupiedSlots = await context.Schedules
                 .Where(s => s.ClassroomId == classroomId &&
-                           s.DayOfWeek == dayOfWeek &&
-                           s.Status == ActiveStatus.Active &&
-                           !s.IsDeleted &&
-                           s.StartDate <= date &&
-                           (s.EndDate == null || s.EndDate >= date))
+                            s.DayOfWeek == dayOfWeek &&
+                            s.Status == ActiveStatus.Active &&
+                            !s.IsDeleted &&
+                            s.StartDate <= date &&
+                            (s.EndDate == null || s.EndDate >= date))
                 .OrderBy(s => s.StartTime)
                 .Select(s => new { s.StartTime, s.EndTime })
                 .ToListAsync();
 
             var suggestions = new List<TimeSlotSuggestion>();
-
-            // Working hours (8:00 AM to 8:00 PM)
             var workingStart = new TimeOnly(8, 0);
             var workingEnd = new TimeOnly(20, 0);
+            var current = workingStart;
 
-            // Generate available slots
-            var currentTime = workingStart;
-            while (currentTime.Add(duration) <= workingEnd)
+            while (current.Add(duration) <= workingEnd)
             {
-                var proposedEnd = currentTime.Add(duration);
-
-                // Check if this slot conflicts with any occupied slot
-                bool hasConflict = occupiedSlots.Any(slot =>
-                    currentTime < slot.EndTime && proposedEnd > slot.StartTime);
-
+                var proposedEnd = current.Add(duration);
+                var hasConflict = occupiedSlots.Any(slot => current < slot.EndTime && proposedEnd > slot.StartTime);
                 if (!hasConflict)
                 {
                     suggestions.Add(new TimeSlotSuggestion
                     {
                         ClassroomId = classroomId,
                         ClassroomName = classroom.Name,
-                        StartTime = currentTime,
+                        StartTime = current,
                         EndTime = proposedEnd,
                         DayOfWeek = dayOfWeek,
                         IsPreferred = true
                     });
                 }
-
-                currentTime = currentTime.AddMinutes(30); // 30-minute intervals
+                current = current.AddMinutes(30);
             }
 
-            return new Response<List<TimeSlotSuggestion>>
-            {
-                StatusCode = (int)HttpStatusCode.OK,
-                Data = suggestions
-            };
+            return new Response<List<TimeSlotSuggestion>>(suggestions);
         }
         catch (Exception ex)
         {
-            return new Response<List<TimeSlotSuggestion>>
-            {
-                StatusCode = (int)HttpStatusCode.InternalServerError,
-                Message = $"Хатогӣ ҳангоми гирифтани вақтҳои холӣ: {ex.Message}"
-            };
+            return new Response<List<TimeSlotSuggestion>>(HttpStatusCode.InternalServerError, string.Format(Messages.Schedule.AvailableSlotsError, ex.Message));
         }
     }
+
+    #endregion
+
+    #region IsTimeSlotAvailableAsync
 
     public async Task<Response<bool>> IsTimeSlotAvailableAsync(int classroomId, DayOfWeek dayOfWeek, TimeOnly startTime, TimeOnly endTime, DateOnly date)
     {
         try
         {
             if (!await IsClassroomAllowedAsync(classroomId))
-            {
-                return new Response<bool>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
-            }
-            var hasConflict = await _context.Schedules
-                .AnyAsync(s => s.ClassroomId == classroomId &&
-                              s.DayOfWeek == dayOfWeek &&
-                              s.Status == ActiveStatus.Active &&
-                              !s.IsDeleted &&
-                              s.StartDate <= date &&
-                              (s.EndDate == null || s.EndDate >= date) &&
-                              s.StartTime < endTime && s.EndTime > startTime);
+                return new Response<bool>(HttpStatusCode.Forbidden, Messages.Schedule.AccessDeniedClassroom);
 
-            return new Response<bool>
-            {
-                StatusCode = (int)HttpStatusCode.OK,
-                Data = !hasConflict
-            };
+            var hasConflict = await context.Schedules
+                .AnyAsync(s => s.ClassroomId == classroomId &&
+                               s.DayOfWeek == dayOfWeek &&
+                               s.Status == ActiveStatus.Active &&
+                               !s.IsDeleted &&
+                               s.StartDate <= date &&
+                               (s.EndDate == null || s.EndDate >= date) &&
+                               s.StartTime < endTime && s.EndTime > startTime);
+
+            return new Response<bool>(!hasConflict);
         }
         catch (Exception ex)
         {
-            return new Response<bool>
-            {
-                StatusCode = (int)HttpStatusCode.InternalServerError,
-                Message = $"Хатогӣ ҳангоми санҷиши дастрасии вақт: {ex.Message}"
-            };
+            return new Response<bool>(HttpStatusCode.InternalServerError, string.Format(Messages.Schedule.AvailableSlotsError, ex.Message));
         }
     }
+
+    #endregion
+
+    #region GetWeeklyScheduleAsync
 
     public async Task<Response<List<GetScheduleDto>>> GetWeeklyScheduleAsync(int centerId, DateOnly weekStart)
     {
@@ -595,81 +375,89 @@ public class ScheduleService : IScheduleService
         {
             var userCenter = CurrentCenterId;
             if (userCenter != null && userCenter.Value != centerId)
-            {
-                return new Response<List<GetScheduleDto>>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
-            }
-            var weekEnd = weekStart.AddDays(6);
+                return new Response<List<GetScheduleDto>>(HttpStatusCode.Forbidden, Messages.Common.AccessDenied);
 
-            var schedules = await _context.Schedules
+            var weekEnd = weekStart.AddDays(6);
+            var schedules = await context.Schedules
                 .Include(s => s.Classroom)
-                .ThenInclude(c => c.Center)
+                    .ThenInclude(c => c!.Center)
                 .Include(s => s.Group)
-                .Where(s => s.Classroom.CenterId == centerId &&
-                           s.Status == ActiveStatus.Active &&
-                           !s.IsDeleted &&
-                           s.StartDate <= weekEnd &&
-                           (s.EndDate == null || s.EndDate >= weekStart))
+                .Where(s => s.Classroom!.CenterId == centerId &&
+                            s.Status == ActiveStatus.Active &&
+                            !s.IsDeleted &&
+                            s.StartDate <= weekEnd &&
+                            (s.EndDate == null || s.EndDate >= weekStart))
                 .OrderBy(s => s.DayOfWeek)
                 .ThenBy(s => s.StartTime)
                 .ToListAsync();
 
-            var scheduleDtos = schedules.Select(MapToGetScheduleDto).ToList();
-
-            return new Response<List<GetScheduleDto>>
-            {
-                StatusCode = (int)HttpStatusCode.OK,
-                Data = scheduleDtos
-            };
+            return new Response<List<GetScheduleDto>>(schedules.Select(DtoMappingHelper.MapToGetScheduleDto).ToList());
         }
         catch (Exception ex)
         {
-            return new Response<List<GetScheduleDto>>
-            {
-                StatusCode = (int)HttpStatusCode.InternalServerError,
-                Message = $"Хатогӣ ҳангоми гирифтани ҷадвали ҳафтавӣ: {ex.Message}"
-            };
+            return new Response<List<GetScheduleDto>>(HttpStatusCode.InternalServerError, string.Format(Messages.Schedule.WeeklyError, ex.Message));
         }
     }
 
-    private GetScheduleDto MapToGetScheduleDto(Schedule schedule)
+    #endregion
+
+    #region Helpers
+
+    private int? CurrentCenterId => UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+
+    private async Task<bool> IsClassroomAllowedAsync(int classroomId)
     {
-        return new GetScheduleDto
-        {
-            Id = schedule.Id,
-            ClassroomId = schedule.ClassroomId,
-            Classroom = new GetClassroomDto
-            {
-                Id = schedule.Classroom.Id,
-                Name = schedule.Classroom.Name,
-                Description = schedule.Classroom.Description,
-                Capacity = schedule.Classroom.Capacity,
-                IsActive = schedule.Classroom.IsActive,
-                CenterId = schedule.Classroom.CenterId,
-                Center = new GetCenterSimpleDto
-                {
-                    Id = schedule.Classroom.Center.Id,
-                    Name = schedule.Classroom.Center.Name
-                },
-                CreatedAt = schedule.Classroom.CreatedAt,
-                UpdatedAt = schedule.Classroom.UpdatedAt
-            },
-            GroupId = schedule.GroupId,
-            Group = schedule.Group != null ? new GetGroupDto
-            {
-                Id = schedule.Group.Id,
-                Name = schedule.Group.Name,
-                Description = schedule.Group.Description
-            } : null,
-            StartTime = schedule.StartTime,
-            EndTime = schedule.EndTime,
-            DayOfWeek = schedule.DayOfWeek,
-            StartDate = schedule.StartDate,
-            EndDate = schedule.EndDate,
-            IsRecurring = schedule.IsRecurring,
-            Status = schedule.Status,
-            Notes = schedule.Notes,
-            CreatedAt = schedule.CreatedAt,
-            UpdatedAt = schedule.UpdatedAt
-        };
+        var centerId = await context.Classrooms.Where(c => c.Id == classroomId)
+            .Select(c => (int?)c.CenterId)
+            .FirstOrDefaultAsync();
+
+        if (centerId == null)
+            return false;
+
+        var userCenter = CurrentCenterId;
+        return userCenter == null || userCenter.Value == centerId.Value;
     }
-} 
+
+    private async Task<(bool allowed, int? centerId)> IsGroupAllowedAsync(int? groupId)
+    {
+        if (!groupId.HasValue)
+            return (true, null);
+
+        var centerId = await context.Groups
+            .Include(g => g.Course)
+            .Where(g => g.Id == groupId.Value)
+            .Select(g => (int?)g.Course!.CenterId)
+            .FirstOrDefaultAsync();
+
+        if (centerId == null)
+            return (false, null);
+
+        var userCenter = CurrentCenterId;
+        var allowed = userCenter == null || userCenter.Value == centerId.Value;
+        return (allowed, centerId);
+    }
+
+    private async Task<Response<bool>> EnsureAccessAsync(int classroomId, int? groupId)
+    {
+        if (!await IsClassroomAllowedAsync(classroomId))
+            return new Response<bool>(HttpStatusCode.Forbidden, Messages.Schedule.AccessDeniedClassroom);
+
+        var classroomCenter = await context.Classrooms.Where(c => c.Id == classroomId)
+            .Select(c => (int?)c.CenterId)
+            .FirstOrDefaultAsync();
+
+        if (classroomCenter == null)
+            return new Response<bool>(HttpStatusCode.NotFound, Messages.Classroom.NotFound);
+
+        var (groupAllowed, groupCenterId) = await IsGroupAllowedAsync(groupId);
+        if (!groupAllowed)
+            return new Response<bool>(HttpStatusCode.Forbidden, Messages.Schedule.AccessDeniedGroup);
+
+        if (groupCenterId.HasValue && classroomCenter != groupCenterId.Value)
+            return new Response<bool>(HttpStatusCode.BadRequest, Messages.Schedule.ClassroomGroupMismatch);
+
+        return new Response<bool>(true);
+    }
+
+    #endregion
+}

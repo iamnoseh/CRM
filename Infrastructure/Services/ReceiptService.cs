@@ -16,7 +16,7 @@ public class ReceiptService(DataContext dbContext, IConfiguration configuration)
         var payment = await dbContext.Payments
             .Include(p => p.Student)
             .Include(p => p.Group)
-            .ThenInclude(g => g.Course)
+            .ThenInclude(g => g!.Course)
             .Include(p => p.Center)
             .AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == paymentId && !p.IsDeleted, ct);
@@ -121,7 +121,7 @@ public class ReceiptService(DataContext dbContext, IConfiguration configuration)
                     col.Item().Table(t =>
                     {
                         t.ColumnsDefinition(c => { c.RelativeColumn(); c.RelativeColumn(); });
-                        t.Cell().Element(CellKey).Text("Студент"); t.Cell().Text($"{p.Student?.FullName}");
+                        t.Cell().Element(CellKey).Text("Студент"); t.Cell().Text($"{p.Student.FullName}");
                         t.Cell().Element(CellKey).Text("Группа"); t.Cell().Text(p.Group?.Name);
                         t.Cell().Element(CellKey).Text("Курс"); t.Cell().Text(p.Group?.Course?.CourseName);
                     });

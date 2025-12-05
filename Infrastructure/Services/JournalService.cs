@@ -141,7 +141,7 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
             if (journal == null)
                 return new Response<GetJournalDto>(HttpStatusCode.NotFound, Messages.Journal.NotFound);
 
-            var dto = await MapToJournalDtoAsync(journal);
+            var dto = await DtoMappingHelper.MapToJournalDtoAsync(journal, context);
             return new Response<GetJournalDto>(dto);
         }
         catch (Exception ex)
@@ -175,7 +175,7 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
             if (journal == null)
                 return new Response<GetJournalDto>(HttpStatusCode.NotFound, Messages.Journal.NoJournalsFound);
 
-            var dto = await MapToJournalDtoAsync(journal, false);
+            var dto = await DtoMappingHelper.MapToJournalDtoAsync(journal, context, false);
             return new Response<GetJournalDto>(dto);
         }
         catch (Exception ex)
@@ -216,7 +216,7 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
             if (journal == null)
                 return new Response<GetJournalDto>(HttpStatusCode.NotFound, Messages.Journal.JournalNotFoundForDate);
 
-            var dto = await MapToJournalDtoAsync(journal, false);
+            var dto = await DtoMappingHelper.MapToJournalDtoAsync(journal, context, false);
             return new Response<GetJournalDto>(dto);
         }
         catch (Exception ex)
@@ -754,7 +754,7 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
             var comments = entries.Select(e => new StudentCommentDto
             {
                 Id = e.Id,
-                GroupName = e.Journal?.Group?.Name ?? "Неизвестно",
+                GroupName = e.Journal?.Group?.Name ?? Messages.Common.Unknown,
                 WeekNumber = e.Journal?.WeekNumber ?? 0,
                 Comment = e.Comment ?? "",
                 CommentCategory = e.CommentCategory ?? CommentCategory.General,
@@ -802,67 +802,7 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
         return await HasGroupAccessAsync(journal.GroupId);
     }
 
-    private async Task<GetJournalDto> MapToJournalDtoAsync(Journal journal, bool includeDayNames = true)
-    {
-        var studentIds = journal.Entries.Select(e => e.StudentId).Distinct().ToList();
-        var students = await context.Students
-            .Where(s => studentIds.Contains(s.Id) && !s.IsDeleted)
-            .Select(s => new { s.Id, s.FullName, IsActive = s.ActiveStatus == ActiveStatus.Active })
-            .ToListAsync();
 
-        var totalsByStudent = journal.Entries
-            .Where(e => !e.IsDeleted)
-            .GroupBy(e => e.StudentId)
-            .ToDictionary(
-                g => g.Key,
-                g => g.Where(x => x.Grade.HasValue).Sum(x => x.Grade!.Value)
-                     + g.Where(x => x.BonusPoints.HasValue).Sum(x => x.BonusPoints!.Value)
-            );
-
-        var progresses = students
-            .Select(s => new { s, total = totalsByStudent.TryGetValue(s.Id, out var t) ? t : 0m })
-            .OrderByDescending(x => x.total)
-            .ThenByDescending(x => x.s.IsActive)
-            .ThenBy(x => x.s.FullName)
-            .Select(x => new StudentProgress
-            {
-                StudentId = x.s.Id,
-                StudentName = x.s.FullName.Trim(),
-                WeeklyTotalScores = (double)x.total,
-                StudentEntries = journal.Entries
-                    .Where(e => e.StudentId == x.s.Id)
-                    .OrderBy(e => e.LessonNumber)
-                    .ThenBy(e => e.DayOfWeek)
-                    .Select(e => new GetJournalEntryDto
-                    {
-                        Id = e.Id,
-                        DayOfWeek = e.DayOfWeek,
-                        DayName = includeDayNames ? GetDayNameInTajik(e.DayOfWeek) : string.Empty,
-                        DayShortName = includeDayNames ? GetDayShortNameInTajik(e.DayOfWeek) : string.Empty,
-                        LessonNumber = e.LessonNumber,
-                        LessonType = e.LessonType,
-                        Grade = e.Grade ?? 0,
-                        BonusPoints = e.BonusPoints ?? 0,
-                        AttendanceStatus = e.AttendanceStatus,
-                        Comment = e.Comment,
-                        CommentCategory = e.CommentCategory ?? CommentCategory.General,
-                        EntryDate = e.EntryDate,
-                        StartTime = e.StartTime,
-                        EndTime = e.EndTime
-                    }).ToList()
-            }).ToList();
-
-        return new GetJournalDto
-        {
-            Id = journal.Id,
-            GroupId = journal.GroupId,
-            GroupName = journal.Group?.Name,
-            WeekNumber = journal.WeekNumber,
-            WeekStartDate = journal.WeekStartDate,
-            WeekEndDate = journal.WeekEndDate,
-            Progresses = progresses
-        };
-    }
 
     private List<(DateTime date, int dayOfWeekOneBased, int lessonNumber)> GeneratePlannedSlots(DateTime startCursor, List<int> lessonDays, int targetLessons)
     {
@@ -1039,35 +979,9 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
         };
     }
 
-    private static string GetDayNameInTajik(int crmDayOfWeek)
-    {
-        return crmDayOfWeek switch
-        {
-            1 => "Душанбе",
-            2 => "Сешанбе",
-            3 => "Чоршанбе",
-            4 => "Панҷшанбе",
-            5 => "Ҷумъа",
-            6 => "Шанбе",
-            7 => "Якшанбе",
-            _ => "Номаълум"
-        };
-    }
 
-    private static string GetDayShortNameInTajik(int crmDayOfWeek)
-    {
-        return crmDayOfWeek switch
-        {
-            1 => "Ду",
-            2 => "Се",
-            3 => "Чо",
-            4 => "Па",
-            5 => "Ҷу",
-            6 => "Ша",
-            7 => "Як",
-            _ => "Н"
-        };
-    }
+
+
 
     private static LessonType DetermineLessonType(bool hasWeeklyExam, int weekNumber, int lessonNumber, int totalLessons)
     {
@@ -1083,13 +997,13 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
     {
         return category switch
         {
-            CommentCategory.General => "Общий",
-            CommentCategory.Positive => "Положительный",
-            CommentCategory.Warning => "Предупреждение",
-            CommentCategory.Behavior => "Поведение",
-            CommentCategory.Homework => "Домашнее задание",
-            CommentCategory.Participation => "Участие",
-            _ => "Неизвестно"
+            CommentCategory.General => Messages.Journal.Comments.General,
+            CommentCategory.Positive => Messages.Journal.Comments.Positive,
+            CommentCategory.Warning => Messages.Journal.Comments.Warning,
+            CommentCategory.Behavior => Messages.Journal.Comments.Behavior,
+            CommentCategory.Homework => Messages.Journal.Comments.Homework,
+            CommentCategory.Participation => Messages.Journal.Comments.Participation,
+            _ => Messages.Common.Unknown
         };
     }
 
@@ -1097,14 +1011,14 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
     {
         return dayOfWeek switch
         {
-            1 => "Понедельник",
-            2 => "Вторник",
-            3 => "Среда",
-            4 => "Четверг",
-            5 => "Пятница",
-            6 => "Суббота",
-            7 => "Воскресенье",
-            _ => "Неизвестно"
+            1 => Messages.Journal.Days.Monday,
+            2 => Messages.Journal.Days.Tuesday,
+            3 => Messages.Journal.Days.Wednesday,
+            4 => Messages.Journal.Days.Thursday,
+            5 => Messages.Journal.Days.Friday,
+            6 => Messages.Journal.Days.Saturday,
+            7 => Messages.Journal.Days.Sunday,
+            _ => Messages.Common.Unknown
         };
     }
 

@@ -176,7 +176,7 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
             var hasCourses = await context.Courses.AnyAsync(c => c.CenterId == id && !c.IsDeleted);
 
             if (hasStudents || hasMentors || hasCourses)
-                return new Response<string>(HttpStatusCode.BadRequest, "Невозможно удалить центр с активными студентами, преподавателями или курсами");
+                return new Response<string>(HttpStatusCode.BadRequest, Messages.Center.CannotDeleteWithDependencies);
 
             center.IsDeleted = true;
             center.UpdatedAt = DateTime.UtcNow;
@@ -205,7 +205,8 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
             var centers = await context.Centers
                 .Where(c => !c.IsDeleted)
                 .Include(c => c.Manager)
-                .Select(c => MapToCenterDto(c))
+                .Include(c => c.Manager)
+                .Select(c => DtoMappingHelper.MapToGetCenterDto(c, context))
                 .ToListAsync();
 
             return centers.Any()
@@ -229,7 +230,7 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
             var center = await context.Centers
                 .Where(c => c.Id == id && !c.IsDeleted)
                 .Include(c => c.Manager)
-                .Select(c => MapToCenterDto(c))
+                .Select(c => DtoMappingHelper.MapToGetCenterDto(c, context))
                 .FirstOrDefaultAsync();
 
             return center != null
@@ -270,7 +271,8 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
             .Include(c => c.Manager)
             .Skip(skip)
             .Take(filter.PageSize)
-            .Select(c => MapToCenterDto(c))
+            .Take(filter.PageSize)
+            .Select(c => DtoMappingHelper.MapToGetCenterDto(c, context))
             .ToListAsync();
 
         return new PaginationResponse<List<GetCenterDto>>(centers, totalRecords, filter.PageNumber, filter.PageSize);
@@ -612,7 +614,7 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
 
             await context.SaveChangesAsync();
 
-            return new Response<string>(HttpStatusCode.OK, $"Доход центра обновлен: Месяц: {monthlyIncome}, Год: {yearlyIncome}");
+            return new Response<string>(HttpStatusCode.OK, string.Format(Messages.Center.IncomeUpdated, monthlyIncome, yearlyIncome));
         }
         catch (Exception ex)
         {
@@ -627,7 +629,7 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
     public async Task<Response<string>> CalculateAllCentersIncomeAsync()
     {
         if (!IsSuperAdmin())
-            return new Response<string>(HttpStatusCode.Forbidden, "Только SuperAdmin может рассчитать доход всех центров");
+            return new Response<string>(HttpStatusCode.Forbidden, Messages.Center.SuperAdminOnly);
 
         try
         {
@@ -644,14 +646,14 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
                 if (result.StatusCode == (int)HttpStatusCode.OK)
                     successCount++;
                 else
-                    errors.Add($"Центр {center.Id}: {result.Message}");
+                    errors.Add(string.Format(Messages.Center.IncomeUpdateErrorFormat, center.Id, result.Message));
             }
 
             if (errors.Any())
                 return new Response<string>(HttpStatusCode.PartialContent,
-                    $"Обновлено {successCount} центров. Ошибки: {string.Join("; ", errors)}");
+                    string.Format(Messages.Center.IncomeUpdatePartial, successCount, string.Join("; ", errors)));
 
-            return new Response<string>(HttpStatusCode.OK, $"Успешно обновлен доход для всех {successCount} центров");
+            return new Response<string>(HttpStatusCode.OK, string.Format(Messages.Center.AllIncomesUpdated, successCount));
         }
         catch (Exception ex)
         {
@@ -676,31 +678,6 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
             .Select(c => c.Value)
             .ToList();
         return roles != null && roles.Contains("SuperAdmin");
-    }
-
-    private GetCenterDto MapToCenterDto(Center c)
-    {
-        return new GetCenterDto
-        {
-            Id = c.Id,
-            Name = c.Name,
-            Address = c.Address,
-            Description = c.Description,
-            Image = c.Image,
-            MonthlyIncome = c.MonthlyIncome,
-            YearlyIncome = c.YearlyIncome,
-            StudentCapacity = c.StudentCapacity,
-            IsActive = c.IsActive,
-            ContactEmail = c.Email,
-            ContactPhone = c.ContactPhone,
-            ManagerId = c.ManagerId,
-            ManagerFullName = c.Manager != null ? c.Manager.FullName : null,
-            TotalStudents = context.Students.Count(s => s.CenterId == c.Id && !s.IsDeleted),
-            TotalMentors = context.Mentors.Count(m => m.CenterId == c.Id && !m.IsDeleted),
-            TotalCourses = context.Courses.Count(co => co.CenterId == c.Id && !co.IsDeleted),
-            CreatedAt = c.CreatedAt,
-            UpdatedAt = c.UpdatedAt
-        };
     }
 
     #endregion
