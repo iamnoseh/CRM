@@ -234,7 +234,7 @@ namespace Infrastructure.Services;
     {
         try
         {
-            var account = await db.StudentAccounts.FirstOrDefaultAsync(a => a.AccountCode == dto.StudentAccount && a.IsActive && !a.IsDeleted);
+            var account = await db.StudentAccounts.FirstOrDefaultAsync(a => a.AccountCode == dto.AccountCode && a.IsActive && !a.IsDeleted);
             if (account == null)
                 return new Response<GetStudentAccountDto>(HttpStatusCode.NotFound, Messages.StudentAccount.NotFound);
 
@@ -264,12 +264,12 @@ namespace Infrastructure.Services;
             db.AccountLogs.Add(log);
             await db.SaveChangesAsync();
 
-            Log.Information("Withdraw: AccountId={AccountId} Amount={Amount} StudentAccount={StudentAccount}", account.Id, dto.Amount, dto.StudentAccount);
+            Log.Information("Withdraw: AccountId={AccountId} Amount={Amount} StudentAccount={StudentAccount}", account.Id, dto.Amount, dto.AccountCode);
             return new Response<GetStudentAccountDto>(Map(account)) { Message = Messages.StudentAccount.WithdrawSuccess };
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Withdraw failed StudentAccount={StudentAccount}", dto.StudentAccount);
+            Log.Error(ex, "Withdraw failed StudentAccount={StudentAccount}", dto.AccountCode);
             return new Response<GetStudentAccountDto>(HttpStatusCode.InternalServerError, Messages.Common.InternalError);
         }
     }
