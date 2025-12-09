@@ -680,9 +680,19 @@ public class StudentService(
         var result = new Dictionary<int, double>();
         foreach (var gid in groupIds)
         {
-            var wk = await journalService.GetGroupWeeklyTotalsAsync(gid);
-            var avg = wk.Data.StudentAggregates.FirstOrDefault(a => a.StudentId == studentId)?.AveragePointsPerWeek;
-            if (avg.HasValue) result[gid] = avg.Value;
+            try
+            {
+                var wk = await journalService.GetGroupWeeklyTotalsAsync(gid);
+                if (wk.Data?.StudentAggregates != null)
+                {
+                    var avg = wk.Data.StudentAggregates.FirstOrDefault(a => a.StudentId == studentId)?.AveragePointsPerWeek;
+                    if (avg.HasValue) result[gid] = avg.Value;
+                }
+            }
+            catch
+            {
+                // Skip groups with journal errors
+            }
         }
         return result;
     }

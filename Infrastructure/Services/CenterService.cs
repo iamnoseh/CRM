@@ -205,13 +205,13 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
             var centers = await context.Centers
                 .Where(c => !c.IsDeleted)
                 .Include(c => c.Manager)
-                .Include(c => c.Manager)
-                .Select(c => DtoMappingHelper.MapToGetCenterDto(c, context))
                 .ToListAsync();
 
-            return centers.Any()
-                ? new Response<List<GetCenterDto>>(centers)
-                : new Response<List<GetCenterDto>>(HttpStatusCode.NotFound, Messages.Center.NotFound);
+            if (!centers.Any())
+                return new Response<List<GetCenterDto>>(HttpStatusCode.NotFound, Messages.Center.NotFound);
+
+            var centerDtos = centers.Select(c => DtoMappingHelper.MapToGetCenterDto(c, context)).ToList();
+            return new Response<List<GetCenterDto>>(centerDtos);
         }
         catch (Exception ex)
         {
@@ -230,12 +230,13 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
             var center = await context.Centers
                 .Where(c => c.Id == id && !c.IsDeleted)
                 .Include(c => c.Manager)
-                .Select(c => DtoMappingHelper.MapToGetCenterDto(c, context))
                 .FirstOrDefaultAsync();
 
-            return center != null
-                ? new Response<GetCenterDto>(center)
-                : new Response<GetCenterDto>(HttpStatusCode.NotFound, Messages.Center.NotFound);
+            if (center == null)
+                return new Response<GetCenterDto>(HttpStatusCode.NotFound, Messages.Center.NotFound);
+
+            var centerDto = DtoMappingHelper.MapToGetCenterDto(center, context);
+            return new Response<GetCenterDto>(centerDto);
         }
         catch (Exception ex)
         {
@@ -271,11 +272,10 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
             .Include(c => c.Manager)
             .Skip(skip)
             .Take(filter.PageSize)
-            .Take(filter.PageSize)
-            .Select(c => DtoMappingHelper.MapToGetCenterDto(c, context))
             .ToListAsync();
 
-        return new PaginationResponse<List<GetCenterDto>>(centers, totalRecords, filter.PageNumber, filter.PageSize);
+        var centerDtos = centers.Select(c => DtoMappingHelper.MapToGetCenterDto(c, context)).ToList();
+        return new PaginationResponse<List<GetCenterDto>>(centerDtos, totalRecords, filter.PageNumber, filter.PageSize);
     }
 
     #endregion
