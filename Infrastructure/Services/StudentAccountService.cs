@@ -15,12 +15,10 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace Infrastructure.Services;
 
-    public class StudentAccountService(
-        DataContext db,
-        IDiscountService discountService,
+    public class StudentAccountService(DataContext db,
+        IDiscountService discountService, 
         IMessageSenderService messageSenderService,
-        IHttpContextAccessor httpContextAccessor
-    ) : IStudentAccountService
+        IHttpContextAccessor httpContextAccessor) : IStudentAccountService
 {
     #region GetByStudentIdAsync
 
@@ -215,6 +213,7 @@ namespace Infrastructure.Services;
             }
             catch
             {
+                //
             }
 
             Log.Information("TopUp: AccountId={AccountId} Amount={Amount}", account.Id, dto.Amount);
@@ -611,7 +610,7 @@ namespace Infrastructure.Services;
                     if (!hasPayment)
                     {
                         var preview = await discountService.PreviewAsync(studentId, gid, month, year);
-                        var net = preview.Data?.PayableAmount ?? decimal.MaxValue;
+                        var net = preview.Data.PayableAmount;
                         if (net > 0)
                         {
                             isPaid = false;

@@ -2,8 +2,8 @@
 
 public enum LessonType
 {
-    Regular = 0,    // Дарси одӣ
-    Exam = 1,       // Имтиҳон
-    Test = 2,       // Санҷиш
-    Practice = 3,   // Машғули амалӣ
+    Regular = 0,    
+    Exam = 1,       
+    Test = 2,       
+    Practice = 3,   
 }
