@@ -202,6 +202,50 @@ namespace Infrastructure.Services;
         }
     }
 
+    public async Task<Response<GetStudentAccountDto>> WithdrawAsync(WithdrawDto dto)
+    {
+        try
+        {
+            var account = await db.StudentAccounts.FirstOrDefaultAsync(a => a.AccountCode == dto.AccountCode && a.IsActive && !a.IsDeleted);
+            if (account == null)
+                return new Response<GetStudentAccountDto>(HttpStatusCode.NotFound, "Ҳисоб ёфт нашуд ё ғайрифаъол аст");
+
+            if (dto.Amount <= 0)
+                return new Response<GetStudentAccountDto>(HttpStatusCode.BadRequest, "Маблағ бояд > 0 бошад");
+
+            if (account.Balance < dto.Amount)
+                return new Response<GetStudentAccountDto>(HttpStatusCode.BadRequest, "Маблағ дар ҳисоб нокифоя аст");
+
+            account.Balance -= dto.Amount;
+            account.UpdatedAt = DateTimeOffset.UtcNow;
+
+            var (userId, userName) = GetCurrentUser();
+
+            var log = new AccountLog
+            {
+                AccountId = account.Id,
+                Amount = -dto.Amount,
+                Type = "Withdraw",
+                Note = string.IsNullOrWhiteSpace(dto.Reason) ? "Withdraw" : dto.Reason,
+                PerformedByUserId = userId,
+                PerformedByName = userName,
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow
+            };
+
+            db.AccountLogs.Add(log);
+            await db.SaveChangesAsync();
+
+            Log.Information("Withdraw: AccountId={AccountId} Amount={Amount} AccountCode={AccountCode}", account.Id, dto.Amount, dto.AccountCode);
+            return new Response<GetStudentAccountDto>(Map(account)) { Message = "Маблағ муваффақона кам шуд" };
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Withdraw ноком шуд барои AccountCode={AccountCode}", dto.AccountCode);
+            return new Response<GetStudentAccountDto>(HttpStatusCode.InternalServerError, "Хатои дохилӣ");
+        }
+    }
+
     public async Task<Response<int>> RunMonthlyChargeAsync(int month, int year)
     {
         try
