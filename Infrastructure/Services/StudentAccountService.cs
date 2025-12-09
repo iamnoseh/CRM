@@ -207,9 +207,9 @@ namespace Infrastructure.Services;
         try
         {
 
-            var account = await db.StudentAccounts.FirstOrDefaultAsync(a => a.StudentId == dto.StudentId && a.IsActive && !a.IsDeleted);
+            var account = await db.StudentAccounts.FirstOrDefaultAsync(a => a.AccountCode == dto.AccountCode && a.IsActive && !a.IsDeleted);
             if (account == null)
-                return new Response<GetStudentAccountDto>(HttpStatusCode.NotFound, "Ҳисоби донишҷӯ ёфт нашуд");
+                return new Response<GetStudentAccountDto>(HttpStatusCode.NotFound, "Ҳисоб ёфт нашуд ё ғайрифаъол аст");
 
 
             if (dto.Amount <= 0)
@@ -229,7 +229,7 @@ namespace Infrastructure.Services;
                 AccountId = account.Id,
                 Amount = -dto.Amount,
                 Type = "Withdraw",
-                Note = dto.Reason ?? "Вывод",
+                Note = string.IsNullOrWhiteSpace(dto.Reason) ? "Withdraw" : dto.Reason,
                 PerformedByUserId = userId,
                 PerformedByName = userName,
                 CreatedAt = DateTimeOffset.UtcNow,
@@ -240,12 +240,12 @@ namespace Infrastructure.Services;
             await db.SaveChangesAsync();
 
 
-            Log.Information("Withdraw: AccountId={AccountId} Amount={Amount} StudentId={StudentId}", account.Id, dto.Amount, dto.StudentId);
-            return new Response<GetStudentAccountDto>(Map(account)) { Message = "Маблағ муваффақона кам карда шуд" };
+            Log.Information("Withdraw: AccountId={AccountId} Amount={Amount} AccountCode={AccountCode}", account.Id, dto.Amount, dto.AccountCode);
+            return new Response<GetStudentAccountDto>(Map(account)) { Message = "Маблағ муваффақона кам шуд" };
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Withdraw ноком шуд барои StudentId={StudentId}", dto.StudentId);
+            Log.Error(ex, "Withdraw ноком шуд барои AccountCode={AccountCode}", dto.AccountCode);
             return new Response<GetStudentAccountDto>(HttpStatusCode.InternalServerError, "Хатои дохилӣ");
         }
     }
