@@ -136,16 +136,24 @@ public class UserService(DataContext context, UserManager<User> userManager,
     {
         try
         {
-            var userIdRaw = httpContextAccessor.HttpContext?.User.FindFirst("UserId")?.Value
-                            ?? httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userIdRaw) || !int.TryParse(userIdRaw, out int id))
+            // Get principalId (Student.Id / Mentor.Id / User.Id)
+            var principalIdRaw = httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier)
+                                ?? httpContextAccessor.HttpContext?.User.FindFirst("nameid")?.Value;
+            if (string.IsNullOrEmpty(principalIdRaw) || !int.TryParse(principalIdRaw, out int principalId))
             {
                 return new Response<GetUserDetailsDto>(HttpStatusCode.Unauthorized, "Корбар аутентификатӣ нашудааст");
             }
             
+            // Get actual UserId for fetching User entity
+            var userIdRaw = httpContextAccessor.HttpContext?.User.FindFirst("UserId")?.Value;
+            if (string.IsNullOrEmpty(userIdRaw) || !int.TryParse(userIdRaw, out int userId))
+            {
+                return new Response<GetUserDetailsDto>(HttpStatusCode.Unauthorized, "UserId дар токен ёфт нашуд");
+            }
+            
             var query = context.Users
                 .Include(u => u.Center)
-                .Where(x => x.Id == id && !x.IsDeleted);
+                .Where(x => x.Id == userId && !x.IsDeleted);
             
             var user = await query.FirstOrDefaultAsync();
             
@@ -157,7 +165,7 @@ public class UserService(DataContext context, UserManager<User> userManager,
 
             var dto = new GetUserDetailsDto
             {
-                UserId = user.Id,
+                UserId = principalId,  // principalId instead of user.Id
                 Username = user.UserName,
                 FullName = user.FullName,
                 Email = user.Email,
