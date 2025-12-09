@@ -1,11 +1,12 @@
+using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using Domain.DTOs.OsonSms;
 using Domain.Responses;
+using Infrastructure.Constants;
 using Infrastructure.Interfaces;
 using Microsoft.Extensions.Configuration;
 using RestSharp;
-using System.Net;
 
 namespace Infrastructure.Services;
 
@@ -29,6 +30,8 @@ public class OsonSmsService(IConfiguration configuration) : IOsonSmsService
     private readonly string _checkBalanceUrl = configuration["OsonSmsSettings:CheckBalanceUrl"] ??
                                                throw new InvalidOperationException("OsonSmsSettings:CheckBalanceUrl not configured");
 
+    #region SendSmsAsync
+
     public async Task<Response<OsonSmsSendResponseDto>> SendSmsAsync(string phoneNumber, string message)
     {
         try
@@ -50,24 +53,24 @@ public class OsonSmsService(IConfiguration configuration) : IOsonSmsService
             if (response is { IsSuccessful: true, Data: not null })
             {
                 if (response.Data.Error != null)
-                {
                     return new Response<OsonSmsSendResponseDto>(HttpStatusCode.BadRequest, response.Data.Error.Message);
-                }
 
-                return new Response<OsonSmsSendResponseDto>(response.Data)
-                    { Message = "SMS бо муваффақият фиристода шуд" };
+                return new Response<OsonSmsSendResponseDto>(response.Data) { Message = Messages.OsonSms.SendSuccess };
             }
             else
             {
-                return new Response<OsonSmsSendResponseDto>(response.StatusCode,
-                    response.ErrorMessage ?? "Хатогӣ ҳангоми фиристодани SMS");
+                return new Response<OsonSmsSendResponseDto>(response.StatusCode, response.ErrorMessage ?? Messages.OsonSms.SendError);
             }
         }
         catch (Exception ex)
         {
-            return new Response<OsonSmsSendResponseDto>(HttpStatusCode.InternalServerError, $"Хатогӣ: {ex.Message}");
+            return new Response<OsonSmsSendResponseDto>(HttpStatusCode.InternalServerError, string.Format(Messages.OsonSms.Error, ex.Message));
         }
     }
+
+    #endregion
+
+    #region CheckSmsStatusAsync
 
     public async Task<Response<OsonSmsStatusResponseDto>> CheckSmsStatusAsync(string msgId)
     {
@@ -88,25 +91,24 @@ public class OsonSmsService(IConfiguration configuration) : IOsonSmsService
             if (response is { IsSuccessful: true, Data: not null })
             {
                 if (response.Data.Error != null)
-                {
-                    return new Response<OsonSmsStatusResponseDto>(HttpStatusCode.BadRequest,
-                        response.Data.Error.Message);
-                }
+                    return new Response<OsonSmsStatusResponseDto>(HttpStatusCode.BadRequest, response.Data.Error.Message);
 
-                return new Response<OsonSmsStatusResponseDto>(response.Data)
-                    { Message = "Статуси SMS бо муваффақият гирифта шуд" };
+                return new Response<OsonSmsStatusResponseDto>(response.Data) { Message = Messages.OsonSms.StatusSuccess };
             }
             else
             {
-                return new Response<OsonSmsStatusResponseDto>(response.StatusCode,
-                    response.ErrorMessage ?? "Хатогӣ ҳангоми санҷиши статуси SMS");
+                return new Response<OsonSmsStatusResponseDto>(response.StatusCode, response.ErrorMessage ?? Messages.OsonSms.StatusError);
             }
         }
         catch (Exception ex)
         {
-            return new Response<OsonSmsStatusResponseDto>(HttpStatusCode.InternalServerError, $"Хатогӣ: {ex.Message}");
+            return new Response<OsonSmsStatusResponseDto>(HttpStatusCode.InternalServerError, string.Format(Messages.OsonSms.Error, ex.Message));
         }
     }
+
+    #endregion
+
+    #region CheckBalanceAsync
 
     public async Task<Response<OsonSmsBalanceResponseDto>> CheckBalanceAsync()
     {
@@ -126,25 +128,24 @@ public class OsonSmsService(IConfiguration configuration) : IOsonSmsService
             if (response is { IsSuccessful: true, Data: not null })
             {
                 if (response.Data.Error != null)
-                {
-                    return new Response<OsonSmsBalanceResponseDto>(HttpStatusCode.BadRequest,
-                        response.Data.Error.Message);
-                }
+                    return new Response<OsonSmsBalanceResponseDto>(HttpStatusCode.BadRequest, response.Data.Error.Message);
 
-                return new Response<OsonSmsBalanceResponseDto>(response.Data)
-                    { Message = "Тавозун бо муваффақият гирифта шуд" };
+                return new Response<OsonSmsBalanceResponseDto>(response.Data) { Message = Messages.OsonSms.BalanceSuccess };
             }
             else
             {
-                return new Response<OsonSmsBalanceResponseDto>(response.StatusCode,
-                    response.ErrorMessage ?? "Хатогӣ ҳангоми санҷиши тавозун");
+                return new Response<OsonSmsBalanceResponseDto>(response.StatusCode, response.ErrorMessage ?? Messages.OsonSms.BalanceError);
             }
         }
         catch (Exception ex)
         {
-            return new Response<OsonSmsBalanceResponseDto>(HttpStatusCode.InternalServerError, $"Хатогӣ: {ex.Message}");
+            return new Response<OsonSmsBalanceResponseDto>(HttpStatusCode.InternalServerError, string.Format(Messages.OsonSms.Error, ex.Message));
         }
     }
+
+    #endregion
+
+    #region Private Helpers
 
     private string Sha256Hash(string value)
     {
@@ -160,4 +161,6 @@ public class OsonSmsService(IConfiguration configuration) : IOsonSmsService
     {
         return (long)(DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1))).TotalMilliseconds + "";
     }
+
+    #endregion
 }

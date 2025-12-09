@@ -17,6 +17,54 @@ public static class Messages
         public const string Unknown = "Неизвестно";
     }
 
+    public static class Account
+    {
+        public const string InvalidCredentials = "Неверное имя пользователя или пароль";
+        public const string LoginSuccess = "Вход выполнен успешно";
+        public const string RoleAdded = "Роль успешно добавлена";
+        public const string RoleRemoved = "Роль успешно удалена";
+        public const string RolesFetched = "Роли пользователя успешно получены";
+        public const string RolesFetchError = "Ошибка при получении ролей пользователя: {0}";
+        public const string RoleNotExists = "Роль не существует";
+        public const string PasswordChanged = "Пароль успешно изменен";
+        public const string PasswordChangeError = "Ошибка при изменении пароля: {0}";
+        public const string InvalidPasswordData = "Некорректные данные пароля";
+        public const string OtpSent = "OTP-код отправлен на телефон и/или email";
+        public const string OtpSendError = "Ошибка при отправке OTP: {0}";
+        public const string OtpCreationError = "Ошибка при создании кода подтверждения";
+        public const string OtpVerified = "OTP-код подтвержден";
+        public const string OtpInvalid = "Неверный OTP-код";
+        public const string OtpExpired = "Срок действия OTP-кода истек (3 минуты)";
+        public const string OtpVerifyError = "Ошибка при проверке OTP: {0}";
+        public const string UsernameRequired = "Имя пользователя обязательно";
+        public const string UsernameAndOtpRequired = "Имя пользователя и OTP-код обязательны";
+        public const string UserNotFoundByUsername = "Пользователь с таким именем не найден";
+        public const string TokenInvalid = "Недействительный токен";
+        public const string TokenUsedOrInvalid = "Недействительный токен или уже использован";
+        public const string TokenExpired = "Срок действия токена истек. Попробуйте снова";
+        public const string TokenAndPasswordRequired = "Token, новый пароль и подтверждение пароля обязательны";
+        public const string PasswordReset = "Пароль успешно изменен";
+        public const string PasswordResetError = "Ошибка при сбросе пароля: {0}";
+        public const string PasswordsNotMatch = "Пароли не совпадают";
+        public const string UserCannotBeNull = "Пользователь не может быть null";
+    }
+
+    public static class AttendanceStatistics
+    {
+        public const string DailySummarySuccess = "Дневная статистика посещаемости успешно получена";
+        public const string DailySummaryError = "Ошибка при получении дневной статистики: {0}";
+        public const string AbsentStudentsSuccess = "Список {0} отсутствующих студентов успешно получен";
+        public const string AbsentStudentsError = "Ошибка при получении отсутствующих студентов";
+        public const string MonthlySummarySuccess = "Статистика посещаемости за {0}/{1} успешно получена";
+        public const string MonthlySummaryError = "Ошибка при получении месячной статистики";
+        public const string WeeklySummarySuccess = "Статистика посещаемости с {0} по {1} успешно получена";
+        public const string WeeklySummaryError = "Ошибка при получении недельной статистики";
+        public const string GroupAttendanceSuccess = "Статистика посещаемости группы {0} за {1} успешно получена";
+        public const string GroupAttendanceError = "Ошибка при получении статистики группы";
+        public const string PresentStudentsSuccess = "Список {0} присутствующих студентов успешно получен";
+        public const string PresentStudentsError = "Ошибка при получении присутствующих студентов";
+    }
+
     public static class User
     {
         public const string NotFound = "Пользователь не найден";
@@ -330,6 +378,17 @@ public static class Messages
         public const string DeleteError = "Ошибка при удалении аудитории: {0}";
         public const string GetScheduleError = "Ошибка при получении расписания аудитории: {0}";
         public const string GetAvailableError = "Ошибка при получении свободных аудиторий: {0}";
+    }
+
+    public static class OsonSms
+    {
+        public const string SendSuccess = "SMS успешно отправлено";
+        public const string SendError = "Ошибка при отправке SMS";
+        public const string StatusSuccess = "Статус SMS успешно получен";
+        public const string StatusError = "Ошибка при проверке статуса SMS";
+        public const string BalanceSuccess = "Баланс успешно получен";
+        public const string BalanceError = "Ошибка при проверке баланса";
+        public const string Error = "Ошибка: {0}";
     }
 
     public static class File

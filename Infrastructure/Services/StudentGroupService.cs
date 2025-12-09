@@ -9,7 +9,6 @@ using Infrastructure.Data;
 using Infrastructure.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Infrastructure.Constants;
-using Infrastructure.Helpers;
 
 namespace Infrastructure.Services;
 
@@ -38,7 +37,7 @@ public class StudentGroupService(
 
             if (existingStudentGroup != null)
             {
-                if (existingStudentGroup.IsActive && !existingStudentGroup.IsDeleted && !existingStudentGroup.IsLeft)
+                if (existingStudentGroup is { IsActive: true, IsDeleted: false, IsLeft: false })
                     return new Response<string>(HttpStatusCode.BadRequest, Messages.StudentGroup.StudentAlreadyAssigned);
 
                 existingStudentGroup.IsActive = true;
@@ -516,32 +515,31 @@ public class StudentGroupService(
                 .FirstOrDefaultAsync(s => s.Id == studentId && !s.IsDeleted);
             
             if (student == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Донишҷӯ ёфт нашуд");
+                return new Response<string>(HttpStatusCode.NotFound, Messages.Student.NotFound);
 
             var group = await context.Groups
                 .FirstOrDefaultAsync(g => g.Id == groupId && !g.IsDeleted);
             
             if (group == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Гурӯҳ ёфт нашуд");
+                return new Response<string>(HttpStatusCode.NotFound, Messages.Group.NotFound);
 
             var studentGroup = await context.StudentGroups
                 .FirstOrDefaultAsync(sg => sg.StudentId == studentId && 
                                            sg.GroupId == groupId);
             
             if (studentGroup == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Донишҷӯ дар ин гурӯҳ таъин нашудааст");
+                return new Response<string>(HttpStatusCode.NotFound, Messages.StudentGroup.MembershipNotFound);
 
-            // Hard delete: completely remove the record from database
             context.StudentGroups.Remove(studentGroup);
             var result = await context.SaveChangesAsync();
 
             if (result > 0)
             {
-                // Cleanup any journal entries for this student in this group
+                
                 _ = await journalService.RemoveFutureEntriesForStudentAsync(groupId, studentId);
-                return new Response<string>(HttpStatusCode.OK, "Донишҷӯ комилан аз гурӯҳ хориҷ карда шуд");
+                return new Response<string>(HttpStatusCode.OK, Messages.StudentGroup.Deleted);
             }
-            return new Response<string>(HttpStatusCode.InternalServerError, "Донишҷӯро аз гурӯҳ хориҷ кардан ноком шуд");
+            return new Response<string>(HttpStatusCode.InternalServerError, Messages.StudentGroup.DeleteFailed);
         }
         catch (Exception ex)
         {
@@ -604,13 +602,12 @@ public class StudentGroupService(
             if (!activeStudents.Any())
                 return new Response<List<GetStudentGroupDto>>(HttpStatusCode.NotFound, "В этой группе нет активных студентов");
 
-            // Adjust statuses for zero payable (full discount)
             foreach (var item in activeStudents)
             {
                 if (item.student.PaymentStatus != PaymentStatus.Completed)
                 {
                     var preview = await discountService.PreviewAsync(item.student.Id, item.GroupId, now4.Month, now4.Year);
-                    if (preview.Data?.PayableAmount == 0)
+                    if (preview.Data.PayableAmount == 0)
                     {
                         item.student.PaymentStatus = PaymentStatus.Completed;
                     }
@@ -679,13 +676,12 @@ public class StudentGroupService(
             if (!inactiveStudents.Any())
                 return new Response<List<GetStudentGroupDto>>(HttpStatusCode.NotFound, "В этой группе нет неактивных студентов");
 
-            // Adjust statuses for zero payable (full discount)
             foreach (var item in inactiveStudents)
             {
                 if (item.student.PaymentStatus != PaymentStatus.Completed)
                 {
                     var preview = await discountService.PreviewAsync(item.student.Id, item.GroupId, now5.Month, now5.Year);
-                    if (preview.Data?.PayableAmount == 0)
+                    if (preview.Data.PayableAmount == 0)
                     {
                         item.student.PaymentStatus = PaymentStatus.Completed;
                     }
@@ -911,7 +907,7 @@ public class StudentGroupService(
             if (sourceGroupId == targetGroupId)
                 return new Response<string>(HttpStatusCode.BadRequest, "Группа-источник и группа-цель не могут быть одинаковыми");
 
-            if (studentIds == null || !studentIds.Any())
+            if (!studentIds.Any())
                 return new Response<string>(HttpStatusCode.BadRequest, "Список студентов пуст");
 
             var sourceGroup = await context.Groups.FirstOrDefaultAsync(g => g.Id == sourceGroupId && !g.IsDeleted);
@@ -946,13 +942,11 @@ public class StudentGroupService(
                     continue;
                 }
 
-                // deactivate from source
                 studentInSourceGroup.IsActive = false;
                 studentInSourceGroup.LeaveDate = DateTime.UtcNow;
                 studentInSourceGroup.UpdatedAt = DateTimeOffset.UtcNow;
                 context.StudentGroups.Update(studentInSourceGroup);
-
-                // target membership
+                
                 var studentInTargetGroup = await context.StudentGroups
                     .FirstOrDefaultAsync(sg => sg.StudentId == studentId && sg.GroupId == targetGroupId);
 
@@ -1068,7 +1062,7 @@ public class StudentGroupService(
         if (dto.student.PaymentStatus != PaymentStatus.Completed)
         {
             var preview = await discountService.PreviewAsync(dto.student.Id, dto.GroupId, nowUtc.Month, nowUtc.Year);
-            if (preview.Data?.PayableAmount == 0)
+            if (preview.Data.PayableAmount == 0)
             {
                 dto.student.PaymentStatus = PaymentStatus.Completed;
             }

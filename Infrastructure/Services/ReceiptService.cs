@@ -11,6 +11,8 @@ namespace Infrastructure.Services;
 
 public class ReceiptService(DataContext dbContext, IConfiguration configuration) : IReceiptService
 {
+    #region GenerateOrGetReceiptAsync
+
     public async Task<(string receiptNumber, string url)> GenerateOrGetReceiptAsync(int paymentId, string format = "html", CancellationToken ct = default)
     {
         var payment = await dbContext.Payments
@@ -20,11 +22,12 @@ public class ReceiptService(DataContext dbContext, IConfiguration configuration)
             .Include(p => p.Center)
             .AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == paymentId && !p.IsDeleted, ct);
+
         if (payment == null)
-            throw new InvalidOperationException("Payment not found");
+            throw new InvalidOperationException("Платеж не найден");
 
         if (string.IsNullOrWhiteSpace(payment.ReceiptNumber))
-            throw new InvalidOperationException("ReceiptNumber is not assigned");
+            throw new InvalidOperationException("Номер квитанции не назначен");
 
         var webRoot = configuration.GetValue<string>("UploadPath") ?? "wwwroot";
         var receiptsDir = Path.Combine(Directory.GetCurrentDirectory(), webRoot, "receipts");
@@ -35,9 +38,8 @@ public class ReceiptService(DataContext dbContext, IConfiguration configuration)
             var pdfName = payment.ReceiptNumber + ".pdf";
             var pdfPath = Path.Combine(receiptsDir, pdfName);
             if (!File.Exists(pdfPath))
-            {
                 GeneratePdf(payment, pdfPath);
-            }
+
             var url = "/receipts/" + pdfName;
             return (payment.ReceiptNumber!, url);
         }
@@ -50,10 +52,15 @@ public class ReceiptService(DataContext dbContext, IConfiguration configuration)
                 var html = BuildHtml(payment);
                 await File.WriteAllTextAsync(filePath, html, Encoding.UTF8, ct);
             }
+
             var url = "/receipts/" + fileName;
             return (payment.ReceiptNumber!, url);
         }
     }
+
+    #endregion
+
+    #region BuildHtml
 
     private static string BuildHtml(Domain.Entities.Payment p)
     {
@@ -67,7 +74,7 @@ public class ReceiptService(DataContext dbContext, IConfiguration configuration)
         sb.AppendLine("<html lang=\"ru\">");
         sb.AppendLine("<head>");
         sb.AppendLine("  <meta charset=\"UTF-8\">");
-        sb.AppendLine($"  <title>Receipt {System.Net.WebUtility.HtmlEncode(p.ReceiptNumber)}</title>");
+        sb.AppendLine($"  <title>Квитанция {System.Net.WebUtility.HtmlEncode(p.ReceiptNumber)}</title>");
         sb.AppendLine("  <style>");
         sb.AppendLine("    body{font-family:Arial,Helvetica,sans-serif;padding:24px;color:#111}");
         sb.AppendLine("    .card{max-width:640px;margin:auto;border:1px solid #eee;border-radius:8px;padding:24px}");
@@ -100,6 +107,10 @@ public class ReceiptService(DataContext dbContext, IConfiguration configuration)
         sb.AppendLine("</html>");
         return sb.ToString();
     }
+
+    #endregion
+
+    #region GeneratePdf
 
     private static void GeneratePdf(Domain.Entities.Payment p, string outputPath)
     {
@@ -147,6 +158,6 @@ public class ReceiptService(DataContext dbContext, IConfiguration configuration)
             .PaddingRight(8)
             .DefaultTextStyle(t => t.FontColor(Colors.Grey.Darken2));
     }
+
+    #endregion
 }
-
-

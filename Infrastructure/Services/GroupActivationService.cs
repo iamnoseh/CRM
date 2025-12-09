@@ -3,6 +3,7 @@ using Domain.Enums;
 using Domain.Responses;
 using Infrastructure.Data;
 using Infrastructure.Interfaces;
+using Infrastructure.Constants;
 using Infrastructure.Helpers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -11,13 +12,15 @@ namespace Infrastructure.Services;
 
 public class GroupActivationService(DataContext context, IHttpContextAccessor httpContextAccessor, IJournalService journalService) : IGroupActivationService
 {
+    #region ActivateGroupAsync
+
     public async Task<Response<string>> ActivateGroupAsync(int groupId)
     {
         try
         {
             var centerId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
             if (centerId == null)
-                return new Response<string>(HttpStatusCode.BadRequest, "CenterId not found in token");
+                return new Response<string>(HttpStatusCode.BadRequest, Messages.Group.CenterIdNotFound);
 
             var group = await context.Groups
                 .Include(g => g.Course)
@@ -25,13 +28,13 @@ public class GroupActivationService(DataContext context, IHttpContextAccessor ht
                 .FirstOrDefaultAsync(g => g.Id == groupId && g.Course != null && g.Course.CenterId == centerId);
                 
             if (group == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Group not found or doesn't belong to your center");
+                return new Response<string>(HttpStatusCode.NotFound, Messages.Group.NotFound);
             
             if (group.Status == ActiveStatus.Active)
-                return new Response<string>(HttpStatusCode.BadRequest, "Group is already active");
+                return new Response<string>(HttpStatusCode.BadRequest, "Группа уже активна");
 
             if (group.Status == ActiveStatus.Completed)
-                return new Response<string>(HttpStatusCode.BadRequest, "Completed groups cannot be activated again");
+                return new Response<string>(HttpStatusCode.BadRequest, "Завершенные группы нельзя активировать повторно");
 
             var currentDate = DateTimeOffset.UtcNow;
 
@@ -53,14 +56,16 @@ public class GroupActivationService(DataContext context, IHttpContextAccessor ht
             if (result > 0)
             {
                 await journalService.GenerateWeeklyJournalAsync(group.Id, 1);
-                return new Response<string>(HttpStatusCode.OK, "Group activated successfully");
+                return new Response<string>(HttpStatusCode.OK, "Группа успешно активирована");
             }
             
-            return new Response<string>(HttpStatusCode.InternalServerError, "Failed to activate group");
+            return new Response<string>(HttpStatusCode.InternalServerError, "Не удалось активировать группу");
         }
         catch (Exception ex)
         {
             return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
+
+    #endregion
 }

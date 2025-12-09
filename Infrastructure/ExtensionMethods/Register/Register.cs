@@ -105,9 +105,7 @@ public static class Register
                 sp.GetRequiredService<IConfiguration>(),
                 sp.GetRequiredService<DataContext>(),
                 sp.GetRequiredService<IEmailService>(),
-                sp.GetRequiredService<IHashService>(),
                 sp.GetRequiredService<IOsonSmsService>(),
-                uploadPath,
                 sp.GetRequiredService<IHttpContextAccessor>()
             ));
 
