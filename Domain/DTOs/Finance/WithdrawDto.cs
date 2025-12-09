@@ -5,7 +5,7 @@ namespace Domain.DTOs.Finance;
 public class WithdrawDto
 {
     [Required]
-    public int StudentAccount { get; set; }
+    public string StudentAccount { get; set; }
 
     [Required]
     [Range(0.01, double.MaxValue)]
