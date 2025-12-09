@@ -234,7 +234,7 @@ namespace Infrastructure.Services;
     {
         try
         {
-            var account = await db.StudentAccounts.FirstOrDefaultAsync(a => a.StudentId == dto.StudentId && a.IsActive && !a.IsDeleted);
+            var account = await db.StudentAccounts.FirstOrDefaultAsync(a => a.StudentAccount == dto.StudentAccount && a.IsActive && !a.IsDeleted);
             if (account == null)
                 return new Response<GetStudentAccountDto>(HttpStatusCode.NotFound, Messages.StudentAccount.NotFound);
 
