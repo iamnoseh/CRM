@@ -427,4 +427,53 @@ public static class Messages
     {
         public const string InsufficientFunds = "<p>Здравствуйте, {0}.</p><p>Для оплаты группы <b>{1}</b> за {2:MM.yyyy} не хватает средств на счете.</p><p>Недостающая сумма: <b>{3:0.##}</b> сомони. Код кошелька: <b>{4}</b>.</p><p>Пожалуйста, пополните баланс и свяжитесь с администрацией при необходимости.</p>";
     }
+
+    public static class Payroll
+    {
+        public const string ContractCreated = "Контракт успешно создан";
+        public const string ContractUpdated = "Контракт успешно обновлен";
+        public const string ContractDeactivated = "Контракт деактивирован";
+        public const string ContractNotFound = "Контракт не найден";
+        public const string ContractAlreadyExists = "Активный контракт уже существует для этого сотрудника";
+        public const string MustSpecifyMentorOrEmployee = "Необходимо указать либо MentorId, либо EmployeeUserId";
+        public const string CannotSpecifyBoth = "Нельзя указать одновременно MentorId и EmployeeUserId";
+
+        public const string WorkLogCreated = "Запись о работе создана";
+        public const string WorkLogDeleted = "Запись о работе удалена";
+        public const string WorkLogNotFound = "Запись о работе не найдена";
+
+        public const string PayrollCalculated = "Зарплата рассчитана";
+        public const string PayrollRecordNotFound = "Запись о зарплате не найдена";
+        public const string PayrollApproved = "Зарплата утверждена";
+        public const string PayrollPaid = "Зарплата выплачена";
+        public const string PayrollAlreadyApproved = "Зарплата уже утверждена";
+        public const string PayrollAlreadyPaid = "Зарплата уже выплачена";
+        public const string PayrollMustBeApproved = "Сначала необходимо утвердить зарплату";
+        public const string PayrollCancelled = "Зарплата отменена";
+        public const string BonusFineAdded = "Бонус/штраф добавлен";
+
+        public const string AdvanceCreated = "Аванс выдан";
+        public const string AdvanceCancelled = "Аванс отменен";
+        public const string AdvanceNotFound = "Аванс не найден";
+        public const string AdvanceAlreadyDeducted = "Аванс уже вычтен из зарплаты";
+        public const string AdvanceAlreadyCancelled = "Аванс уже отменен";
+
+        public const string NoActiveContract = "Нет активного контракта для этого сотрудника";
+        public const string CalculationError = "Ошибка при расчете зарплаты: {0}";
+
+        public const string SalaryTypeFixed = "Фиксированная";
+        public const string SalaryTypeHourly = "Почасовая";
+        public const string SalaryTypePercentage = "Процент от оплат";
+        public const string SalaryTypeMixed = "Смешанная";
+
+        public const string StatusDraft = "Черновик";
+        public const string StatusCalculated = "Рассчитано";
+        public const string StatusApproved = "Утверждено";
+        public const string StatusPaid = "Выплачено";
+        public const string StatusCancelled = "Отменено";
+
+        public const string AdvanceStatusPending = "Ожидает";
+        public const string AdvanceStatusDeducted = "Вычтено";
+        public const string AdvanceStatusCancelled = "Отменено";
+    }
 }

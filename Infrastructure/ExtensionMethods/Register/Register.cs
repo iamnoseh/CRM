@@ -214,6 +214,9 @@ public static class Register
                 uploadPath,
                 gs.GetRequiredService<IHttpContextAccessor>()
             ));
+
+        services.AddScoped<IPayrollContractService, PayrollContractService>();
+        services.AddScoped<IPayrollService, PayrollService>();
         
         
         
