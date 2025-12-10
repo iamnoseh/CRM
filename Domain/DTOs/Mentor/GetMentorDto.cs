@@ -14,10 +14,8 @@ public class GetMentorDto
     public int Experience { get; set; }
     public Gender Gender { get; set; }
     public ActiveStatus ActiveStatus { get; set; }
-    public PaymentStatus PaymentStatus { get; set; }
     public string? ImagePath { get; set; }
     public string? Document { get; set; }
-    public decimal? Salary { get; set; }
     public int? CenterId { get; set; }
     public string? Role { get; set; }
     public int UserId { get; set; }
