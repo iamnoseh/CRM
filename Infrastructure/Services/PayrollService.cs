@@ -200,6 +200,7 @@ public class PayrollService(
                     !p.IsDeleted);
 
             PayrollRecord record;
+            bool isNewRecord = false;
             if (existingRecord != null)
             {
                 record = existingRecord;
@@ -217,6 +218,7 @@ public class PayrollService(
                     CreatedAt = DateTimeOffset.UtcNow
                 };
                 await context.PayrollRecords.AddAsync(record);
+                isNewRecord = true;
             }
 
             record.FixedAmount = contract.SalaryType == SalaryType.Fixed || contract.SalaryType == SalaryType.Mixed
@@ -280,7 +282,10 @@ public class PayrollService(
             record.Status = PayrollStatus.Calculated;
             record.UpdatedAt = DateTimeOffset.UtcNow;
 
-            context.PayrollRecords.Update(record);
+            if (!isNewRecord)
+            {
+                context.PayrollRecords.Update(record);
+            }
             await context.SaveChangesAsync();
 
             await MarkAdvancesAsDeducted(dto.MentorId, dto.EmployeeUserId, dto.Month, dto.Year, record.Id);
