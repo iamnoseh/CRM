@@ -255,16 +255,28 @@ public class PayrollService(
                     .Select(g => g.Id)
                     .ToListAsync();
 
-                var totalPayments = await context.Payments
+                Log.Information("Calculating percentage for Mentor {MentorId}: Found {GroupCount} groups: {GroupIds}", 
+                    dto.MentorId, mentorGroups.Count, string.Join(", ", mentorGroups));
+
+                var payments = await context.Payments
                     .Where(p => mentorGroups.Contains(p.GroupId!.Value) &&
                         p.Month == dto.Month && p.Year == dto.Year &&
                         p.Status == PaymentStatus.Completed &&
                         !p.IsDeleted)
-                    .SumAsync(p => p.Amount);
+                    .ToListAsync();
+
+                Log.Information("Found {PaymentCount} completed payments for month {Month}/{Year}. Payment details: {Payments}", 
+                    payments.Count, dto.Month, dto.Year, 
+                    payments.Select(p => new { p.Id, p.GroupId, p.Amount, p.Status, p.Month, p.Year }));
+
+                var totalPayments = payments.Sum(p => p.Amount);
 
                 record.TotalStudentPayments = totalPayments;
                 record.PercentageRate = contract.StudentPercentage;
                 record.PercentageAmount = totalPayments * (contract.StudentPercentage / 100);
+
+                Log.Information("Percentage calculation: Total={Total}, Rate={Rate}%, Amount={Amount}", 
+                    totalPayments, contract.StudentPercentage, record.PercentageAmount);
             }
             else
             {
