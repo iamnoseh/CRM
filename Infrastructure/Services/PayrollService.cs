@@ -820,45 +820,95 @@ public class PayrollService(
     {
         try
         {
-            var mentorGroups = await context.Groups
-                .Where(g => g.MentorId == mentorId && !g.IsDeleted)
-                .Select(g => g.Id)
-                .ToListAsync();
-
-            if (!mentorGroups.Any())
-                return 0;
-
             var firstDayOfMonth = new DateTimeOffset(new DateTime(year, month, 1), TimeSpan.Zero);
             var lastDayOfMonth = firstDayOfMonth.AddMonths(1).AddDays(-1);
 
-            var journals = await context.Journals
-                .Where(j => mentorGroups.Contains(j.GroupId) && 
-                    !j.IsDeleted &&
-                    j.WeekStartDate <= lastDayOfMonth &&
-                    j.WeekEndDate >= firstDayOfMonth)
-                .Select(j => j.Id)
+            var mentorGroupsWithDates = await context.Groups
+                .Where(g => g.MentorId == mentorId && !g.IsDeleted)
+                .Select(g => new
+                {
+                    g.Id,
+                    g.StartDate,
+                    g.EndDate
+                })
                 .ToListAsync();
 
-            if (!journals.Any())
+            if (!mentorGroupsWithDates.Any())
                 return 0;
-
-            var journalEntriesGrouped = await context.JournalEntries
-                .Where(je => journals.Contains(je.JournalId) && !je.IsDeleted)
-                .GroupBy(je => new { je.JournalId, je.DayOfWeek, je.LessonNumber })
-                .Select(g => g.FirstOrDefault())
-                .ToListAsync();
 
             decimal totalHours = 0;
 
-            foreach (var entry in journalEntriesGrouped)
+            foreach (var group in mentorGroupsWithDates)
             {
-                if (entry != null && entry.StartTime.HasValue && entry.EndTime.HasValue)
-                {
-                    var start = entry.StartTime.Value;
-                    var end = entry.EndTime.Value;
+                var effectiveStartDate = group.StartDate > firstDayOfMonth ? group.StartDate : firstDayOfMonth;
+                var effectiveEndDate = group.EndDate < lastDayOfMonth ? group.EndDate : lastDayOfMonth;
 
-                    var durationMinutes = (decimal)((end.Hour * 60 + end.Minute) - (start.Hour * 60 + start.Minute));
-                    totalHours += durationMinutes / 60;
+                if (effectiveStartDate > lastDayOfMonth || effectiveEndDate < firstDayOfMonth)
+                    continue;
+
+                var groupJournals = await context.Journals
+                    .Where(j => j.GroupId == group.Id &&
+                        !j.IsDeleted &&
+                        j.WeekStartDate <= effectiveEndDate &&
+                        j.WeekEndDate >= effectiveStartDate)
+                    .Select(j => new
+                    {
+                        j.Id,
+                        j.WeekStartDate,
+                        j.WeekEndDate
+                    })
+                    .ToListAsync();
+
+                if (!groupJournals.Any())
+                    continue;
+
+                foreach (var journal in groupJournals)
+                {
+                    var journalEffectiveStart = journal.WeekStartDate > effectiveStartDate ? journal.WeekStartDate : effectiveStartDate;
+                    var journalEffectiveEnd = journal.WeekEndDate < effectiveEndDate ? journal.WeekEndDate : effectiveEndDate;
+
+                    var journalEntriesGrouped = await context.JournalEntries
+                        .Where(je => je.JournalId == journal.Id && !je.IsDeleted)
+                        .GroupBy(je => new { je.DayOfWeek, je.LessonNumber })
+                        .Select(g => g.FirstOrDefault())
+                        .ToListAsync();
+
+                    foreach (var entry in journalEntriesGrouped)
+                    {
+                        if (entry != null && entry.StartTime.HasValue && entry.EndTime.HasValue)
+                        {
+                            var start = entry.StartTime.Value;
+                            var end = entry.EndTime.Value;
+
+                            var durationMinutes = (decimal)((end.Hour * 60 + end.Minute) - (start.Hour * 60 + start.Minute));
+                            var lessonHours = durationMinutes / 60;
+
+                            var weekStart = journalEffectiveStart.Date;
+                            var weekEnd = journalEffectiveEnd.Date;
+                            var daysInWeek = (weekEnd - weekStart).Days + 1;
+
+                            var targetDayOfWeek = entry.DayOfWeek;
+                            var currentDate = weekStart;
+                            var lessonOccurrences = 0;
+
+                            while (currentDate <= weekEnd)
+                            {
+                                var dotNetDayOfWeek = (int)currentDate.DayOfWeek;
+                                var adjustedDayOfWeek = dotNetDayOfWeek == 0 ? 7 : dotNetDayOfWeek;
+
+                                if (adjustedDayOfWeek == targetDayOfWeek &&
+                                    currentDate >= effectiveStartDate.Date &&
+                                    currentDate <= effectiveEndDate.Date)
+                                {
+                                    lessonOccurrences++;
+                                }
+
+                                currentDate = currentDate.AddDays(1);
+                            }
+
+                            totalHours += lessonHours * lessonOccurrences;
+                        }
+                    }
                 }
             }
 
