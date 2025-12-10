@@ -447,8 +447,6 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
                         Birthday = m.Birthday,
                         Age = m.Age,
                         ActiveStatus = m.ActiveStatus,
-                        PaymentStatus = m.PaymentStatus,
-                        Salary = m.Salary,
                         UserId = m.UserId,
                         CenterId = m.CenterId
                     }).ToList(),

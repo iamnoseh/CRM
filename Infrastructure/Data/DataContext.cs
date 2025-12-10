@@ -327,11 +327,6 @@ public class DataContext(DbContextOptions<DataContext> options)
             .Property(s => s.TotalPaid)
             .HasPrecision(18, 2);
 
-        // Mentor Salary precision
-        modelBuilder.Entity<Mentor>()
-            .Property(m => m.Salary)
-            .HasPrecision(18, 2);
-
         // Course Price precision
         modelBuilder.Entity<Course>()
             .Property(c => c.Price)
@@ -572,10 +567,6 @@ public class DataContext(DbContextOptions<DataContext> options)
 
         modelBuilder.Entity<Mentor>()
             .Property(m => m.ActiveStatus)
-            .HasConversion<string>();
-
-        modelBuilder.Entity<Mentor>()
-            .Property(m => m.PaymentStatus)
             .HasConversion<string>();
 
         modelBuilder.Entity<Course>()

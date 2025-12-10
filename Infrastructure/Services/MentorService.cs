@@ -110,13 +110,11 @@ public class MentorService(
                 CenterId = centerId.Value,
                 UserId = user.Id,
                 Experience = createMentorDto.Experience,
-                Salary = createMentorDto.Salary,
                 ProfileImage = profileImagePath,
                 Document = documentPath,
                 ActiveStatus = ActiveStatus.Active,
                 CreatedAt = DateTimeOffset.UtcNow,
                 UpdatedAt = DateTimeOffset.UtcNow,
-                PaymentStatus = PaymentStatus.Completed,
             };
 
             await context.Mentors.AddAsync(mentor);
@@ -174,12 +172,9 @@ public class MentorService(
             mentor.Age = DateUtils.CalculateAge(updateMentorDto.Birthday);
             mentor.Gender = updateMentorDto.Gender;
             mentor.Experience = updateMentorDto.Experience;
-            mentor.Salary = updateMentorDto.Salary;
             mentor.ActiveStatus = updateMentorDto.ActiveStatus;
-            mentor.PaymentStatus = updateMentorDto.PaymentStatus;
             mentor.UpdatedAt = DateTimeOffset.UtcNow;
 
-            if (mentor.UserId != null)
             {
                 var user = await userManager.FindByIdAsync(mentor.UserId.ToString());
                 if (user != null)
@@ -461,45 +456,7 @@ public class MentorService(
     }
 
     #endregion
-
-    #region UpdateMentorPaymentStatusAsync
-
-    public async Task<Response<string>> UpdateMentorPaymentStatusAsync(int mentorId, PaymentStatus status)
-    {
-        var mentorsQuery = context.Mentors.Where(m => m.Id == mentorId && !m.IsDeleted);
-        mentorsQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(mentorsQuery, httpContextAccessor, m => m.CenterId);
-        var mentor = await mentorsQuery.FirstOrDefaultAsync();
-
-        if (mentor == null)
-            return new Response<string>(HttpStatusCode.NotFound, Messages.Mentor.NotFound);
-
-        if (mentor.PaymentStatus == status)
-            return new Response<string>(HttpStatusCode.OK, Messages.Mentor.PaymentStatusAlreadySet);
-
-        mentor.PaymentStatus = status;
-        mentor.UpdatedAt = DateTimeOffset.UtcNow;
-
-        if (mentor.UserId != null)
-        {
-            var linkedUser = await context.Users.FirstOrDefaultAsync(u => u.Id == mentor.UserId && !u.IsDeleted);
-            if (linkedUser != null)
-            {
-                linkedUser.PaymentStatus = status;
-                linkedUser.UpdatedAt = DateTime.UtcNow;
-                context.Users.Update(linkedUser);
-            }
-        }
-
-        context.Mentors.Update(mentor);
-        var res = await context.SaveChangesAsync();
-
-        return res > 0
-            ? new Response<string>(HttpStatusCode.OK, Messages.Mentor.PaymentStatusUpdated)
-            : new Response<string>(HttpStatusCode.BadRequest, Messages.Mentor.PaymentStatusUpdateFailed);
-    }
-
-    #endregion
-
+    
     #region GetSimpleMentorPagination
 
     public async Task<Response<List<GetSimpleDto>>> GetSimpleMentorPagination()
@@ -544,10 +501,7 @@ public class MentorService(
 
         if (filter.Gender.HasValue)
             query = query.Where(m => m.Gender == filter.Gender.Value);
-
-        if (filter.Salary.HasValue)
-            query = query.Where(m => m.Salary == filter.Salary.Value);
-
+        
         return query;
     }
 

@@ -194,8 +194,6 @@ public static class Register
                 sp.GetRequiredService<IHttpContextAccessor>()
             ));
          services.AddScoped<IStudentAnalyticsExportService, StudentAnalyticsExportService>();
-         services.AddScoped<IExpenseService, ExpenseService>();
-         services.AddScoped<IFinanceService, FinanceService>();
         services.AddScoped<IReceiptService, ReceiptService>();
          services.AddScoped<IAttendanceStatisticsService, AttendanceStatisticsService>();
          services.AddScoped<IOsonSmsService, OsonSmsService>();

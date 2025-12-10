@@ -145,7 +145,7 @@ public static class DtoMappingHelper
             TotalWeeks = group.TotalWeeks,
             Started = group.Started,
             HasWeeklyExam = group.HasWeeklyExam,
-            CurrentStudentsCount = group.StudentGroups?.Count(sg => !sg.IsDeleted) ?? 0,
+            CurrentStudentsCount = group.StudentGroups.Count(sg => !sg.IsDeleted),
             Status = group.Status,
             StartDate = group.StartDate,
             EndDate = group.EndDate,
@@ -207,8 +207,6 @@ public static class DtoMappingHelper
             Address = c.Address,
             Description = c.Description,
             Image = c.Image,
-            MonthlyIncome = c.MonthlyIncome,
-            YearlyIncome = c.YearlyIncome,
             StudentCapacity = c.StudentCapacity,
             IsActive = c.IsActive,
             ContactEmail = c.Email,
@@ -277,10 +275,8 @@ public static class DtoMappingHelper
             Age = mentor.Age,
             Gender = mentor.Gender,
             ActiveStatus = mentor.ActiveStatus,
-            PaymentStatus = mentor.PaymentStatus,
             ImagePath = userImagePath ?? mentor.ProfileImage,
             Document = mentor.Document,
-            Salary = mentor.Salary,
             Experience = mentor.Experience,
             UserId = mentor.UserId,
             CenterId = mentor.CenterId
@@ -311,7 +307,7 @@ public static class DtoMappingHelper
             ClassroomId = schedule.ClassroomId,
             Classroom = new GetClassroomDto
             {
-                Id = schedule.Classroom.Id,
+                Id = schedule.Classroom!.Id,
                 Name = schedule.Classroom.Name,
                 Description = schedule.Classroom.Description,
                 Capacity = schedule.Classroom.Capacity,
@@ -319,7 +315,7 @@ public static class DtoMappingHelper
                 CenterId = schedule.Classroom.CenterId,
                 Center = new GetCenterSimpleDto
                 {
-                    Id = schedule.Classroom.Center.Id,
+                    Id = schedule.Classroom!.Center!.Id,
                     Name = schedule.Classroom.Center.Name
                 },
                 CreatedAt = schedule.Classroom.CreatedAt,
