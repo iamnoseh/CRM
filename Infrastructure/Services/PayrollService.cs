@@ -225,8 +225,19 @@ public class PayrollService(
 
             if (contract.SalaryType == SalaryType.Hourly || contract.SalaryType == SalaryType.Mixed)
             {
-                var totalHoursResponse = await GetTotalHoursAsync(dto.MentorId, dto.EmployeeUserId, dto.Month, dto.Year);
-                record.TotalHours = totalHoursResponse.Data;
+                decimal totalHours = 0;
+
+                if (dto.MentorId.HasValue)
+                {
+                    totalHours = await GetHoursFromJournalAsync(dto.MentorId.Value, dto.Month, dto.Year);
+                }
+                else if (dto.EmployeeUserId.HasValue)
+                {
+                    var totalHoursResponse = await GetTotalHoursAsync(null, dto.EmployeeUserId, dto.Month, dto.Year);
+                    totalHours = totalHoursResponse.Data;
+                }
+
+                record.TotalHours = totalHours;
                 record.HourlyAmount = record.TotalHours * contract.HourlyRate;
             }
             else
@@ -802,6 +813,61 @@ public class PayrollService(
         catch (Exception ex)
         {
             Log.Error(ex, "Error marking advances as deducted");
+        }
+    }
+
+    private async Task<decimal> GetHoursFromJournalAsync(int mentorId, int month, int year)
+    {
+        try
+        {
+            var mentorGroups = await context.Groups
+                .Where(g => g.MentorId == mentorId && !g.IsDeleted)
+                .Select(g => g.Id)
+                .ToListAsync();
+
+            if (!mentorGroups.Any())
+                return 0;
+
+            var firstDayOfMonth = new DateTimeOffset(new DateTime(year, month, 1), TimeSpan.Zero);
+            var lastDayOfMonth = firstDayOfMonth.AddMonths(1).AddDays(-1);
+
+            var journals = await context.Journals
+                .Where(j => mentorGroups.Contains(j.GroupId) && 
+                    !j.IsDeleted &&
+                    j.WeekStartDate <= lastDayOfMonth &&
+                    j.WeekEndDate >= firstDayOfMonth)
+                .Select(j => j.Id)
+                .ToListAsync();
+
+            if (!journals.Any())
+                return 0;
+
+            var journalEntriesGrouped = await context.JournalEntries
+                .Where(je => journals.Contains(je.JournalId) && !je.IsDeleted)
+                .GroupBy(je => new { je.JournalId, je.DayOfWeek, je.LessonNumber })
+                .Select(g => g.FirstOrDefault())
+                .ToListAsync();
+
+            decimal totalHours = 0;
+
+            foreach (var entry in journalEntriesGrouped)
+            {
+                if (entry != null && entry.StartTime.HasValue && entry.EndTime.HasValue)
+                {
+                    var start = entry.StartTime.Value;
+                    var end = entry.EndTime.Value;
+
+                    var durationMinutes = (decimal)((end.Hour * 60 + end.Minute) - (start.Hour * 60 + start.Minute));
+                    totalHours += durationMinutes / 60;
+                }
+            }
+
+            return totalHours;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error calculating hours from journal for mentor {MentorId}", mentorId);
+            return 0;
         }
     }
 
