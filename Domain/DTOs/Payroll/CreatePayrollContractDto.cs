@@ -11,5 +11,5 @@ public class CreatePayrollContractDto
     public decimal HourlyRate { get; set; }
     public decimal StudentPercentage { get; set; }
     public string? Description { get; set; }
-    public DateTimeOffset EffectiveFrom { get; set; }
+    public DateTimeOffset? EffectiveTo { get; set; }
 }

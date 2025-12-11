@@ -9,6 +9,7 @@ public interface IPayrollContractService
     Task<Response<GetPayrollContractDto>> CreateAsync(CreatePayrollContractDto dto);
     Task<Response<GetPayrollContractDto>> UpdateAsync(int id, UpdatePayrollContractDto dto);
     Task<Response<string>> DeactivateAsync(int id);
+    Task<Response<string>> DeleteContractAsync(int id);
     Task<Response<GetPayrollContractDto>> GetByIdAsync(int id);
     Task<Response<GetPayrollContractDto>> GetActiveByMentorAsync(int mentorId);
     Task<Response<GetPayrollContractDto>> GetActiveByEmployeeAsync(int employeeUserId);

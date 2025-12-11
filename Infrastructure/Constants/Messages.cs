@@ -433,6 +433,7 @@ public static class Messages
         public const string ContractCreated = "Контракт успешно создан";
         public const string ContractUpdated = "Контракт успешно обновлен";
         public const string ContractDeactivated = "Контракт деактивирован";
+        public const string ContractDeleted = "Контракт удален";
         public const string ContractNotFound = "Контракт не найден";
         public const string ContractAlreadyExists = "Активный контракт уже существует для этого сотрудника";
         public const string MustSpecifyMentorOrEmployee = "Необходимо указать либо MentorId, либо EmployeeUserId";

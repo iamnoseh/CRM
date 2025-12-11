@@ -228,7 +228,7 @@ public class AccountService(
                 return new Response<string>(HttpStatusCode.NotFound, Messages.Account.UserNotFoundByUsername);
 
             var otpCode = new Random().Next(1000, 9999).ToString();
-            
+
             existingUser.Code = otpCode;
             existingUser.CodeDate = DateTime.UtcNow;
 
@@ -302,7 +302,7 @@ public class AccountService(
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(resetPasswordDto.ResetToken) || 
+            if (string.IsNullOrWhiteSpace(resetPasswordDto.ResetToken) ||
                 string.IsNullOrWhiteSpace(resetPasswordDto.NewPassword) || string.IsNullOrWhiteSpace(resetPasswordDto.ConfirmPassword))
                 return new Response<string>(HttpStatusCode.BadRequest, Messages.Account.TokenAndPasswordRequired);
 
@@ -320,7 +320,7 @@ public class AccountService(
             var expectedCode = $"VERIFIED_{resetPasswordDto.ResetToken}";
             if (existingUser.Code != expectedCode)
                 return new Response<string>(HttpStatusCode.BadRequest, Messages.Account.TokenUsedOrInvalid);
-            
+
             var timeElapsed = DateTime.UtcNow - existingUser.CodeDate;
             if (timeElapsed.TotalMinutes > 10)
                 return new Response<string>(HttpStatusCode.BadRequest, Messages.Account.TokenExpired);

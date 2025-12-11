@@ -289,7 +289,6 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
             var query = context.Centers.Where(c => !c.IsDeleted).AsQueryable();
             var totalRecords = await query.CountAsync();
             var skip = (page - 1) * pageSize;
-
             var centers = await query
                 .OrderBy(c => c.Name)
                 .Skip(skip)
@@ -510,7 +509,7 @@ public class CenterService(DataContext context, string uploadPath, IHttpContextA
     {
         if (!HasAccessToCenter(centerId))
             return new Response<List<GetCourseWithStatsDto>>(HttpStatusCode.Forbidden, Messages.Common.AccessDenied);
-
+        
         var courses = await context.Courses
             .Where(c => c.CenterId == centerId && !c.IsDeleted)
             .Select(c => new GetCourseWithStatsDto

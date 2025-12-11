@@ -98,4 +98,15 @@ public class PayrollContractController(IPayrollContractService service) : Contro
     }
 
     #endregion
+
+    #region DELETE api/payrollcontract/{id}/delete
+
+    [HttpDelete("{id}/delete")]
+    public async Task<IActionResult> DeleteContract(int id)
+    {
+        var result = await service.DeleteContractAsync(id);
+        return StatusCode(result.StatusCode, result);
+    }
+
+    #endregion
 }

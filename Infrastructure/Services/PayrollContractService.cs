@@ -68,7 +68,8 @@ public class PayrollContractService(
                 HourlyRate = dto.HourlyRate,
                 StudentPercentage = dto.StudentPercentage,
                 Description = dto.Description,
-                EffectiveFrom = dto.EffectiveFrom,
+                EffectiveFrom = DateTimeOffset.UtcNow,
+                EffectiveTo = dto.EffectiveTo,
                 IsActive = true,
                 CreatedAt = DateTimeOffset.UtcNow,
                 UpdatedAt = DateTimeOffset.UtcNow
@@ -158,6 +159,37 @@ public class PayrollContractService(
         catch (Exception ex)
         {
             Log.Error(ex, "Error deactivating payroll contract {Id}", id);
+            return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
+        }
+    }
+
+    #endregion
+
+    #region DeleteContractAsync
+
+    public async Task<Response<string>> DeleteContractAsync(int id)
+    {
+        try
+        {
+            var centerId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+            if (centerId == null)
+                return new Response<string>(HttpStatusCode.BadRequest, Messages.Group.CenterIdNotFound);
+
+            var contract = await context.PayrollContracts
+                .FirstOrDefaultAsync(c => c.Id == id && c.CenterId == centerId && !c.IsDeleted);
+
+            if (contract == null)
+                return new Response<string>(HttpStatusCode.NotFound, Messages.Payroll.ContractNotFound);
+
+            context.PayrollContracts.Remove(contract);
+            await context.SaveChangesAsync();
+
+            Log.Information("Payroll contract permanently deleted: ContractId={Id}, CenterId={CenterId}", id, centerId);
+            return new Response<string>(HttpStatusCode.OK, Messages.Payroll.ContractDeleted);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error deleting payroll contract {Id}", id);
             return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
