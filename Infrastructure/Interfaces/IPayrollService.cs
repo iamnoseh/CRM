@@ -22,6 +22,7 @@ public interface IPayrollService
     Task<PaginationResponse<List<GetPayrollRecordDto>>> GetPayrollRecordsPaginatedAsync(PayrollFilter filter);
 
     Task<Response<GetAdvanceDto>> CreateAdvanceAsync(CreateAdvanceDto dto);
+    Task<Response<GetAdvanceDto>> UpdateAdvanceAsync(int advanceId, UpdateAdvanceDto dto);
     Task<Response<string>> CancelAdvanceAsync(int id);
     Task<Response<List<GetAdvanceDto>>> GetAdvancesAsync(int? mentorId, int? employeeUserId, int? month, int? year);
     Task<Response<decimal>> GetPendingAdvancesAmountAsync(int? mentorId, int? employeeUserId, int month, int year);

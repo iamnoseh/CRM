@@ -164,6 +164,17 @@ public class PayrollController(IPayrollService service) : ControllerBase
 
     #endregion
 
+    #region PUT api/payroll/advance/{id}
+
+    [HttpPut("advance/{id}")]
+    public async Task<IActionResult> UpdateAdvance(int id, [FromBody] UpdateAdvanceDto dto)
+    {
+        var result = await service.UpdateAdvanceAsync(id, dto);
+        return StatusCode(result.StatusCode, result);
+    }
+
+    #endregion
+
     #region GET api/payroll/advances
 
     [HttpGet("advances")]

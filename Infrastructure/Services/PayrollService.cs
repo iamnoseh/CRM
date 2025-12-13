@@ -648,6 +648,52 @@ public class PayrollService(
 
     #endregion
 
+    #region UpdateAdvanceAsync
+
+    public async Task<Response<GetAdvanceDto>> UpdateAdvanceAsync(int advanceId, UpdateAdvanceDto dto)
+    {
+        try
+        {
+            var centerId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+
+            var advance = await context.Advances
+                .FirstOrDefaultAsync(a => a.Id == advanceId && !a.IsDeleted &&
+                    (centerId == null || a.CenterId == centerId));
+
+            if (advance == null)
+                return new Response<GetAdvanceDto>(HttpStatusCode.NotFound, Messages.Payroll.AdvanceNotFound);
+
+            if (advance.Status == AdvanceStatus.Deducted)
+                return new Response<GetAdvanceDto>(HttpStatusCode.BadRequest, Messages.Payroll.AdvanceAlreadyDeducted);
+
+            if (advance.Status == AdvanceStatus.Cancelled)
+                return new Response<GetAdvanceDto>(HttpStatusCode.BadRequest, "Cannot update cancelled advance");
+
+            advance.Amount = dto.Amount;
+            advance.Reason = dto.Reason;
+            advance.TargetMonth = dto.TargetMonth;
+            advance.TargetYear = dto.TargetYear;
+            advance.UpdatedAt = DateTimeOffset.UtcNow;
+
+            context.Advances.Update(advance);
+            await context.SaveChangesAsync();
+
+            var result = await context.Advances
+                .Include(a => a.Mentor)
+                .Include(a => a.EmployeeUser)
+                .FirstOrDefaultAsync(a => a.Id == advance.Id);
+
+            return new Response<GetAdvanceDto>(MapAdvanceToDto(result!)) { Message = "Advance updated successfully" };
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error updating advance {Id}", advanceId);
+            return new Response<GetAdvanceDto>(HttpStatusCode.InternalServerError, ex.Message);
+        }
+    }
+
+    #endregion
+
     #region CancelAdvanceAsync
 
     public async Task<Response<string>> CancelAdvanceAsync(int id)
