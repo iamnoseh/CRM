@@ -328,7 +328,7 @@ public class DiscountService(DataContext db,
                     if (!hasPayment)
                     {
                         var preview = await PreviewAsync(studentId, gid, month, year);
-                        var net = preview.Data?.PayableAmount ?? decimal.MaxValue;
+                        var net = preview.Data.PayableAmount ;
                         if (net > 0)
                         {
                             isPaid = false;

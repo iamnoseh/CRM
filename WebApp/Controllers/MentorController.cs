@@ -116,7 +116,6 @@ public class MentorController(IMentorService mentorService) : ControllerBase
             string extension = Path.GetExtension(mentor.Data.Document).ToLowerInvariant();
             fileName = $"document_{mentorId}{extension}";
             
-            // Определяем правильный MIME-тип на основе расширения
             contentType = extension switch
             {
                 ".pdf" => "application/pdf",

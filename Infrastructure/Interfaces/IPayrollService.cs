@@ -26,5 +26,7 @@ public interface IPayrollService
     Task<Response<List<GetAdvanceDto>>> GetAdvancesAsync(int? mentorId, int? employeeUserId, int? month, int? year);
     Task<Response<decimal>> GetPendingAdvancesAmountAsync(int? mentorId, int? employeeUserId, int month, int year);
 
+    Task<Response<List<PaymentHistoryDto>>> GetPaymentHistoryAsync(int? mentorId, int? employeeUserId, int? month, int? year);
+
     Task<Response<PayrollSummaryDto>> GetMonthlySummaryAsync(int month, int year);
 }

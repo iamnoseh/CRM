@@ -199,6 +199,21 @@ public class PayrollController(IPayrollService service) : ControllerBase
 
     #endregion
 
+    #region Payment History & Status
+
+    #region GET api/payroll/payment-history
+
+    [HttpGet("payment-history")]
+    public async Task<IActionResult> GetPaymentHistory([FromQuery] int? mentorId, [FromQuery] int? employeeUserId, [FromQuery] int? month, [FromQuery] int? year)
+    {
+        var result = await service.GetPaymentHistoryAsync(mentorId, employeeUserId, month, year);
+        return StatusCode(result.StatusCode, result);
+    }
+
+    #endregion
+
+    #endregion
+
     #region Reports
 
     #region GET api/payroll/summary

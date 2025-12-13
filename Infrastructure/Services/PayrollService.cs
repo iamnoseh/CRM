@@ -754,6 +754,65 @@ public class PayrollService(
 
     #endregion
 
+    #region GetPaymentHistoryAsync
+
+    public async Task<Response<List<PaymentHistoryDto>>> GetPaymentHistoryAsync(int? mentorId, int? employeeUserId, int? month, int? year)
+    {
+        try
+        {
+            var centerId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+
+            var query = context.PayrollRecords
+                .Include(p => p.Mentor)
+                .Include(p => p.EmployeeUser)
+                .Where(p => !p.IsDeleted && p.Status == PayrollStatus.Paid &&
+                    (centerId == null || p.CenterId == centerId));
+
+            if (mentorId.HasValue)
+                query = query.Where(p => p.MentorId == mentorId);
+
+            if (employeeUserId.HasValue)
+                query = query.Where(p => p.EmployeeUserId == employeeUserId);
+
+            if (month.HasValue)
+                query = query.Where(p => p.Month == month);
+
+            if (year.HasValue)
+                query = query.Where(p => p.Year == year);
+
+            var records = await query
+                .OrderByDescending(p => p.Year)
+                .ThenByDescending(p => p.Month)
+                .ToListAsync();
+
+            var dtos = records.Select(r => new PaymentHistoryDto
+            {
+                Id = r.Id,
+                MentorId = r.MentorId,
+                MentorName = r.Mentor?.FullName,
+                EmployeeUserId = r.EmployeeUserId,
+                EmployeeName = r.EmployeeUser?.FullName,
+                Month = r.Month,
+                Year = r.Year,
+                NetAmount = r.NetAmount,
+                PaidDate = r.PaidDate,
+                PaymentMethod = r.PaymentMethod,
+                PaymentMethodDisplay = r.PaymentMethod?.ToString(),
+                Notes = r.Notes
+            }).ToList();
+
+            return new Response<List<PaymentHistoryDto>>(dtos);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error getting payment history for MentorId={MentorId}, EmployeeUserId={EmployeeUserId}, Month={Month}, Year={Year}", 
+                mentorId, employeeUserId, month, year);
+            return new Response<List<PaymentHistoryDto>>(HttpStatusCode.InternalServerError, ex.Message);
+        }
+    }
+
+    #endregion
+
     #region GetMonthlySummaryAsync
 
     public async Task<Response<PayrollSummaryDto>> GetMonthlySummaryAsync(int month, int year)
