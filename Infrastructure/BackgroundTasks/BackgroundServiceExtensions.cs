@@ -9,6 +9,7 @@ public static class BackgroundServiceExtensions
     {
         services.AddHostedService<GroupExpirationService>();
         services.AddHostedService<WeeklyJournalSchedulerService>();
+        services.AddHostedService<UserAgeUpdateService>();
 
         services.AddLogging(builder =>
         {
@@ -26,6 +27,7 @@ public static class BackgroundServiceExtensions
 
         services.AddHostedService<GroupExpirationService>();
         services.AddHostedService<WeeklyJournalSchedulerService>();
+        services.AddHostedService<UserAgeUpdateService>();
 
         services.AddLogging(builder =>
         {
