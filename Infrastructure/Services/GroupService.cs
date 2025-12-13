@@ -1,7 +1,4 @@
 using System.Net;
-using Domain.DTOs.Center;
-using Domain.DTOs.Classroom;
-using Domain.DTOs.Course;
 using Domain.DTOs.Group;
 using Domain.Entities;
 using Domain.Enums;
@@ -9,6 +6,7 @@ using Domain.Filters;
 using Domain.Responses;
 using Infrastructure.Data;
 using Infrastructure.Helpers;
+using Infrastructure.Constants;
 using Infrastructure.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -16,14 +14,15 @@ using System.Security.Claims;
 
 namespace Infrastructure.Services;
 
-public class GroupService(DataContext context, string uploadPath, IHttpContextAccessor httpContextAccessor)
+public class GroupService(DataContext context,
+    string uploadPath, IHttpContextAccessor httpContextAccessor)
     : IGroupService
 {
-    private readonly IHttpContextAccessor _httpContextAccessor = httpContextAccessor;
+    #region GetEffectiveCenterIdAsync
 
     private async Task<int?> GetEffectiveCenterIdAsync()
     {
-        var user = _httpContextAccessor.HttpContext?.User;
+        var user = httpContextAccessor.HttpContext?.User;
         var roles = user?.Claims
             .Where(c => c.Type == ClaimTypes.Role || string.Equals(c.Type, "role", StringComparison.OrdinalIgnoreCase))
             .Select(c => c.Value)
@@ -48,6 +47,10 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
         return null;
     }
 
+    #endregion
+
+    #region CreateGroupAsync
+
     public async Task<Response<string>> CreateGroupAsync(CreateGroupDto request)
     {
         try
@@ -58,63 +61,61 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 return new Response<string>
                 {
                     StatusCode = (int)HttpStatusCode.BadRequest,
-                    Message = "CenterId дар токен ёфт нашуд"
+                    Message = Messages.Group.CenterIdNotFound
                 };
             }
 
-            var mentorExists = await context.Mentors.AnyAsync(m => m.Id == request.MentorId && 
-                                                                   m.CenterId == centerId && 
+            var mentorExists = await context.Mentors.AnyAsync(m => m.Id == request.MentorId &&
+                                                                   m.CenterId == centerId &&
                                                                    !m.IsDeleted);
             if (!mentorExists)
             {
                 return new Response<string>
                 {
                     StatusCode = (int)HttpStatusCode.NotFound,
-                    Message = "Омӯзгор ёфт нашуд ё ба ин маркази таълимӣ тааллуқ надорад"
+                    Message = Messages.Group.MentorNotFound
                 };
             }
-            var courseExists = await context.Courses.AnyAsync(c => c.Id == request.CourseId && 
-                                                                   c.CenterId == centerId && 
+            
+            var courseExists = await context.Courses.AnyAsync(c => c.Id == request.CourseId &&
+                                                                   c.CenterId == centerId &&
                                                                    !c.IsDeleted);
             if (!courseExists)
             {
                 return new Response<string>
                 {
                     StatusCode = (int)HttpStatusCode.NotFound,
-                    Message = "Курс ёфт нашуд ё ба ин маркази таълимӣ тааллуқ надорад"
+                    Message = Messages.Group.CourseNotFound
                 };
             }
 
             if (request.ClassroomId.HasValue)
             {
                 var classroomExists = await context.Classrooms
-                    .AnyAsync(c => c.Id == request.ClassroomId && 
-                                  c.CenterId == centerId && 
-                                  c.IsActive && 
+                    .AnyAsync(c => c.Id == request.ClassroomId &&
+                                  c.CenterId == centerId &&
+                                  c.IsActive &&
                                   !c.IsDeleted);
                 if (!classroomExists)
                 {
                     return new Response<string>
                     {
                         StatusCode = (int)HttpStatusCode.NotFound,
-                        Message = "Синфхона ёфт нашуд, фаъол нест ё ба ин маркази таълимӣ тааллуқ надорад"
+                        Message = Messages.Group.ClassroomNotFound
                     };
                 }
             }
 
             var duplicateQuery = context.Groups
                 .Where(g => g.Name.ToLower() == request.Name.ToLower() && !g.IsDeleted);
-            if (centerId != null)
-            {
-                duplicateQuery = duplicateQuery.Where(g => g.Course!.CenterId == centerId);
-            }
+            duplicateQuery = duplicateQuery.Where(g => g.Course!.CenterId == centerId);
             var existingGroup = await duplicateQuery.AnyAsync();
             if (existingGroup)
             {
                 return new Response<string>
                 {
                     StatusCode = (int)HttpStatusCode.BadRequest,
-                    Message = "Гурӯҳ бо ҳамин ном аллакай мавҷуд аст"
+                    Message = Messages.Group.AlreadyExists
                 };
             }
 
@@ -133,9 +134,10 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 }
                 imagePath = uploadResult.Data;
             }
+            
             var startDate = request.StartDate?.ToUniversalTime() ?? DateTimeOffset.UtcNow.AddDays(1);
             var endDate = request.EndDate?.ToUniversalTime() ?? DateTimeOffset.UtcNow.AddMonths(3);
-            
+
             var calculatedDurationMonth = (int)Math.Ceiling((endDate - startDate).TotalDays / 30.0);
             var calculatedLessonInWeek = request.ParsedLessonDays?.Count ?? 0;
             var totalWeeks = (int)Math.Ceiling((endDate - startDate).TotalDays / 7.0);
@@ -152,8 +154,8 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 MentorId = request.MentorId,
                 ClassroomId = request.ClassroomId,
                 PhotoPath = imagePath,
-                Status = ActiveStatus.Inactive, 
-                StartDate = startDate, 
+                Status = ActiveStatus.Inactive,
+                StartDate = startDate,
                 EndDate = endDate,
                 LessonDays = request.LessonDays,
                 LessonStartTime = request.LessonStartTime,
@@ -168,8 +170,8 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
             return new Response<string>
             {
                 StatusCode = (int)HttpStatusCode.Created,
-                Data = "Гурӯҳ бо муваффақият сохта шуд",
-                Message = "Гурӯҳ бо муваффақият сохта шуд"
+                Data = Messages.Group.Created,
+                Message = Messages.Group.Created
             };
         }
         catch (Exception ex)
@@ -177,10 +179,14 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
             return new Response<string>
             {
                 StatusCode = (int)HttpStatusCode.InternalServerError,
-                Message = $"Хатогӣ ҳангоми сохтани гурӯҳ: {ex.Message}"
+                Message = string.Format(Messages.Group.CreationError, ex.Message)
             };
         }
     }
+
+    #endregion
+
+    #region UpdateGroupAsync
 
     public async Task<Response<string>> UpdateGroupAsync(int id, UpdateGroupDto request)
     {
@@ -192,7 +198,7 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 return new Response<string>
                 {
                     StatusCode = (int)HttpStatusCode.BadRequest,
-                    Message = "CenterId дар токен ёфт нашуд"
+                    Message = Messages.Group.CenterIdNotFound
                 };
             }
 
@@ -205,60 +211,61 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 return new Response<string>
                 {
                     StatusCode = (int)HttpStatusCode.NotFound,
-                    Message = "Гурӯҳ ёфт нашуд"
+                    Message = Messages.Group.NotFound
                 };
             }
 
-            var mentorExists = await context.Mentors.AnyAsync(m => m.Id == request.MentorId && 
-                                                                   m.CenterId == centerId && 
+            var mentorExists = await context.Mentors.AnyAsync(m => m.Id == request.MentorId &&
+                                                                   m.CenterId == centerId &&
                                                                    !m.IsDeleted);
             if (!mentorExists)
             {
                 return new Response<string>
                 {
                     StatusCode = (int)HttpStatusCode.NotFound,
-                    Message = "Омӯзгор ёфт нашуд ё ба ин маркази таълимӣ тааллуқ надорад"
+                    Message = Messages.Group.MentorNotFound
                 };
             }
 
-            var courseExists = await context.Courses.AnyAsync(c => c.Id == request.CourseId && 
-                                                                   c.CenterId == centerId && 
+            var courseExists = await context.Courses.AnyAsync(c => c.Id == request.CourseId &&
+                                                                   c.CenterId == centerId &&
                                                                    !c.IsDeleted);
             if (!courseExists)
             {
                 return new Response<string>
                 {
                     StatusCode = (int)HttpStatusCode.NotFound,
-                    Message = "Курс ёфт нашуд ё ба ин маркази таълимӣ тааллуқ надорад"
+                    Message = Messages.Group.CourseNotFound
                 };
             }
 
             if (request.ClassroomId.HasValue)
             {
                 var classroomExists = await context.Classrooms
-                    .AnyAsync(c => c.Id == request.ClassroomId && 
-                                  c.CenterId == centerId && 
-                                  c.IsActive && 
+                    .AnyAsync(c => c.Id == request.ClassroomId &&
+                                  c.CenterId == centerId &&
+                                  c.IsActive &&
                                   !c.IsDeleted);
                 if (!classroomExists)
                 {
                     return new Response<string>
                     {
                         StatusCode = (int)HttpStatusCode.NotFound,
-                        Message = "Синфхона ёфт нашуд, фаъол нест ё ба ин маркази таълимӣ тааллуқ надорад"
+                        Message = Messages.Group.ClassroomNotFound
                     };
                 }
             }
+            
             var existingGroup = await context.Groups
                 .Include(g => g.Course)
-                .AnyAsync(g => g.Name.ToLower() == request.Name.ToLower() && 
+                .AnyAsync(g => g.Name.ToLower() == request.Name.ToLower() &&
                               g.Id != id && !g.IsDeleted && g.Course!.CenterId == centerId);
             if (existingGroup)
             {
                 return new Response<string>
                 {
                     StatusCode = (int)HttpStatusCode.BadRequest,
-                    Message = "Гурӯҳ бо ҳамин ном аллакай мавҷуд аст"
+                    Message = Messages.Group.AlreadyExists
                 };
             }
 
@@ -268,13 +275,13 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
             group.MentorId = request.MentorId;
             group.ClassroomId = request.ClassroomId;
             group.HasWeeklyExam = request.HasWeeklyExam ?? false;
-            group.StartDate = request.StartDate.Value;
-            group.EndDate = request.EndDate.Value;
+            group.StartDate = request.StartDate!.Value;
+            group.EndDate = request.EndDate!.Value;
             group.LessonDays = request.LessonDays;
             group.LessonStartTime = request.LessonStartTime;
             group.LessonEndTime = request.LessonEndTime;
             group.Status = request.Status;
-            
+
             var startDate = request.StartDate.Value;
             var endDate = request.EndDate.Value;
 
@@ -284,27 +291,26 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
 
             if (request.DurationMonth.HasValue)
                 group.DurationMonth = request.DurationMonth.Value;
-                
+
             if (request.LessonInWeek.HasValue)
                 group.LessonInWeek = request.LessonInWeek.Value;
 
             if (request.Image != null)
             {
-      
                 if (!string.IsNullOrEmpty(group.PhotoPath))
                 {
                     FileDeleteHelper.DeleteFile(group.PhotoPath, uploadPath);
                 }
 
                 var imagePath = await FileUploadHelper.UploadFileAsync(
-                    request.Image, 
+                    request.Image,
                     uploadPath,
                     "groups",
                     "group");
 
                 if (imagePath.StatusCode != (int)HttpStatusCode.OK)
                 {
-                    return new Response<string>(HttpStatusCode.OK,"Succses");
+                    return new Response<string>(HttpStatusCode.OK, Messages.Common.Success);
                 }
                 group.PhotoPath = imagePath.Data;
             }
@@ -314,8 +320,8 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
             return new Response<string>
             {
                 StatusCode = (int)HttpStatusCode.OK,
-                Data = "Гурӯҳ бо муваффақият навсозӣ шуд",
-                Message = "Гурӯҳ бо муваффақият навсозӣ шуд"
+                Data = Messages.Group.Updated,
+                Message = Messages.Group.Updated
             };
         }
         catch (Exception ex)
@@ -323,10 +329,14 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
             return new Response<string>
             {
                 StatusCode = (int)HttpStatusCode.InternalServerError,
-                Message = $"Хатогӣ ҳангоми навсозии гурӯҳ: {ex.Message}"
+                Message = string.Format(Messages.Group.UpdateError, ex.Message)
             };
         }
     }
+
+    #endregion
+
+    #region DeleteGroupAsync
 
     public async Task<Response<string>> DeleteGroupAsync(int id)
     {
@@ -337,7 +347,7 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 .Include(g => g.Course)
                 .Where(g => !g.IsDeleted)
                 .AsQueryable();
-            delQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(delQuery, _httpContextAccessor, g => (int?)g.Course!.CenterId);
+            delQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(delQuery, httpContextAccessor, g => g.Course!.CenterId);
 
             var group = await delQuery.FirstOrDefaultAsync(g => g.Id == id);
 
@@ -346,7 +356,7 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 return new Response<string>
                 {
                     StatusCode = (int)HttpStatusCode.NotFound,
-                    Message = "Гурӯҳ ёфт нашуд"
+                    Message = Messages.Group.NotFound
                 };
             }
 
@@ -355,7 +365,7 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 return new Response<string>
                 {
                     StatusCode = (int)HttpStatusCode.BadRequest,
-                    Message = "Гурӯҳро нест кардан мумкин нест, зеро донишҷӯёни фаъол дорад"
+                    Message = Messages.Group.CannotDeleteWithStudents
                 };
             }
 
@@ -367,8 +377,8 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
             return new Response<string>
             {
                 StatusCode = (int)HttpStatusCode.OK,
-                Data = "Гурӯҳ бо муваффақият нест карда шуд",
-                Message = "Гурӯҳ бо муваффақият нест карда шуд"
+                Data = Messages.Group.Deleted,
+                Message = Messages.Group.Deleted
             };
         }
         catch (Exception ex)
@@ -376,10 +386,14 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
             return new Response<string>
             {
                 StatusCode = (int)HttpStatusCode.InternalServerError,
-                Message = $"Хатогӣ ҳангоми несткунии гурӯҳ: {ex.Message}"
+                Message = string.Format(Messages.Group.DeleteError, ex.Message)
             };
         }
     }
+
+    #endregion
+
+    #region GetGroupByIdAsync
 
     public async Task<Response<GetGroupDto>> GetGroupByIdAsync(int id)
     {
@@ -389,11 +403,11 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 .Include(g => g.Course)
                 .Include(g => g.Mentor)
                 .Include(g => g.Classroom)
-                .ThenInclude(c => c.Center)
+                .ThenInclude(c => c!.Center)
                 .Include(g => g.StudentGroups.Where(sg => !sg.IsDeleted))
                 .Where(g => !g.IsDeleted)
                 .AsQueryable();
-            queryById = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(queryById, _httpContextAccessor, g => (int?)g.Course!.CenterId);
+            queryById = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(queryById, httpContextAccessor, g => g.Course!.CenterId);
 
             var group = await queryById.FirstOrDefaultAsync(g => g.Id == id);
 
@@ -402,11 +416,11 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 return new Response<GetGroupDto>
                 {
                     StatusCode = (int)HttpStatusCode.NotFound,
-                    Message = "Гурӯҳ ёфт нашуд"
+                    Message = Messages.Group.NotFound
                 };
             }
 
-            var groupDto = MapToGetGroupDto(group);
+            var groupDto = DtoMappingHelper.MapToGetGroupDto(group);
 
             return new Response<GetGroupDto>
             {
@@ -419,10 +433,14 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
             return new Response<GetGroupDto>
             {
                 StatusCode = (int)HttpStatusCode.InternalServerError,
-                Message = $"Хатогӣ ҳангоми гирифтани гурӯҳ: {ex.Message}"
+                Message = string.Format(Messages.Group.GetError, ex.Message)
             };
         }
     }
+
+    #endregion
+
+    #region GetGroups
 
     public async Task<Response<List<GetGroupDto>>> GetGroups()
     {
@@ -432,17 +450,17 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 .Include(g => g.Course)
                 .Include(g => g.Mentor)
                 .Include(g => g.Classroom)
-                .ThenInclude(c => c.Center)
+                .ThenInclude(c => c!.Center)
                 .Include(g => g.StudentGroups.Where(sg => !sg.IsDeleted))
                 .Where(g => !g.IsDeleted)
                 .AsQueryable();
-            queryAll = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(queryAll, _httpContextAccessor, g => (int?)g.Course!.CenterId);
+            queryAll = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(queryAll, httpContextAccessor, g => g.Course!.CenterId);
 
             var groups = await queryAll
                 .OrderBy(g => g.Name)
                 .ToListAsync();
 
-            var groupDtos = groups.Select(MapToGetGroupDto).ToList();
+            var groupDtos = groups.Select(DtoMappingHelper.MapToGetGroupDto).ToList();
 
             return new Response<List<GetGroupDto>>
             {
@@ -455,10 +473,14 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
             return new Response<List<GetGroupDto>>
             {
                 StatusCode = (int)HttpStatusCode.InternalServerError,
-                Message = $"Хатогӣ ҳангоми гирифтани гурӯҳҳо: {ex.Message}"
+                Message = string.Format(Messages.Group.GetListError, ex.Message)
             };
         }
     }
+
+    #endregion
+
+    #region GetGroupPaginated
 
     public async Task<PaginationResponse<List<GetGroupDto>>> GetGroupPaginated(GroupFilter filter)
     {
@@ -468,18 +490,18 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 .Include(g => g.Course)
                 .Include(g => g.Mentor)
                 .Include(g => g.Classroom)
-                .ThenInclude(c => c.Center)
+                .ThenInclude(c => c!.Center)
                 .Include(g => g.StudentGroups.Where(sg => !sg.IsDeleted))
                 .Where(g => !g.IsDeleted)
                 .AsQueryable();
-            query = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(query, _httpContextAccessor, g => (int?)g.Course!.CenterId);
+            query = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(query, httpContextAccessor, g => g.Course!.CenterId);
 
-            var user = _httpContextAccessor.HttpContext?.User;
+            var user = httpContextAccessor.HttpContext?.User;
             var principalType = user?.FindFirst("PrincipalType")?.Value;
-            var nameIdStr = user?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var nameIdStr = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             int.TryParse(nameIdStr, out var principalId);
 
-            var roles = user?.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role)
+            var roles = user?.Claims.Where(c => c.Type == ClaimTypes.Role)
                 .Select(c => c.Value)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase) ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -497,7 +519,7 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                     query = query.Where(g => g.MentorId == principalId);
                 }
             }
-            
+
             if (!string.IsNullOrEmpty(filter.Name))
             {
                 query = query.Where(g => g.Name.Contains(filter.Name));
@@ -555,7 +577,7 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 .OrderBy(g => g.Name)
                 .ToListAsync();
 
-            var groupDtos = groups.Select(MapToGetGroupDto).ToList();
+            var groupDtos = groups.Select(DtoMappingHelper.MapToGetGroupDto).ToList();
 
             return new PaginationResponse<List<GetGroupDto>>(groupDtos, totalRecords, filter.PageNumber, filter.PageSize)
             {
@@ -567,11 +589,15 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
             return new PaginationResponse<List<GetGroupDto>>
             {
                 StatusCode = (int)HttpStatusCode.InternalServerError,
-                Message = $"Хатогӣ ҳангоми гирифтани гурӯҳҳо: {ex.Message}"
+                Message = string.Format(Messages.Group.GetListError, ex.Message)
             };
         }
     }
-    
+
+    #endregion
+
+    #region GetGroupsByStudentIdAsync
+
     public async Task<Response<List<GetGroupDto>>> GetGroupsByStudentIdAsync(int studentId)
     {
         try
@@ -580,17 +606,17 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 .Include(g => g.Course)
                 .Include(g => g.Mentor)
                 .Include(g => g.Classroom)
-                .ThenInclude(c => c.Center)
+                .ThenInclude(c => c!.Center)
                 .Include(g => g.StudentGroups.Where(sg => !sg.IsDeleted && sg.StudentId == studentId))
                 .Where(g => !g.IsDeleted && g.StudentGroups.Any(sg => sg.StudentId == studentId && !sg.IsDeleted))
                 .AsQueryable();
-            byStudentQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(byStudentQuery, _httpContextAccessor, g => (int?)g.Course!.CenterId);
+            byStudentQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(byStudentQuery, httpContextAccessor, g => g.Course!.CenterId);
 
             var groups = await byStudentQuery
                 .OrderBy(g => g.Name)
                 .ToListAsync();
 
-            var groupDtos = groups.Select(MapToGetGroupDto).ToList();
+            var groupDtos = groups.Select(DtoMappingHelper.MapToGetGroupDto).ToList();
             return new Response<List<GetGroupDto>>
             {
                 StatusCode = (int)HttpStatusCode.OK,
@@ -602,10 +628,14 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
             return new Response<List<GetGroupDto>>
             {
                 StatusCode = (int)HttpStatusCode.InternalServerError,
-                Message = $"Хатогӣ ҳангоми гирифтани гурӯҳҳо бо studentId: {ex.Message}"
+                Message = string.Format(Messages.Group.GetByStudentIdError, ex.Message)
             };
         }
     }
+
+    #endregion
+
+    #region GetGroupsByMentorIdAsync
 
     public async Task<Response<List<GetGroupDto>>> GetGroupsByMentorIdAsync(int mentorId)
     {
@@ -615,17 +645,17 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 .Include(g => g.Course)
                 .Include(g => g.Mentor)
                 .Include(g => g.Classroom)
-                .ThenInclude(c => c.Center)
+                .ThenInclude(c => c!.Center)
                 .Include(g => g.StudentGroups.Where(sg => !sg.IsDeleted))
                 .Where(g => !g.IsDeleted && g.MentorId == mentorId)
                 .AsQueryable();
-            byMentorQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(byMentorQuery, _httpContextAccessor, g => (int?)g.Course!.CenterId);
+            byMentorQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(byMentorQuery, httpContextAccessor, g => g.Course!.CenterId);
 
             var groups = await byMentorQuery
                 .OrderBy(g => g.Name)
                 .ToListAsync();
 
-            var groupDtos = groups.Select(MapToGetGroupDto).ToList();
+            var groupDtos = groups.Select(DtoMappingHelper.MapToGetGroupDto).ToList();
             return new Response<List<GetGroupDto>>
             {
                 StatusCode = (int)HttpStatusCode.OK,
@@ -637,10 +667,14 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
             return new Response<List<GetGroupDto>>
             {
                 StatusCode = (int)HttpStatusCode.InternalServerError,
-                Message = $"Хатогӣ ҳангоми гирифтани гурӯҳҳо бо mentorId: {ex.Message}"
+                Message = string.Format(Messages.Group.GetByMentorIdError, ex.Message)
             };
         }
     }
+
+    #endregion
+
+    #region GetGroupsSimpleAsync
 
     public async Task<Response<List<GetSimpleGroupInfoDto>>> GetGroupsSimpleAsync(string? search)
     {
@@ -649,7 +683,7 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
             var query = context.Groups
                 .Where(g => !g.IsDeleted)
                 .AsQueryable();
-            query = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(query, _httpContextAccessor, g => (int?)g.Course!.CenterId);
+            query = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(query, httpContextAccessor, g => g.Course!.CenterId);
 
             if (!string.IsNullOrWhiteSpace(search))
             {
@@ -665,15 +699,11 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
                 }
             }
 
-            var simple = await query
+            var groups = await query
                 .OrderBy(g => g.Name)
-                .Select(g => new GetSimpleGroupInfoDto
-                {
-                    Id = g.Id,
-                    Name = g.Name,
-                    ImagePath = g.PhotoPath
-                })
                 .ToListAsync();
+
+            var simple = groups.Select(DtoMappingHelper.MapToGetSimpleGroupInfoDto).ToList();
 
             return new Response<List<GetSimpleGroupInfoDto>>
             {
@@ -686,62 +716,10 @@ public class GroupService(DataContext context, string uploadPath, IHttpContextAc
             return new Response<List<GetSimpleGroupInfoDto>>
             {
                 StatusCode = (int)HttpStatusCode.InternalServerError,
-                Message = $"Хатогӣ ҳангоми гирифтани рӯйхати соддаи гурӯҳҳо: {ex.Message}"
+                Message = string.Format(Messages.Group.GetSimpleListError, ex.Message)
             };
         }
     }
-    
-    private GetGroupDto MapToGetGroupDto(Group group)
-    {
-        return new GetGroupDto
-        {
-            Id = group.Id,
-            Name = group.Name,
-            Description = group.Description,
-            DurationMonth = group.DurationMonth,
-            LessonInWeek = group.LessonInWeek,
-            TotalWeeks = group.TotalWeeks,
-            Started = group.Started,
-            HasWeeklyExam = group.HasWeeklyExam,
-            CurrentStudentsCount = group.StudentGroups?.Count(sg => !sg.IsDeleted) ?? 0,
-            Status = group.Status,
-            StartDate = group.StartDate,
-            EndDate = group.EndDate,
-            Mentor = group.Mentor != null ? new Domain.DTOs.Student.GetSimpleDto
-            {
-                Id = group.Mentor.Id,
-                FullName = group.Mentor.FullName
-            } : null,
-            DayOfWeek = 0, 
-            Course = new GetSimpleCourseDto()
-            {
-                Id = group.Course.Id,
-                CourseName = group.Course.CourseName,
-            },
-            ImagePath = group.PhotoPath,
-            CurrentWeek = group.CurrentWeek,
-            ClassroomId = group.ClassroomId,
-            Classroom = group.Classroom != null ? new GetClassroomDto
-            {
-                Id = group.Classroom.Id,
-                Name = group.Classroom.Name,
-                Description = group.Classroom.Description,
-                Capacity = group.Classroom.Capacity,
-                IsActive = group.Classroom.IsActive,
-                Center = group.Classroom.Center != null ? new GetCenterSimpleDto
-                {
-                    Id = group.Classroom.Center.Id,
-                    Name = group.Classroom.Center.Name
-                } : null,
-                CreatedAt = group.Classroom.CreatedAt,
-                UpdatedAt = group.Classroom.UpdatedAt
-            } : null,
-            LessonDays = !string.IsNullOrEmpty(group.LessonDays) 
-                ? group.LessonDays 
-                : null,
-            LessonStartTime = group.LessonStartTime,
-            LessonEndTime = group.LessonEndTime,
-            
-        };
-    }
-} 
+
+    #endregion
+}

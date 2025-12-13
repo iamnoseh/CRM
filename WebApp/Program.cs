@@ -1,7 +1,6 @@
 using Infrastructure.ExtensionMethods.Register;
 using SwaggerThemes;
 using Domain.DTOs.EmailDTOs;
-using Infrastructure.BackgroundTasks;
 using Hangfire;
 using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -10,7 +9,7 @@ using Serilog;
 var builder = WebApplication.CreateBuilder(args);
 
 
-builder.Host.UseSerilog((context, services, configuration) =>
+builder.Host.UseSerilog((context, configuration) =>
 {
     configuration
         .ReadFrom.Configuration(context.Configuration)
@@ -18,8 +17,8 @@ builder.Host.UseSerilog((context, services, configuration) =>
 });
 
 var uploadPath = builder.Configuration.GetValue<string>("UploadPath") ?? "wwwroot";
-var migrationsEnabled = builder.Configuration.GetValue<bool>("Features:ApplyMigrationsOnStartup", true);
-var enableSwagger = builder.Configuration.GetValue<bool>("Swagger:Enabled", false);
+var migrationsEnabled = builder.Configuration.GetValue("Features:ApplyMigrationsOnStartup", true);
+var enableSwagger = builder.Configuration.GetValue("Swagger:Enabled", false);
 
 builder.Services.AddRegisterService(builder.Configuration);
 builder.Services.AddHttpContextAccessor();
@@ -37,7 +36,6 @@ builder.Services.AddHangfireServer();
 
 builder.Services.AddApplicationServices(builder.Configuration, uploadPath);
 builder.Services.AddSwaggerServices();
-// Removed BackgroundService hosting to avoid duplicate execution with Hangfire recurring jobs
 builder.Services.AddControllers();
 
 var app = builder.Build();

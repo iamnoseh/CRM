@@ -5,32 +5,26 @@ using Domain.Enums;
 using Domain.Responses;
 using Infrastructure.Data;
 using Infrastructure.Interfaces;
+using Infrastructure.Constants;
+using Infrastructure.Helpers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Http;
-using Infrastructure.Helpers;
 using System.Security.Claims;
 
 namespace Infrastructure.Services;
 
 public class JournalService(DataContext context, IHttpContextAccessor httpContextAccessor) : IJournalService
 {
-    private readonly IHttpContextAccessor _httpContextAccessor = httpContextAccessor;
+    #region GenerateWeeklyJournalAsync
+
     public async Task<Response<string>> GenerateWeeklyJournalAsync(int groupId, int weekNumber)
     {
         try
         {
-            var centerId = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
-            var groupQuery = context.Groups
-                .Include(g => g.Course)
-                .Where(g => !g.IsDeleted)
-                .AsQueryable();
-            if (centerId != null)
-            {
-                groupQuery = groupQuery.Where(g => g.Course!.CenterId == centerId);
-            }
-            var group = await groupQuery.FirstOrDefaultAsync(g => g.Id == groupId);
+            var centerId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+            var group = await GetGroupWithCenterFilterAsync(groupId, centerId);
             if (group == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Гурӯҳ ёфт нашуд");
+                return new Response<string>(HttpStatusCode.NotFound, Messages.Journal.GroupNotFound);
 
             var existingWeeks = await context.Journals
                 .Where(j => j.GroupId == groupId && !j.IsDeleted)
@@ -41,26 +35,24 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
 
             if (weekNumber > group.TotalWeeks)
                 return new Response<string>(HttpStatusCode.BadRequest,
-                    $"Шумо наметавонед ҳафтаи {weekNumber}-ро созед. Шумораи умумии ҳафтаҳо: {group.TotalWeeks}. Ҳафтаи навбатӣ: {expectedNextWeek}.");
+                    string.Format(Messages.Journal.WeekExceedsTotal, weekNumber, group.TotalWeeks, expectedNextWeek));
 
             if (weekNumber <= maxExistingWeek)
                 return new Response<string>(HttpStatusCode.BadRequest,
-                    $"Ин ҳафта аллакай сохта шудааст ё аз ҳафтаҳои гузашта мебошад. Лутфан ҳафтаи {expectedNextWeek}-ро созед.");
+                    string.Format(Messages.Journal.WeekSequenceError, expectedNextWeek));
 
             if (weekNumber != expectedNextWeek)
                 return new Response<string>(HttpStatusCode.BadRequest,
-                    $"Пайдарпайӣ риоя нашудааст. Лутфан аввал ҳафтаи {expectedNextWeek}-ро созед.");
+                    string.Format(Messages.Journal.WeekSequenceError, expectedNextWeek));
 
             var existing = await context.Journals
                 .FirstOrDefaultAsync(j => j.GroupId == groupId && j.WeekNumber == weekNumber && !j.IsDeleted);
             if (existing != null)
-                return new Response<string>(HttpStatusCode.OK, "Журнал аллакай барои ин ҳафта вуҷуд дорад");
+                return new Response<string>(HttpStatusCode.OK, Messages.Journal.WeekAlreadyExists);
 
             var lessonDays = ParseLessonDays(group.LessonDays);
             if (lessonDays.Count == 0)
-            {
                 lessonDays = new List<int> { 2, 3, 4, 5, 6 };
-            }
 
             var targetLessons = 6;
             DateTime cursor;
@@ -79,176 +71,45 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
                     : group.StartDate.UtcDateTime.Date.AddDays((weekNumber - 1) * 7);
             }
 
-            var plannedSlots = new List<(DateTime date, int dayOfWeekOneBased, int lessonNumber)>();
-            while (plannedSlots.Count < targetLessons)
-            {
-                var dotNetDayOfWeek = (int)cursor.DayOfWeek;
-                var crmDayOfWeek = ConvertDotNetToCrmDayOfWeek(dotNetDayOfWeek);
-                
-                if (lessonDays.Contains(crmDayOfWeek))
-                {
-                    plannedSlots.Add((cursor, crmDayOfWeek, plannedSlots.Count + 1));
-                }
+            var plannedSlots = GeneratePlannedSlots(cursor, lessonDays, targetLessons);
+            var journal = await CreateJournalWithEntriesAsync(group, weekNumber, plannedSlots, targetLessons);
 
-                cursor = cursor.AddDays(1);
-            }
-
-            var firstSlotDate = plannedSlots.First().date;
-            var lastSlotDate = plannedSlots.Last().date;
-            var weekStart = new DateTimeOffset(firstSlotDate.Year, firstSlotDate.Month, firstSlotDate.Day, 0, 0, 0,
-                TimeSpan.Zero);
-            var weekEnd = new DateTimeOffset(lastSlotDate.Year, lastSlotDate.Month, lastSlotDate.Day, 23, 59, 59,
-                TimeSpan.Zero);
-
-            var journal = new Journal
-            {
-                GroupId = groupId,
-                WeekNumber = weekNumber,
-                WeekStartDate = weekStart,
-                WeekEndDate = weekEnd,
-                CreatedAt = DateTimeOffset.UtcNow,
-                UpdatedAt = DateTimeOffset.UtcNow
-            };
-
-            await context.Journals.AddAsync(journal);
-            await context.SaveChangesAsync();
-
-            var students = await context.StudentGroups
-                .Include(sg => sg.Student)
-                .Where(sg => sg.GroupId == groupId && sg.IsActive && !sg.IsDeleted && !sg.Student!.IsDeleted)
-                .Select(sg => sg.Student!)
-                .ToListAsync();
-
-            foreach (var slot in plannedSlots)
-            {
-                
-                var lessonType = DetermineLessonType(group.HasWeeklyExam, weekNumber, slot.lessonNumber, targetLessons);
-                
-                foreach (var student in students)
-                {
-                    var entry = new JournalEntry
-                    {
-                        JournalId = journal.Id,
-                        StudentId = student.Id,
-                        DayOfWeek = slot.dayOfWeekOneBased,
-                        LessonNumber = slot.lessonNumber,
-                        LessonType = lessonType,
-                        StartTime = group.LessonStartTime,
-                        EndTime = group.LessonEndTime,
-                        AttendanceStatus = AttendanceStatus.Absent,
-                        EntryDate = DateTime.SpecifyKind(slot.date, DateTimeKind.Utc)
-                    };
-                    await context.JournalEntries.AddAsync(entry);
-                }
-            }
-
-            await context.SaveChangesAsync();
-            return new Response<string>(HttpStatusCode.Created, "Журнали ҳафтавӣ эҷод шуд");
+            return new Response<string>(HttpStatusCode.Created, Messages.Journal.WeekCreated);
         }
         catch (Exception ex)
         {
             return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
+
+    #endregion
+
+    #region GenerateWeeklyJournalFromCustomDateAsync
 
     public async Task<Response<string>> GenerateWeeklyJournalFromCustomDateAsync(int groupId, DateTime startDate)
     {
         try
         {
-            var centerId = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
-            var groupQuery = context.Groups
-                .Include(g => g.Course)
-                .Where(g => !g.IsDeleted)
-                .AsQueryable();
-            if (centerId != null)
-            {
-                groupQuery = groupQuery.Where(g => g.Course!.CenterId == centerId);
-            }
-            var group = await groupQuery.FirstOrDefaultAsync(g => g.Id == groupId);
+            var centerId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+            var group = await GetGroupWithCenterFilterAsync(groupId, centerId);
             if (group == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Гурӯҳ ёфт нашуд");
+                return new Response<string>(HttpStatusCode.NotFound, Messages.Journal.GroupNotFound);
 
-            // Check if any journal already exists for week 1
             var existingWeek1 = await context.Journals
                 .FirstOrDefaultAsync(j => j.GroupId == groupId && j.WeekNumber == 1 && !j.IsDeleted);
             if (existingWeek1 != null)
-                return new Response<string>(HttpStatusCode.BadRequest, 
-                    "Журнали ҳафтаи якум аллакай вуҷуд дорад. Агар мехоҳед аз нав созед, аввал журналҳои мавҷударо нест кунед.");
+                return new Response<string>(HttpStatusCode.BadRequest, Messages.Journal.Week1AlreadyExists);
 
             var lessonDays = ParseLessonDays(group.LessonDays);
             if (lessonDays.Count == 0)
-            {
                 lessonDays = new List<int> { 2, 3, 4, 5, 6 };
-            }
 
             var targetLessons = 6;
-            DateTime cursor = startDate.Date;
+            var plannedSlots = GeneratePlannedSlots(startDate.Date, lessonDays, targetLessons);
+            await CreateJournalWithEntriesAsync(group, 1, plannedSlots, targetLessons);
 
-            var plannedSlots = new List<(DateTime date, int dayOfWeekOneBased, int lessonNumber)>();
-            while (plannedSlots.Count < targetLessons)
-            {
-                var dotNetDayOfWeek = (int)cursor.DayOfWeek;
-                var crmDayOfWeek = ConvertDotNetToCrmDayOfWeek(dotNetDayOfWeek);
-                
-                if (lessonDays.Contains(crmDayOfWeek))
-                {
-                    plannedSlots.Add((cursor, crmDayOfWeek, plannedSlots.Count + 1));
-                }
-
-                cursor = cursor.AddDays(1);
-            }
-
-            var firstSlotDate = plannedSlots.First().date;
-            var lastSlotDate = plannedSlots.Last().date;
-            var weekStart = new DateTimeOffset(firstSlotDate.Year, firstSlotDate.Month, firstSlotDate.Day, 0, 0, 0,
-                TimeSpan.Zero);
-            var weekEnd = new DateTimeOffset(lastSlotDate.Year, lastSlotDate.Month, lastSlotDate.Day, 23, 59, 59,
-                TimeSpan.Zero);
-
-            var journal = new Journal
-            {
-                GroupId = groupId,
-                WeekNumber = 1,
-                WeekStartDate = weekStart,
-                WeekEndDate = weekEnd,
-                CreatedAt = DateTimeOffset.UtcNow,
-                UpdatedAt = DateTimeOffset.UtcNow
-            };
-
-            await context.Journals.AddAsync(journal);
-            await context.SaveChangesAsync();
-
-            var students = await context.StudentGroups
-                .Include(sg => sg.Student)
-                .Where(sg => sg.GroupId == groupId && sg.IsActive && !sg.IsDeleted && !sg.Student!.IsDeleted)
-                .Select(sg => sg.Student!)
-                .ToListAsync();
-
-            foreach (var slot in plannedSlots)
-            {
-                var lessonType = DetermineLessonType(group.HasWeeklyExam, 1, slot.lessonNumber, targetLessons);
-                
-                foreach (var student in students)
-                {
-                    var entry = new JournalEntry
-                    {
-                        JournalId = journal.Id,
-                        StudentId = student.Id,
-                        DayOfWeek = slot.dayOfWeekOneBased,
-                        LessonNumber = slot.lessonNumber,
-                        LessonType = lessonType,
-                        StartTime = group.LessonStartTime,
-                        EndTime = group.LessonEndTime,
-                        AttendanceStatus = AttendanceStatus.Absent,
-                        EntryDate = DateTime.SpecifyKind(slot.date, DateTimeKind.Utc)
-                    };
-                    await context.JournalEntries.AddAsync(entry);
-                }
-            }
-
-            await context.SaveChangesAsync();
-            return new Response<string>(HttpStatusCode.Created, 
-                $"Журнали ҳафтаи якум аз санаи {startDate:dd.MM.yyyy} эҷод шуд");
+            return new Response<string>(HttpStatusCode.Created,
+                string.Format(Messages.Journal.WeekCreatedFromDate, startDate.ToString("dd.MM.yyyy")));
         }
         catch (Exception ex)
         {
@@ -256,92 +117,31 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
         }
     }
 
+    #endregion
+
+    #region GetJournalAsync
+
     public async Task<Response<GetJournalDto>> GetJournalAsync(int groupId, int weekNumber)
     {
         try
         {
-            var centerId = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
+            var centerId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
             var journal = await context.Journals
                 .Include(j => j.Group)
                 .Include(j => j.Entries)
                 .Where(j => j.GroupId == groupId && j.WeekNumber == weekNumber && !j.IsDeleted)
                 .FirstOrDefaultAsync();
+
             if (journal != null && centerId != null)
             {
-                if (journal.Group == null)
-                {
-                    journal.Group = await context.Groups.Include(g => g.Course).FirstOrDefaultAsync(g => g.Id == journal.GroupId);
-                }
-                if (journal.Group?.Course?.CenterId != centerId)
-                {
-                    var hasAssignmentAccess = await HasGroupAccessAsync(journal.GroupId);
-                    if (!hasAssignmentAccess)
-                        return new Response<GetJournalDto>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
-                }
+                if (!await HasJournalAccessAsync(journal, centerId.Value))
+                    return new Response<GetJournalDto>(HttpStatusCode.Forbidden, Messages.Journal.AccessDenied);
             }
 
             if (journal == null)
-                return new Response<GetJournalDto>(HttpStatusCode.NotFound, "Журнал ёфт нашуд");
+                return new Response<GetJournalDto>(HttpStatusCode.NotFound, Messages.Journal.NotFound);
 
-            var studentIds = journal.Entries.Select(e => e.StudentId).Distinct().ToList();
-            var students = await context.Students
-                .Where(s => studentIds.Contains(s.Id) && !s.IsDeleted)
-                .Select(s => new { s.Id, s.FullName, IsActive = s.ActiveStatus == ActiveStatus.Active })
-                .ToListAsync();
-
-            var totalsByStudent = journal.Entries
-                .Where(e => !e.IsDeleted)
-                .GroupBy(e => e.StudentId)
-                .ToDictionary(
-                    g => g.Key,
-                    g => g.Where(x => x.Grade.HasValue).Sum(x => x.Grade!.Value)
-                         + g.Where(x => x.BonusPoints.HasValue).Sum(x => x.BonusPoints!.Value)
-                );
-
-            var progresses = students
-                .Select(s => new { s, total = totalsByStudent.TryGetValue(s.Id, out var t) ? t : 0m })
-                .OrderByDescending(x => x.total)
-                .ThenByDescending(x => x.s.IsActive)
-                .ThenBy(x => x.s.FullName)
-                .Select(x => new StudentProgress
-                {
-                    StudentId = x.s.Id,
-                    StudentName = $"{x.s.FullName}".Trim(),
-                    WeeklyTotalScores = (double)x.total,
-                    StudentEntries = journal.Entries
-                        .Where(e => e.StudentId == x.s.Id)
-                        .OrderBy(e => e.LessonNumber)
-                        .ThenBy(e => e.DayOfWeek)
-                        .Select(e => new GetJournalEntryDto
-                        {
-                            Id = e.Id,
-                            DayOfWeek = e.DayOfWeek,
-                            DayName = GetDayNameInTajik(e.DayOfWeek),
-                            DayShortName = GetDayShortNameInTajik(e.DayOfWeek),
-                            LessonNumber = e.LessonNumber,
-                            LessonType = e.LessonType,
-                            Grade = e.Grade ?? 0,
-                            BonusPoints = e.BonusPoints ?? 0,
-                            AttendanceStatus = e.AttendanceStatus,
-                            Comment = e.Comment,
-                            CommentCategory = e.CommentCategory ?? CommentCategory.General,
-                            EntryDate = e.EntryDate,
-                            StartTime = e.StartTime,
-                            EndTime = e.EndTime
-                        }).ToList()
-                }).ToList();
-
-            var dto = new GetJournalDto
-            {
-                Id = journal.Id,
-                GroupId = journal.GroupId,
-                GroupName = journal.Group?.Name,
-                WeekNumber = journal.WeekNumber,
-                WeekStartDate = journal.WeekStartDate,
-                WeekEndDate = journal.WeekEndDate,
-                Progresses = progresses
-            };
-
+            var dto = await DtoMappingHelper.MapToJournalDtoAsync(journal, context);
             return new Response<GetJournalDto>(dto);
         }
         catch (Exception ex)
@@ -350,11 +150,15 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
         }
     }
 
+    #endregion
+
+    #region GetLatestJournalAsync
+
     public async Task<Response<GetJournalDto>> GetLatestJournalAsync(int groupId)
     {
         try
         {
-            var centerId2 = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
+            var centerId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
             var journal = await context.Journals
                 .Include(j => j.Group)
                 .Include(j => j.Entries)
@@ -362,82 +166,16 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
                 .OrderByDescending(j => j.WeekNumber)
                 .FirstOrDefaultAsync();
 
-            if (journal != null && centerId2 != null)
+            if (journal != null && centerId != null)
             {
-                if (journal.Group == null)
-                {
-                    journal.Group = await context.Groups.Include(g => g.Course).FirstOrDefaultAsync(g => g.Id == journal.GroupId);
-                }
-                if (journal.Group?.Course?.CenterId != centerId2)
-                {
-                    var hasAssignmentAccess = await HasGroupAccessAsync(journal.GroupId);
-                    if (!hasAssignmentAccess)
-                        return new Response<GetJournalDto>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
-                }
+                if (!await HasJournalAccessAsync(journal, centerId.Value))
+                    return new Response<GetJournalDto>(HttpStatusCode.Forbidden, Messages.Journal.AccessDenied);
             }
 
             if (journal == null)
-                return new Response<GetJournalDto>(HttpStatusCode.NotFound, "Журналҳо ёфт нашуданд");
+                return new Response<GetJournalDto>(HttpStatusCode.NotFound, Messages.Journal.NoJournalsFound);
 
-            var studentIds = journal.Entries.Select(e => e.StudentId).Distinct().ToList();
-            var students = await context.Students
-                .Where(s => studentIds.Contains(s.Id) && !s.IsDeleted)
-                .Select(s => new { s.Id, s.FullName, IsActive = s.ActiveStatus == ActiveStatus.Active })
-                .ToListAsync();
-
-            var totalsByStudent = journal.Entries
-                .Where(e => !e.IsDeleted)
-                .GroupBy(e => e.StudentId)
-                .ToDictionary(
-                    g => g.Key,
-                    g => g.Where(x => x.Grade.HasValue).Sum(x => x.Grade!.Value)
-                         + g.Where(x => x.BonusPoints.HasValue).Sum(x => x.BonusPoints!.Value)
-                );
-
-            var progresses = students
-                .Select(s => new { s, total = totalsByStudent.TryGetValue(s.Id, out var t) ? t : 0m })
-                .OrderByDescending(x => x.total)
-                .ThenByDescending(x => x.s.IsActive)
-                .ThenBy(x => x.s.FullName)
-                .Select(x => new StudentProgress
-                {
-                    StudentId = x.s.Id,
-                    StudentName = $"{x.s.FullName}".Trim(),
-                    WeeklyTotalScores = (double)x.total,
-                    StudentEntries = journal.Entries
-                        .Where(e => e.StudentId == x.s.Id)
-                        .OrderBy(e => e.LessonNumber)
-                        .ThenBy(e => e.DayOfWeek)
-                        .Select(e => new GetJournalEntryDto
-                        {
-                            Id = e.Id,
-                            DayOfWeek = e.DayOfWeek,
-                            DayName = string.Empty,
-                            DayShortName = string.Empty,
-                            LessonNumber = e.LessonNumber,
-                            LessonType = e.LessonType,
-                            Grade = e.Grade ?? 0,
-                            BonusPoints = e.BonusPoints ?? 0,
-                            AttendanceStatus = e.AttendanceStatus,
-                            Comment = e.Comment,
-                            CommentCategory = e.CommentCategory ?? CommentCategory.General,
-                            EntryDate = e.EntryDate,
-                            StartTime = e.StartTime,
-                            EndTime = e.EndTime
-                        }).ToList()
-                }).ToList();
-
-            var dto = new GetJournalDto
-            {
-                Id = journal.Id,
-                GroupId = journal.GroupId,
-                GroupName = journal.Group?.Name,
-                WeekNumber = journal.WeekNumber,
-                WeekStartDate = journal.WeekStartDate,
-                WeekEndDate = journal.WeekEndDate,
-                Progresses = progresses
-            };
-
+            var dto = await DtoMappingHelper.MapToJournalDtoAsync(journal, context, false);
             return new Response<GetJournalDto>(dto);
         }
         catch (Exception ex)
@@ -445,104 +183,40 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
             return new Response<GetJournalDto>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
+
+    #endregion
+
+    #region GetJournalByDateAsync
 
     public async Task<Response<GetJournalDto>> GetJournalByDateAsync(int groupId, DateTime dateLocal)
     {
         try
         {
-            var centerId3 = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
-            var groupQuery = context.Groups.Include(g => g.Course).Where(g => !g.IsDeleted).AsQueryable();
-            if (centerId3 != null)
-            {
-                groupQuery = groupQuery.Where(g => g.Course!.CenterId == centerId3);
-            }
-            var group = await groupQuery.FirstOrDefaultAsync(g => g.Id == groupId);
+            var centerId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+            var group = await GetGroupWithCenterFilterAsync(groupId, centerId);
             if (group == null)
-                return new Response<GetJournalDto>(HttpStatusCode.NotFound, "Гурӯҳ ёфт нашуд");
+                return new Response<GetJournalDto>(HttpStatusCode.NotFound, Messages.Journal.GroupNotFound);
+
             var localDate = DateTime.SpecifyKind(dateLocal.Date, DateTimeKind.Unspecified);
             var localStart = new DateTimeOffset(localDate, TimeSpan.Zero);
             var localEnd = localStart.AddDays(1);
+
             var journal = await context.Journals
                 .Include(j => j.Group)
                 .Include(j => j.Entries)
                 .Where(j => j.GroupId == groupId && !j.IsDeleted)
                 .FirstOrDefaultAsync(j => localStart <= j.WeekEndDate && localEnd > j.WeekStartDate);
-            if (journal != null && centerId3 != null)
+
+            if (journal != null && centerId != null)
             {
-                if (journal.Group == null)
-                {
-                    journal.Group = await context.Groups.Include(g => g.Course).FirstOrDefaultAsync(g => g.Id == journal.GroupId);
-                }
-                if (journal.Group?.Course?.CenterId != centerId3)
-                {
-                    var hasAssignmentAccess = await HasGroupAccessAsync(journal.GroupId);
-                    if (!hasAssignmentAccess)
-                        return new Response<GetJournalDto>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
-                }
+                if (!await HasJournalAccessAsync(journal, centerId.Value))
+                    return new Response<GetJournalDto>(HttpStatusCode.Forbidden, Messages.Journal.AccessDenied);
             }
 
             if (journal == null)
-                return new Response<GetJournalDto>(HttpStatusCode.NotFound, "Журнал барои ин сана ёфт нашуд");
+                return new Response<GetJournalDto>(HttpStatusCode.NotFound, Messages.Journal.JournalNotFoundForDate);
 
-            var studentIds = journal.Entries.Select(e => e.StudentId).Distinct().ToList();
-            var students = await context.Students
-                .Where(s => studentIds.Contains(s.Id) && !s.IsDeleted)
-                .Select(s => new { s.Id, s.FullName, IsActive = s.ActiveStatus == ActiveStatus.Active })
-                .ToListAsync();
-
-            var totalsByStudent = journal.Entries
-                .Where(e => !e.IsDeleted)
-                .GroupBy(e => e.StudentId)
-                .ToDictionary(
-                    g => g.Key,
-                    g => g.Where(x => x.Grade.HasValue).Sum(x => x.Grade!.Value)
-                         + g.Where(x => x.BonusPoints.HasValue).Sum(x => x.BonusPoints!.Value)
-                );
-
-            var progresses = students
-                .Select(s => new { s, total = totalsByStudent.TryGetValue(s.Id, out var t) ? t : 0m })
-                .OrderByDescending(x => x.total)
-                .ThenByDescending(x => x.s.IsActive)
-                .ThenBy(x => x.s.FullName)
-                .Select(x => new StudentProgress
-                {
-                    StudentId = x.s.Id,
-                    StudentName = $"{x.s.FullName}".Trim(),
-                    WeeklyTotalScores = (double)x.total,
-                    StudentEntries = journal.Entries
-                        .Where(e => e.StudentId == x.s.Id)
-                        .OrderBy(e => e.LessonNumber)
-                        .ThenBy(e => e.DayOfWeek)
-                        .Select(e => new GetJournalEntryDto
-                        {
-                            Id = e.Id,
-                            DayOfWeek = e.DayOfWeek,
-                            DayName = string.Empty,
-                            DayShortName = string.Empty,
-                            LessonNumber = e.LessonNumber,
-                            LessonType = e.LessonType,
-                            Grade = e.Grade ?? 0,
-                            BonusPoints = e.BonusPoints ?? 0,
-                            AttendanceStatus = e.AttendanceStatus,
-                            Comment = e.Comment,
-                            CommentCategory = e.CommentCategory ?? CommentCategory.General,
-                            EntryDate = e.EntryDate,
-                            StartTime = e.StartTime,
-                            EndTime = e.EndTime
-                        }).ToList()
-                }).ToList();
-
-            var dto = new GetJournalDto
-            {
-                Id = journal.Id,
-                GroupId = journal.GroupId,
-                GroupName = journal.Group?.Name,
-                WeekNumber = journal.WeekNumber,
-                WeekStartDate = journal.WeekStartDate,
-                WeekEndDate = journal.WeekEndDate,
-                Progresses = progresses
-            };
-
+            var dto = await DtoMappingHelper.MapToJournalDtoAsync(journal, context, false);
             return new Response<GetJournalDto>(dto);
         }
         catch (Exception ex)
@@ -550,6 +224,10 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
             return new Response<GetJournalDto>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
+
+    #endregion
+
+    #region UpdateEntryAsync
 
     public async Task<Response<string>> UpdateEntryAsync(int entryId, UpdateJournalEntryDto request)
     {
@@ -561,18 +239,18 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
                 .ThenInclude(g => g.Course)
                 .FirstOrDefaultAsync(e => e.Id == entryId && !e.IsDeleted);
             if (entry == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Элемент ёфт нашуд");
+                return new Response<string>(HttpStatusCode.NotFound, Messages.Journal.EntryNotFound);
 
-            var centerId4 = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
-            if (centerId4 != null)
+            var centerId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+            if (centerId != null)
             {
                 var entryCenterId = entry.Journal?.Group?.Course?.CenterId;
-                if (entryCenterId.HasValue && entryCenterId.Value != centerId4.Value)
+                if (entryCenterId.HasValue && entryCenterId.Value != centerId.Value)
                 {
                     var groupIdForAccess = entry.Journal?.GroupId;
-                    var hasAssignmentAccess = groupIdForAccess.HasValue && await HasGroupAccessAsync(groupIdForAccess.Value);
-                    if (!hasAssignmentAccess)
-                        return new Response<string>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
+                    var hasAccess = groupIdForAccess.HasValue && await HasGroupAccessAsync(groupIdForAccess.Value);
+                    if (!hasAccess)
+                        return new Response<string>(HttpStatusCode.Forbidden, Messages.Journal.AccessDenied);
                 }
             }
 
@@ -582,8 +260,7 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
             if (!string.IsNullOrWhiteSpace(request.Comment))
             {
                 entry.Comment = request.Comment;
-                // Get current user info from token
-                var currentUser = _httpContextAccessor.HttpContext?.User;
+                var currentUser = httpContextAccessor.HttpContext?.User;
                 if (currentUser != null)
                 {
                     var userIdClaim = currentUser.FindFirst("UserId")?.Value
@@ -592,16 +269,12 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
                     var userNameClaim = currentUser.FindFirst("Fullname")?.Value
                                         ?? currentUser.FindFirst(ClaimTypes.Name)?.Value
                                         ?? currentUser.FindFirst("unique_name")?.Value;
-                    
+
                     if (!string.IsNullOrEmpty(userIdClaim) && int.TryParse(userIdClaim, out var userId))
-                    {
                         entry.CommentAuthorId = userId;
-                    }
-                    
+
                     if (!string.IsNullOrEmpty(userNameClaim))
-                    {
                         entry.CommentAuthorName = userNameClaim;
-                    }
                 }
             }
             if (request.CommentCategory.HasValue) entry.CommentCategory = request.CommentCategory.Value;
@@ -609,7 +282,7 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
             entry.UpdatedAt = DateTimeOffset.UtcNow;
             context.JournalEntries.Update(entry);
             await context.SaveChangesAsync();
-            return new Response<string>(HttpStatusCode.OK, "Навсозӣ шуд");
+            return new Response<string>(HttpStatusCode.OK, Messages.Journal.Updated);
         }
         catch (Exception ex)
         {
@@ -617,26 +290,24 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
         }
     }
 
+    #endregion
+
+    #region BackfillCurrentWeekForStudentAsync
+
     public async Task<Response<string>> BackfillCurrentWeekForStudentAsync(int groupId, int studentId)
     {
         try
         {
-            var centerId5 = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
+            var centerId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
             var groupAllowed = await context.Groups.Include(g => g.Course)
-                .AnyAsync(g => g.Id == groupId && !g.IsDeleted && (centerId5 == null || g.Course!.CenterId == centerId5));
-            if (!groupAllowed)
-            {
-                var hasAssignmentAccess = await HasGroupAccessAsync(groupId);
-                if (!hasAssignmentAccess)
-                    return new Response<string>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
-            }
+                .AnyAsync(g => g.Id == groupId && !g.IsDeleted && (centerId == null || g.Course!.CenterId == centerId));
+            if (!groupAllowed && !await HasGroupAccessAsync(groupId))
+                return new Response<string>(HttpStatusCode.Forbidden, Messages.Journal.AccessDenied);
 
             var isActiveMember = await context.StudentGroups
                 .AnyAsync(sg => sg.GroupId == groupId && sg.StudentId == studentId && sg.IsActive && !sg.IsDeleted);
             if (!isActiveMember)
-            {
-                return new Response<string>(HttpStatusCode.OK, "Студент неактивен в группе — backfill пропущен");
-            }
+                return new Response<string>(HttpStatusCode.OK, Messages.Journal.StudentNotActive);
 
             var nowUtc = DateTimeOffset.UtcNow;
             var journal = await context.Journals
@@ -644,68 +315,24 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
                 .FirstOrDefaultAsync(j => j.WeekStartDate <= nowUtc && nowUtc <= j.WeekEndDate);
 
             if (journal == null)
-            {
-                return new Response<string>(HttpStatusCode.NotFound, "Журнали ҳафтаи ҷорӣ барои ин гурӯҳ ёфт нашуд");
-            }
+                return new Response<string>(HttpStatusCode.NotFound, Messages.Journal.CurrentWeekNotFound);
 
-            var slots = await context.JournalEntries
-                .Where(e => e.JournalId == journal.Id && !e.IsDeleted)
-                .Select(e => new
-                {
-                    e.DayOfWeek,
-                    e.LessonNumber,
-                    e.LessonType,
-                    e.StartTime,
-                    e.EndTime,
-                    e.EntryDate
-                })
-                .Distinct()
-                .ToListAsync();
-
-            if (slots.Count == 0)
-            {
-                return new Response<string>(HttpStatusCode.BadRequest, "Барои ин ҳафта ягон слот вуҷуд надорад");
-            }
-
-            int created = 0;
-            foreach (var s in slots)
-            {
-                var exists = await context.JournalEntries.AnyAsync(e =>
-                    e.JournalId == journal.Id &&
-                    e.StudentId == studentId &&
-                    e.DayOfWeek == s.DayOfWeek &&
-                    e.LessonNumber == s.LessonNumber &&
-                    !e.IsDeleted);
-
-                if (exists) continue;
-
-                var entry = new JournalEntry
-                {
-                    JournalId = journal.Id,
-                    StudentId = studentId,
-                    DayOfWeek = s.DayOfWeek,
-                    LessonNumber = s.LessonNumber,
-                    LessonType = s.LessonType,
-                    StartTime = s.StartTime,
-                    EndTime = s.EndTime,
-                    AttendanceStatus = AttendanceStatus.Absent,
-                    EntryDate = DateTime.SpecifyKind(s.EntryDate, DateTimeKind.Utc)
-                };
-                await context.JournalEntries.AddAsync(entry);
-                created++;
-            }
-
+            var created = await BackfillStudentEntriesAsync(journal.Id, studentId);
             if (created == 0)
-                return new Response<string>(HttpStatusCode.OK, "Барои донишҷӯ ягон entry-и нав лозим нашуд");
+                return new Response<string>(HttpStatusCode.OK, Messages.Journal.NoNewEntriesNeeded);
 
             await context.SaveChangesAsync();
-            return new Response<string>(HttpStatusCode.Created, $"Создадено {created} запис(ов) для студента");
+            return new Response<string>(HttpStatusCode.Created, string.Format(Messages.Journal.EntriesCreated, created));
         }
         catch (Exception ex)
         {
             return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
+
+    #endregion
+
+    #region BackfillCurrentWeekForStudentsAsync
 
     public async Task<Response<string>> BackfillCurrentWeekForStudentsAsync(int groupId, IEnumerable<int> studentIds)
     {
@@ -713,17 +340,13 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
         {
             var ids = studentIds.Distinct().ToList();
             if (ids.Count == 0)
-                return new Response<string>(HttpStatusCode.BadRequest, "Студенты не указаны");
+                return new Response<string>(HttpStatusCode.BadRequest, Messages.Journal.NoStudentsSpecified);
 
-            var centerId6 = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
+            var centerId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
             var allowed = await context.Groups.Include(g => g.Course)
-                .AnyAsync(g => g.Id == groupId && !g.IsDeleted && (centerId6 == null || g.Course!.CenterId == centerId6));
-            if (!allowed)
-            {
-                var hasAssignmentAccess = await HasGroupAccessAsync(groupId);
-                if (!hasAssignmentAccess)
-                    return new Response<string>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
-            }
+                .AnyAsync(g => g.Id == groupId && !g.IsDeleted && (centerId == null || g.Course!.CenterId == centerId));
+            if (!allowed && !await HasGroupAccessAsync(groupId))
+                return new Response<string>(HttpStatusCode.Forbidden, Messages.Journal.AccessDenied);
 
             var activeIds = await context.StudentGroups
                 .Where(sg => sg.GroupId == groupId && ids.Contains(sg.StudentId) && sg.IsActive && !sg.IsDeleted)
@@ -731,9 +354,7 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
                 .Distinct()
                 .ToListAsync();
             if (activeIds.Count == 0)
-            {
-                return new Response<string>(HttpStatusCode.OK, "Нет активных студентов для backfill");
-            }
+                return new Response<string>(HttpStatusCode.OK, Messages.Journal.NoActiveStudents);
 
             var nowUtc = DateTimeOffset.UtcNow;
             var journal = await context.Journals
@@ -741,65 +362,19 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
                 .FirstOrDefaultAsync(j => j.WeekStartDate <= nowUtc && nowUtc <= j.WeekEndDate);
 
             if (journal == null)
-            {
-                return new Response<string>(HttpStatusCode.NotFound, "Журнали ҳафтаи ҷорӣ барои ин гурӯҳ ёфт нашуд");
-            }
-
-            var slots = await context.JournalEntries
-                .Where(e => e.JournalId == journal.Id && !e.IsDeleted)
-                .Select(e => new
-                {
-                    e.DayOfWeek,
-                    e.LessonNumber,
-                    e.LessonType,
-                    e.StartTime,
-                    e.EndTime,
-                    e.EntryDate
-                })
-                .Distinct()
-                .ToListAsync();
-
-            if (slots.Count == 0)
-            {
-                return new Response<string>(HttpStatusCode.BadRequest, "Барои ин ҳафта ягон слот вуҷуд надорад");
-            }
+                return new Response<string>(HttpStatusCode.NotFound, Messages.Journal.CurrentWeekNotFound);
 
             int createdTotal = 0;
             foreach (var studentId in activeIds)
             {
-                foreach (var s in slots)
-                {
-                    var exists = await context.JournalEntries.AnyAsync(e =>
-                        e.JournalId == journal.Id &&
-                        e.StudentId == studentId &&
-                        e.DayOfWeek == s.DayOfWeek &&
-                        e.LessonNumber == s.LessonNumber &&
-                        !e.IsDeleted);
-
-                    if (exists) continue;
-
-                    var entry = new JournalEntry
-                    {
-                        JournalId = journal.Id,
-                        StudentId = studentId,
-                        DayOfWeek = s.DayOfWeek,
-                        LessonNumber = s.LessonNumber,
-                        LessonType = s.LessonType,
-                        StartTime = s.StartTime,
-                        EndTime = s.EndTime,
-                        AttendanceStatus = AttendanceStatus.Absent,
-                        EntryDate = DateTime.SpecifyKind(s.EntryDate, DateTimeKind.Utc)
-                    };
-                    await context.JournalEntries.AddAsync(entry);
-                    createdTotal++;
-                }
+                createdTotal += await BackfillStudentEntriesAsync(journal.Id, studentId);
             }
 
             if (createdTotal == 0)
-                return new Response<string>(HttpStatusCode.OK, "Ягон сабти нав лозим нашуд");
+                return new Response<string>(HttpStatusCode.OK, Messages.Journal.NoNewEntriesNeeded);
 
             await context.SaveChangesAsync();
-            return new Response<string>(HttpStatusCode.Created, $"Создадено {createdTotal} запис(ов) для студентов");
+            return new Response<string>(HttpStatusCode.Created, string.Format(Messages.Journal.EntriesCreatedMultiple, createdTotal));
         }
         catch (Exception ex)
         {
@@ -807,20 +382,20 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
         }
     }
 
+    #endregion
+
+    #region RemoveFutureEntriesForStudentAsync
+
     public async Task<Response<string>> RemoveFutureEntriesForStudentAsync(int groupId, int studentId)
     {
         try
         {
             var nowUtc = DateTimeOffset.UtcNow;
-            var centerId7 = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
-            var allowed2 = await context.Groups.Include(g => g.Course)
-                .AnyAsync(g => g.Id == groupId && !g.IsDeleted && (centerId7 == null || g.Course!.CenterId == centerId7));
-            if (!allowed2)
-            {
-                var hasAssignmentAccess = await HasGroupAccessAsync(groupId);
-                if (!hasAssignmentAccess)
-                    return new Response<string>(HttpStatusCode.Forbidden, "Дастрасӣ манъ аст");
-            }
+            var centerId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+            var allowed = await context.Groups.Include(g => g.Course)
+                .AnyAsync(g => g.Id == groupId && !g.IsDeleted && (centerId == null || g.Course!.CenterId == centerId));
+            if (!allowed && !await HasGroupAccessAsync(groupId))
+                return new Response<string>(HttpStatusCode.Forbidden, Messages.Journal.AccessDenied);
 
             var futureJournalIds = await context.Journals
                 .Where(j => j.GroupId == groupId && !j.IsDeleted && j.WeekStartDate > nowUtc)
@@ -828,14 +403,14 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
                 .ToListAsync();
 
             if (futureJournalIds.Count == 0)
-                return new Response<string>(HttpStatusCode.OK, "Будущих недель нет — удалять нечего");
+                return new Response<string>(HttpStatusCode.OK, Messages.Journal.NoFutureWeeks);
 
             var futureEntries = await context.JournalEntries
                 .Where(e => futureJournalIds.Contains(e.JournalId) && e.StudentId == studentId && !e.IsDeleted)
                 .ToListAsync();
 
             if (futureEntries.Count == 0)
-                return new Response<string>(HttpStatusCode.OK, "Для студента будущих записей нет");
+                return new Response<string>(HttpStatusCode.OK, Messages.Journal.NoFutureEntries);
 
             foreach (var e in futureEntries)
             {
@@ -844,7 +419,7 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
             }
 
             await context.SaveChangesAsync();
-            return new Response<string>(HttpStatusCode.OK, $"Удалено будущих записей: {futureEntries.Count}");
+            return new Response<string>(HttpStatusCode.OK, string.Format(Messages.Journal.FutureEntriesDeleted, futureEntries.Count));
         }
         catch (Exception ex)
         {
@@ -852,91 +427,9 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
         }
     }
 
-    private static List<int> ParseLessonDays(string? lessonDays)
-    {
-        if (string.IsNullOrWhiteSpace(lessonDays)) return new List<int>();
-        return lessonDays.Split(',', StringSplitOptions.RemoveEmptyEntries)
-            .Select(d => d.Trim())
-            .Where(d => int.TryParse(d, out var v) && v >= 1 && v <= 7) // Changed from 0-6 to 1-7
-            .Select(int.Parse)
-            .Distinct()
-            .ToList();
-    }
-    
-    private static int ConvertCrmToDotNetDayOfWeek(int crmDayOfWeek)
-    {
-        return crmDayOfWeek switch
-        {
-            1 => 1, // Душанбе
-            2 => 2, // Сешанбе
-            3 => 3, // Чоршанбе
-            4 => 4, // Панҷшанбе
-            5 => 5, // Ҷумъа
-            6 => 6, // Шанбе
-            7 => 0, // Якшанбе (DotNet Sunday)
-            _ => throw new ArgumentOutOfRangeException(nameof(crmDayOfWeek), "Рӯзи ҳафта бояд аз 1 то 7 бошад")
-        };
-    }
+    #endregion
 
-    private static int ConvertDotNetToCrmDayOfWeek(int dotNetDayOfWeek)
-    {
-        return dotNetDayOfWeek switch
-        {
-            0 => 7, // Якшанбе (DotNet Sunday) -> CRM Sunday
-            1 => 1, // Душанбе (DotNet Monday) -> CRM Monday
-            2 => 2, // Сешанбе (DotNet Tuesday) -> CRM Tuesday
-            3 => 3, // Чоршанбе (DotNet Wednesday) -> CRM Wednesday
-            4 => 4, // Панҷшанбе (DotNet Thursday) -> CRM Thursday
-            5 => 5, // Ҷумъа (DotNet Friday) -> CRM Friday
-            6 => 6, // Шанбе (DotNet Saturday) -> CRM Saturday
-            _ => throw new ArgumentOutOfRangeException(nameof(dotNetDayOfWeek), "Рӯзи ҳафта бояд аз 0 то 6 бошад")
-        };
-    }
-
-    private static string GetDayNameInTajik(int crmDayOfWeek)
-    {
-        return crmDayOfWeek switch
-        {
-            1 => "Душанбе",
-            2 => "Сешанбе", 
-            3 => "Чоршанбе",
-            4 => "Панҷшанбе",
-            5 => "Ҷумъа",
-            6 => "Шанбе",
-            7 => "Якшанбе",
-            _ => "Номаълум"
-        };
-    }
-
-    private static string GetDayShortNameInTajik(int crmDayOfWeek)
-    {
-        return crmDayOfWeek switch
-        {
-            1 => "Ду",
-            2 => "Се", 
-            3 => "Чо",
-            4 => "Па",
-            5 => "Ҷу",
-            6 => "Ша",
-            7 => "Як",
-            _ => "Н"
-        };
-    }
-    
-    private static LessonType DetermineLessonType(bool hasWeeklyExam, int weekNumber, int lessonNumber, int totalLessons)
-    {
-        if (hasWeeklyExam)
-        {
-            
-            return lessonNumber == totalLessons ? LessonType.Exam : LessonType.Regular;
-        }
-        else
-        {
-            var isFourthWeekEnd = weekNumber % 4 == 0; //4, 8, 12, 16, ...
-            var isLastLessonOfWeek = lessonNumber == totalLessons;
-            return (isFourthWeekEnd && isLastLessonOfWeek) ? LessonType.Exam : LessonType.Regular;
-        }
-    }
+    #region GetStudentWeekTotalsAsync
 
     public async Task<Response<List<StudentWeekTotalsDto>>> GetStudentWeekTotalsAsync(int groupId, int weekNumber)
     {
@@ -948,10 +441,9 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
                 .FirstOrDefaultAsync(j => j.GroupId == groupId && j.WeekNumber == weekNumber && !j.IsDeleted);
 
             if (journal == null)
-                return new Response<List<StudentWeekTotalsDto>>(HttpStatusCode.NotFound, "Журнал ёфт нашуд");
+                return new Response<List<StudentWeekTotalsDto>>(HttpStatusCode.NotFound, Messages.Journal.NotFound);
 
             var entries = journal.Entries.Where(e => !e.IsDeleted).ToList();
-
             var studentIds = entries.Select(e => e.StudentId).Distinct().ToList();
             var students = await context.Students
                 .Where(s => studentIds.Contains(s.Id) && !s.IsDeleted)
@@ -963,9 +455,8 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
                 StudentId = s.Id,
                 StudentName = s.FullName,
                 TotalPoints =
-                    entries.Where(e => e.StudentId == s.Id && e.Grade.HasValue).Select(e => e.Grade!.Value).Sum() +
-                    entries.Where(e => e.StudentId == s.Id && e.BonusPoints.HasValue).Select(e => e.BonusPoints!.Value)
-                        .Sum()
+                    entries.Where(e => e.StudentId == s.Id && e.Grade.HasValue).Sum(e => e.Grade!.Value) +
+                    entries.Where(e => e.StudentId == s.Id && e.BonusPoints.HasValue).Sum(e => e.BonusPoints!.Value)
             }).OrderBy(t => t.StudentName).ToList();
 
             return new Response<List<StudentWeekTotalsDto>>(totals);
@@ -976,6 +467,10 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
         }
     }
 
+    #endregion
+
+    #region GetGroupWeeklyTotalsAsync
+
     public async Task<Response<GroupWeeklyTotalsDto>> GetGroupWeeklyTotalsAsync(int groupId, int? weekId = null)
     {
         try
@@ -984,18 +479,14 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
                 .Include(j => j.Entries)
                 .Include(j => j.Group)
                 .Where(j => j.GroupId == groupId && !j.IsDeleted);
-            
-            if (weekId.HasValue)
-            {
-                journalsQuery = journalsQuery.Where(j => j.WeekNumber == weekId.Value);
-            }
 
-            var journals = await journalsQuery
-                .OrderBy(j => j.WeekNumber)
-                .ToListAsync();
+            if (weekId.HasValue)
+                journalsQuery = journalsQuery.Where(j => j.WeekNumber == weekId.Value);
+
+            var journals = await journalsQuery.OrderBy(j => j.WeekNumber).ToListAsync();
 
             if (journals.Count == 0)
-                return new Response<GroupWeeklyTotalsDto>(HttpStatusCode.NotFound, "Журналҳо ёфт нашуданд");
+                return new Response<GroupWeeklyTotalsDto>(HttpStatusCode.NotFound, Messages.Journal.NoJournalsFound);
 
             var allEntries = journals.SelectMany(j => j.Entries).Where(e => !e.IsDeleted).ToList();
             var studentIds = allEntries.Select(e => e.StudentId).Distinct().ToList();
@@ -1003,7 +494,7 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
                 .Where(s => studentIds.Contains(s.Id) && !s.IsDeleted)
                 .Select(s => new { s.Id, s.FullName, IsActive = s.ActiveStatus == ActiveStatus.Active })
                 .ToListAsync();
-            
+
             var result = new GroupWeeklyTotalsDto
             {
                 GroupId = groupId,
@@ -1017,30 +508,28 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
                 {
                     WeekNumber = journal.WeekNumber,
                     WeekStartDate = journal.WeekStartDate,
-                    WeekEndDate = journal.WeekEndDate
-                };
-
-                week.Students = students
-                    .Select(s =>
-                    {
-                        var hasEntries = weekEntries.Any(e => e.StudentId == s.Id);
-                        var total = hasEntries
-                            ? weekEntries.Where(e => e.StudentId == s.Id && e.Grade.HasValue).Sum(e => e.Grade!.Value)
-                              + weekEntries.Where(e => e.StudentId == s.Id && e.BonusPoints.HasValue).Sum(e => e.BonusPoints!.Value)
-                            : 0m;
-                        return new StudentWeekPointsDto
+                    WeekEndDate = journal.WeekEndDate,
+                    Students = students
+                        .Select(s =>
                         {
-                            StudentId = s.Id,
-                            StudentName = s.FullName,
-                            IsActive = hasEntries, // present in this week
-                            TotalPoints = total
-                        };
-                    })
-                    .OrderByDescending(x => x.TotalPoints)
-                    .ThenByDescending(x => x.IsActive)
-                    .ThenBy(x => x.StudentName)
-                    .ToList();
-
+                            var hasEntries = weekEntries.Any(e => e.StudentId == s.Id);
+                            var total = hasEntries
+                                ? weekEntries.Where(e => e.StudentId == s.Id && e.Grade.HasValue).Sum(e => e.Grade!.Value)
+                                  + weekEntries.Where(e => e.StudentId == s.Id && e.BonusPoints.HasValue).Sum(e => e.BonusPoints!.Value)
+                                : 0m;
+                            return new StudentWeekPointsDto
+                            {
+                                StudentId = s.Id,
+                                StudentName = s.FullName,
+                                IsActive = hasEntries,
+                                TotalPoints = total
+                            };
+                        })
+                        .OrderByDescending(x => x.TotalPoints)
+                        .ThenByDescending(x => x.IsActive)
+                        .ThenBy(x => x.StudentName)
+                        .ToList()
+                };
                 result.Weeks.Add(week);
             }
 
@@ -1051,7 +540,7 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
                     {
                         var totals = result.Weeks
                             .SelectMany(w => w.Students)
-                            .Where(x => x.StudentId == s.Id && x.IsActive) // average over active weeks only
+                            .Where(x => x.StudentId == s.Id && x.IsActive)
                             .Select(x => x.TotalPoints)
                             .ToList();
                         var sum = totals.Sum();
@@ -1079,13 +568,18 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
         }
     }
 
+    #endregion
+
+    #region GetGroupPassStatsAsync
+
     public async Task<Response<GroupPassStatsDto>> GetGroupPassStatsAsync(int groupId, decimal threshold)
     {
         try
         {
             var group = await context.Groups.FirstOrDefaultAsync(g => g.Id == groupId && !g.IsDeleted);
             if (group == null)
-                return new Response<GroupPassStatsDto>(HttpStatusCode.NotFound, "Гурӯҳ ёфт нашуд");
+                return new Response<GroupPassStatsDto>(HttpStatusCode.NotFound, Messages.Journal.GroupNotFound);
+
             var totalsResponse = await GetGroupWeeklyTotalsAsync(groupId, null);
             if (totalsResponse.StatusCode == (int)HttpStatusCode.NotFound)
             {
@@ -1099,16 +593,13 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
                 });
             }
 
-            var aggregates = totalsResponse.Data.StudentAggregates;
-            var totalStudents = aggregates.Count;
-            var passedCount = aggregates.Count(a => (decimal)a.AveragePointsPerWeek >= threshold);
-
+            var aggregates = totalsResponse.Data!.StudentAggregates;
             var dto = new GroupPassStatsDto
             {
                 GroupId = groupId,
                 GroupName = totalsResponse.Data.GroupName,
-                TotalStudents = totalStudents,
-                PassedCount = passedCount,
+                TotalStudents = aggregates.Count,
+                PassedCount = aggregates.Count(a => (decimal)a.AveragePointsPerWeek >= threshold),
                 Threshold = threshold
             };
 
@@ -1120,13 +611,17 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
         }
     }
 
+    #endregion
+
+    #region GetGroupWeekNumbersAsync
+
     public async Task<Response<List<int>>> GetGroupWeekNumbersAsync(int groupId)
     {
         try
         {
             var group = await context.Groups.FirstOrDefaultAsync(g => g.Id == groupId && !g.IsDeleted);
             if (group == null)
-                return new Response<List<int>>(HttpStatusCode.NotFound, "Гурӯҳ ёфт нашуд");
+                return new Response<List<int>>(HttpStatusCode.NotFound, Messages.Journal.GroupNotFound);
 
             var existingWeeks = await context.Journals
                 .Where(j => j.GroupId == groupId && !j.IsDeleted)
@@ -1135,14 +630,9 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
                 .ToListAsync();
 
             if (existingWeeks.Count == 0)
-            {
                 return new Response<List<int>>(new List<int>());
-            }
 
-            var maxWeek = existingWeeks.Max();
-            
-            var weekNumbers = Enumerable.Range(1, maxWeek).ToList();
-            
+            var weekNumbers = Enumerable.Range(1, existingWeeks.Max()).ToList();
             return new Response<List<int>>(weekNumbers);
         }
         catch (Exception ex)
@@ -1151,47 +641,35 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
         }
     }
 
+    #endregion
+
+    #region DeleteJournalAsync
+
     public async Task<Response<string>> DeleteJournalAsync(int groupId, int weekNumber)
     {
         try
         {
-            var centerId = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
-            var groupQuery = context.Groups
-                .Include(g => g.Course)
-                .Where(g => !g.IsDeleted)
-                .AsQueryable();
-            if (centerId != null)
-            {
-                groupQuery = groupQuery.Where(g => g.Course!.CenterId == centerId);
-            }
-            var group = await groupQuery.FirstOrDefaultAsync(g => g.Id == groupId);
+            var centerId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+            var group = await GetGroupWithCenterFilterAsync(groupId, centerId);
             if (group == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Гурӯҳ ёфт нашуд");
+                return new Response<string>(HttpStatusCode.NotFound, Messages.Journal.GroupNotFound);
 
             var journal = await context.Journals
                 .Include(j => j.Entries)
                 .FirstOrDefaultAsync(j => j.GroupId == groupId && j.WeekNumber == weekNumber && !j.IsDeleted);
 
             if (journal == null)
-                return new Response<string>(HttpStatusCode.NotFound, $"Журнали ҳафтаи {weekNumber} ёфт нашуд");
+                return new Response<string>(HttpStatusCode.NotFound, Messages.Journal.NotFound);
 
-            // Delete all entries first
             if (journal.Entries.Any())
-            {
                 context.JournalEntries.RemoveRange(journal.Entries);
-            }
 
-            // Delete the journal itself
             context.Journals.Remove(journal);
             var result = await context.SaveChangesAsync();
 
-            if (result > 0)
-            {
-                return new Response<string>(HttpStatusCode.OK, 
-                    $"Журнали ҳафтаи {weekNumber} бо муваффақият нест карда шуд");
-            }
-
-            return new Response<string>(HttpStatusCode.InternalServerError, "Журналро нест кардан ноком шуд");
+            return result > 0
+                ? new Response<string>(HttpStatusCode.OK, string.Format(Messages.Journal.WeekDeleted, weekNumber))
+                : new Response<string>(HttpStatusCode.InternalServerError, Messages.Journal.WeekDeleteFailed);
         }
         catch (Exception ex)
         {
@@ -1199,22 +677,18 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
         }
     }
 
+    #endregion
+
+    #region DeleteAllJournalsAsync
+
     public async Task<Response<string>> DeleteAllJournalsAsync(int groupId)
     {
         try
         {
-            var centerId = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
-            var groupQuery = context.Groups
-                .Include(g => g.Course)
-                .Where(g => !g.IsDeleted)
-                .AsQueryable();
-            if (centerId != null)
-            {
-                groupQuery = groupQuery.Where(g => g.Course!.CenterId == centerId);
-            }
-            var group = await groupQuery.FirstOrDefaultAsync(g => g.Id == groupId);
+            var centerId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+            var group = await GetGroupWithCenterFilterAsync(groupId, centerId);
             if (group == null)
-                return new Response<string>(HttpStatusCode.NotFound, "Гурӯҳ ёфт нашуд");
+                return new Response<string>(HttpStatusCode.NotFound, Messages.Journal.GroupNotFound);
 
             var journals = await context.Journals
                 .Include(j => j.Entries)
@@ -1222,26 +696,18 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
                 .ToListAsync();
 
             if (!journals.Any())
-                return new Response<string>(HttpStatusCode.NotFound, "Ҳеҷ журнале ёфт нашуд");
+                return new Response<string>(HttpStatusCode.NotFound, Messages.Journal.NoJournalsToDelete);
 
-            // Delete all entries for all journals
             var allEntries = journals.SelectMany(j => j.Entries).ToList();
             if (allEntries.Any())
-            {
                 context.JournalEntries.RemoveRange(allEntries);
-            }
 
-            // Delete all journals
             context.Journals.RemoveRange(journals);
             var result = await context.SaveChangesAsync();
 
-            if (result > 0)
-            {
-                return new Response<string>(HttpStatusCode.OK, 
-                    $"Ҳамаи журналҳои гурӯҳ ({journals.Count} адад) бо муваффақият нест карда шуданд");
-            }
-
-            return new Response<string>(HttpStatusCode.InternalServerError, "Журналҳоро нест кардан ноком шуд");
+            return result > 0
+                ? new Response<string>(HttpStatusCode.OK, string.Format(Messages.Journal.AllDeleted, journals.Count))
+                : new Response<string>(HttpStatusCode.InternalServerError, Messages.Journal.AllDeleteFailed);
         }
         catch (Exception ex)
         {
@@ -1249,35 +715,34 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
         }
     }
 
+    #endregion
+
+    #region GetStudentCommentsAsync
+
     public async Task<Response<List<StudentCommentDto>>> GetStudentCommentsAsync(int studentId)
     {
         try
         {
-            var centerId = UserContextHelper.GetCurrentUserCenterId(_httpContextAccessor);
-            
-            // Check if student exists
+            var centerId = UserContextHelper.GetCurrentUserCenterId(httpContextAccessor);
+
             var student = await context.Students
                 .Where(s => s.Id == studentId && !s.IsDeleted)
                 .FirstOrDefaultAsync();
-            
+
             if (student == null)
-                return new Response<List<StudentCommentDto>>(HttpStatusCode.NotFound, "Донишҷӯ ёфт нашуд");
-            
-            // Get all journal entries with comments for this student
+                return new Response<List<StudentCommentDto>>(HttpStatusCode.NotFound, Messages.Student.NotFound);
+
             var query = context.JournalEntries
                 .Include(je => je.Journal)
                     .ThenInclude(j => j!.Group)
                         .ThenInclude(g => g!.Course)
-                .Where(je => je.StudentId == studentId 
-                    && !je.IsDeleted 
+                .Where(je => je.StudentId == studentId
+                    && !je.IsDeleted
                     && !string.IsNullOrWhiteSpace(je.Comment));
-            
-            // Filter by center if needed
+
             if (centerId != null)
-            {
                 query = query.Where(je => je.Journal!.Group!.Course!.CenterId == centerId);
-            }
-            
+
             var entries = await query
                 .Where(je => je.Journal != null
                     && !je.Journal.IsDeleted
@@ -1285,11 +750,11 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
                     && !je.Journal.Group.IsDeleted)
                 .OrderByDescending(je => je.EntryDate)
                 .ToListAsync();
-            
+
             var comments = entries.Select(e => new StudentCommentDto
             {
                 Id = e.Id,
-                GroupName = e.Journal?.Group?.Name ?? "Номаълум",
+                GroupName = e.Journal?.Group?.Name ?? Messages.Common.Unknown,
                 WeekNumber = e.Journal?.WeekNumber ?? 0,
                 Comment = e.Comment ?? "",
                 CommentCategory = e.CommentCategory ?? CommentCategory.General,
@@ -1300,7 +765,7 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
                 LessonNumber = e.LessonNumber,
                 CommentAuthorName = e.CommentAuthorName
             }).ToList();
-            
+
             return new Response<List<StudentCommentDto>>(comments);
         }
         catch (Exception ex)
@@ -1308,39 +773,152 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
             return new Response<List<StudentCommentDto>>(HttpStatusCode.InternalServerError, ex.Message);
         }
     }
-    
-    private string GetCommentCategoryName(CommentCategory category)
+
+    #endregion
+
+    #region Private Helper Methods
+
+    private async Task<Group?> GetGroupWithCenterFilterAsync(int groupId, int? centerId)
     {
-        return category switch
-        {
-            CommentCategory.General => "Общий",
-            CommentCategory.Positive => "Положительный",
-            CommentCategory.Warning => "Предупреждение",
-            CommentCategory.Behavior => "Поведение",
-            CommentCategory.Homework => "Домашнее задание",
-            CommentCategory.Participation => "Участие",
-            _ => "Неизвестно"
-        };
+        var query = context.Groups
+            .Include(g => g.Course)
+            .Where(g => !g.IsDeleted)
+            .AsQueryable();
+
+        if (centerId != null)
+            query = query.Where(g => g.Course!.CenterId == centerId);
+
+        return await query.FirstOrDefaultAsync(g => g.Id == groupId);
     }
-    
-    private string GetDayName(int dayOfWeek)
+
+    private async Task<bool> HasJournalAccessAsync(Journal journal, int centerId)
     {
-        return dayOfWeek switch
+        if (journal.Group == null)
+            journal.Group = await context.Groups.Include(g => g.Course).FirstOrDefaultAsync(g => g.Id == journal.GroupId);
+
+        if (journal.Group?.Course?.CenterId == centerId)
+            return true;
+
+        return await HasGroupAccessAsync(journal.GroupId);
+    }
+
+
+
+    private List<(DateTime date, int dayOfWeekOneBased, int lessonNumber)> GeneratePlannedSlots(DateTime startCursor, List<int> lessonDays, int targetLessons)
+    {
+        var plannedSlots = new List<(DateTime date, int dayOfWeekOneBased, int lessonNumber)>();
+        var cursor = startCursor;
+
+        while (plannedSlots.Count < targetLessons)
         {
-            1 => "Понедельник",
-            2 => "Вторник",
-            3 => "Среда",
-            4 => "Четверг",
-            5 => "Пятница",
-            6 => "Суббота",
-            7 => "Воскресенье",
-            _ => "Неизвестно"
+            var dotNetDayOfWeek = (int)cursor.DayOfWeek;
+            var crmDayOfWeek = ConvertDotNetToCrmDayOfWeek(dotNetDayOfWeek);
+
+            if (lessonDays.Contains(crmDayOfWeek))
+                plannedSlots.Add((cursor, crmDayOfWeek, plannedSlots.Count + 1));
+
+            cursor = cursor.AddDays(1);
+        }
+
+        return plannedSlots;
+    }
+
+    private async Task<Journal> CreateJournalWithEntriesAsync(Group group, int weekNumber, List<(DateTime date, int dayOfWeekOneBased, int lessonNumber)> plannedSlots, int targetLessons)
+    {
+        var firstSlotDate = plannedSlots.First().date;
+        var lastSlotDate = plannedSlots.Last().date;
+        var weekStart = new DateTimeOffset(firstSlotDate.Year, firstSlotDate.Month, firstSlotDate.Day, 0, 0, 0, TimeSpan.Zero);
+        var weekEnd = new DateTimeOffset(lastSlotDate.Year, lastSlotDate.Month, lastSlotDate.Day, 23, 59, 59, TimeSpan.Zero);
+
+        var journal = new Journal
+        {
+            GroupId = group.Id,
+            WeekNumber = weekNumber,
+            WeekStartDate = weekStart,
+            WeekEndDate = weekEnd,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
         };
+
+        await context.Journals.AddAsync(journal);
+        await context.SaveChangesAsync();
+
+        var students = await context.StudentGroups
+            .Include(sg => sg.Student)
+            .Where(sg => sg.GroupId == group.Id && sg.IsActive && !sg.IsDeleted && !sg.Student!.IsDeleted)
+            .Select(sg => sg.Student!)
+            .ToListAsync();
+
+        foreach (var slot in plannedSlots)
+        {
+            var lessonType = DetermineLessonType(group.HasWeeklyExam, weekNumber, slot.lessonNumber, targetLessons);
+
+            foreach (var student in students)
+            {
+                var entry = new JournalEntry
+                {
+                    JournalId = journal.Id,
+                    StudentId = student.Id,
+                    DayOfWeek = slot.dayOfWeekOneBased,
+                    LessonNumber = slot.lessonNumber,
+                    LessonType = lessonType,
+                    StartTime = group.LessonStartTime,
+                    EndTime = group.LessonEndTime,
+                    AttendanceStatus = AttendanceStatus.Absent,
+                    EntryDate = DateTime.SpecifyKind(slot.date, DateTimeKind.Utc)
+                };
+                await context.JournalEntries.AddAsync(entry);
+            }
+        }
+
+        await context.SaveChangesAsync();
+        return journal;
+    }
+
+    private async Task<int> BackfillStudentEntriesAsync(int journalId, int studentId)
+    {
+        var slots = await context.JournalEntries
+            .Where(e => e.JournalId == journalId && !e.IsDeleted)
+            .Select(e => new { e.DayOfWeek, e.LessonNumber, e.LessonType, e.StartTime, e.EndTime, e.EntryDate })
+            .Distinct()
+            .ToListAsync();
+
+        if (slots.Count == 0) return 0;
+
+        int created = 0;
+        foreach (var s in slots)
+        {
+            var exists = await context.JournalEntries.AnyAsync(e =>
+                e.JournalId == journalId &&
+                e.StudentId == studentId &&
+                e.DayOfWeek == s.DayOfWeek &&
+                e.LessonNumber == s.LessonNumber &&
+                !e.IsDeleted);
+
+            if (exists) continue;
+
+            var entry = new JournalEntry
+            {
+                JournalId = journalId,
+                StudentId = studentId,
+                DayOfWeek = s.DayOfWeek,
+                LessonNumber = s.LessonNumber,
+                LessonType = s.LessonType,
+                StartTime = s.StartTime,
+                EndTime = s.EndTime,
+                AttendanceStatus = AttendanceStatus.Absent,
+                EntryDate = DateTime.SpecifyKind(s.EntryDate, DateTimeKind.Utc)
+            };
+            await context.JournalEntries.AddAsync(entry);
+            created++;
+        }
+
+        return created;
     }
 
     private async Task<bool> HasGroupAccessAsync(int groupId)
     {
-        var user = _httpContextAccessor.HttpContext?.User;
+        var user = httpContextAccessor.HttpContext?.User;
         if (user == null) return false;
 
         var roles = user.Claims
@@ -1352,8 +930,7 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
             return true;
 
         var principalType = user.FindFirst("PrincipalType")?.Value;
-        var idStr = user.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                     ?? user.FindFirst("nameid")?.Value;
+        var idStr = user.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? user.FindFirst("nameid")?.Value;
         if (!int.TryParse(idStr, out var principalId) || principalId <= 0)
             return false;
 
@@ -1363,18 +940,87 @@ public class JournalService(DataContext context, IHttpContextAccessor httpContex
                 .AnyAsync(g => g.Id == groupId && !g.IsDeleted && g.MentorId == principalId);
             if (isPrimaryMentor) return true;
 
-            var isCoMentor = await context.MentorGroups
+            return await context.MentorGroups
                 .AnyAsync(mg => mg.GroupId == groupId && mg.MentorId == principalId && (mg.IsActive ?? true) && !mg.IsDeleted);
-            return isCoMentor;
         }
 
         if (roles.Contains("Student") || string.Equals(principalType, "Student", StringComparison.OrdinalIgnoreCase))
         {
-            var isMember = await context.StudentGroups
+            return await context.StudentGroups
                 .AnyAsync(sg => sg.GroupId == groupId && sg.StudentId == principalId && sg.IsActive && !sg.IsDeleted);
-            return isMember;
         }
 
         return false;
     }
+
+    private static List<int> ParseLessonDays(string? lessonDays)
+    {
+        if (string.IsNullOrWhiteSpace(lessonDays)) return new List<int>();
+        return lessonDays.Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(d => d.Trim())
+            .Where(d => int.TryParse(d, out var v) && v >= 1 && v <= 7)
+            .Select(int.Parse)
+            .Distinct()
+            .ToList();
+    }
+
+    private static int ConvertDotNetToCrmDayOfWeek(int dotNetDayOfWeek)
+    {
+        return dotNetDayOfWeek switch
+        {
+            0 => 7,
+            1 => 1,
+            2 => 2,
+            3 => 3,
+            4 => 4,
+            5 => 5,
+            6 => 6,
+            _ => throw new ArgumentOutOfRangeException(nameof(dotNetDayOfWeek))
+        };
+    }
+
+
+
+
+
+    private static LessonType DetermineLessonType(bool hasWeeklyExam, int weekNumber, int lessonNumber, int totalLessons)
+    {
+        if (hasWeeklyExam)
+            return lessonNumber == totalLessons ? LessonType.Exam : LessonType.Regular;
+
+        var isFourthWeekEnd = weekNumber % 4 == 0;
+        var isLastLessonOfWeek = lessonNumber == totalLessons;
+        return (isFourthWeekEnd && isLastLessonOfWeek) ? LessonType.Exam : LessonType.Regular;
+    }
+
+    private static string GetCommentCategoryName(CommentCategory category)
+    {
+        return category switch
+        {
+            CommentCategory.General => Messages.Journal.Comments.General,
+            CommentCategory.Positive => Messages.Journal.Comments.Positive,
+            CommentCategory.Warning => Messages.Journal.Comments.Warning,
+            CommentCategory.Behavior => Messages.Journal.Comments.Behavior,
+            CommentCategory.Homework => Messages.Journal.Comments.Homework,
+            CommentCategory.Participation => Messages.Journal.Comments.Participation,
+            _ => Messages.Common.Unknown
+        };
+    }
+
+    private static string GetDayName(int dayOfWeek)
+    {
+        return dayOfWeek switch
+        {
+            1 => Messages.Journal.Days.Monday,
+            2 => Messages.Journal.Days.Tuesday,
+            3 => Messages.Journal.Days.Wednesday,
+            4 => Messages.Journal.Days.Thursday,
+            5 => Messages.Journal.Days.Friday,
+            6 => Messages.Journal.Days.Saturday,
+            7 => Messages.Journal.Days.Sunday,
+            _ => Messages.Common.Unknown
+        };
+    }
+
+    #endregion
 }

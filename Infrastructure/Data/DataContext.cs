@@ -26,6 +26,10 @@ public class DataContext(DbContextOptions<DataContext> options)
     public DbSet<MonthlyFinancialSummary> MonthlyFinancialSummaries { get; set; }
     public DbSet<StudentAccount> StudentAccounts { get; set; }
     public DbSet<AccountLog> AccountLogs { get; set; }
+    public DbSet<PayrollContract> PayrollContracts { get; set; }
+    public DbSet<WorkLog> WorkLogs { get; set; }
+    public DbSet<PayrollRecord> PayrollRecords { get; set; }
+    public DbSet<Advance> Advances { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -323,11 +327,6 @@ public class DataContext(DbContextOptions<DataContext> options)
             .Property(s => s.TotalPaid)
             .HasPrecision(18, 2);
 
-        // Mentor Salary precision
-        modelBuilder.Entity<Mentor>()
-            .Property(m => m.Salary)
-            .HasPrecision(18, 2);
-
         // Course Price precision
         modelBuilder.Entity<Course>()
             .Property(c => c.Price)
@@ -570,10 +569,6 @@ public class DataContext(DbContextOptions<DataContext> options)
             .Property(m => m.ActiveStatus)
             .HasConversion<string>();
 
-        modelBuilder.Entity<Mentor>()
-            .Property(m => m.PaymentStatus)
-            .HasConversion<string>();
-
         modelBuilder.Entity<Course>()
             .Property(c => c.Status)
             .HasConversion<string>();
@@ -613,5 +608,136 @@ public class DataContext(DbContextOptions<DataContext> options)
         modelBuilder.Entity<JournalEntry>()
             .Property(je => je.CommentCategory)
             .HasConversion<string>();
+
+        // PayrollContract configuration
+        modelBuilder.Entity<PayrollContract>(entity =>
+        {
+            entity.HasOne(p => p.Mentor)
+                .WithMany()
+                .HasForeignKey(p => p.MentorId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(p => p.EmployeeUser)
+                .WithMany()
+                .HasForeignKey(p => p.EmployeeUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(p => p.Center)
+                .WithMany()
+                .HasForeignKey(p => p.CenterId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.Property(p => p.FixedAmount).HasPrecision(18, 2);
+            entity.Property(p => p.HourlyRate).HasPrecision(18, 2);
+            entity.Property(p => p.StudentPercentage).HasPrecision(5, 2);
+
+            entity.Property(p => p.SalaryType).HasConversion<string>();
+
+            entity.HasIndex(p => p.MentorId);
+            entity.HasIndex(p => p.EmployeeUserId);
+            entity.HasIndex(p => p.CenterId);
+        });
+
+        // WorkLog configuration
+        modelBuilder.Entity<WorkLog>(entity =>
+        {
+            entity.HasOne(w => w.Mentor)
+                .WithMany()
+                .HasForeignKey(w => w.MentorId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(w => w.EmployeeUser)
+                .WithMany()
+                .HasForeignKey(w => w.EmployeeUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(w => w.Center)
+                .WithMany()
+                .HasForeignKey(w => w.CenterId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(w => w.Group)
+                .WithMany()
+                .HasForeignKey(w => w.GroupId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.Property(w => w.Hours).HasPrecision(5, 2);
+
+            entity.HasIndex(w => w.MentorId);
+            entity.HasIndex(w => w.EmployeeUserId);
+            entity.HasIndex(w => new { w.Month, w.Year });
+        });
+
+        // PayrollRecord configuration
+        modelBuilder.Entity<PayrollRecord>(entity =>
+        {
+            entity.HasOne(p => p.Mentor)
+                .WithMany()
+                .HasForeignKey(p => p.MentorId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(p => p.EmployeeUser)
+                .WithMany()
+                .HasForeignKey(p => p.EmployeeUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(p => p.Center)
+                .WithMany()
+                .HasForeignKey(p => p.CenterId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.Property(p => p.FixedAmount).HasPrecision(18, 2);
+            entity.Property(p => p.HourlyAmount).HasPrecision(18, 2);
+            entity.Property(p => p.TotalHours).HasPrecision(5, 2);
+            entity.Property(p => p.PercentageAmount).HasPrecision(18, 2);
+            entity.Property(p => p.TotalStudentPayments).HasPrecision(18, 2);
+            entity.Property(p => p.PercentageRate).HasPrecision(5, 2);
+            entity.Property(p => p.BonusAmount).HasPrecision(18, 2);
+            entity.Property(p => p.FineAmount).HasPrecision(18, 2);
+            entity.Property(p => p.AdvanceDeduction).HasPrecision(18, 2);
+            entity.Property(p => p.GrossAmount).HasPrecision(18, 2);
+            entity.Property(p => p.NetAmount).HasPrecision(18, 2);
+
+            entity.Property(p => p.Status).HasConversion<string>();
+            entity.Property(p => p.PaymentMethod).HasConversion<string>();
+
+            entity.HasIndex(p => p.MentorId);
+            entity.HasIndex(p => p.EmployeeUserId);
+            entity.HasIndex(p => new { p.Month, p.Year });
+            entity.HasIndex(p => p.Status);
+        });
+
+        // Advance configuration
+        modelBuilder.Entity<Advance>(entity =>
+        {
+            entity.HasOne(a => a.Mentor)
+                .WithMany()
+                .HasForeignKey(a => a.MentorId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(a => a.EmployeeUser)
+                .WithMany()
+                .HasForeignKey(a => a.EmployeeUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(a => a.Center)
+                .WithMany()
+                .HasForeignKey(a => a.CenterId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(a => a.PayrollRecord)
+                .WithMany()
+                .HasForeignKey(a => a.PayrollRecordId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.Property(a => a.Amount).HasPrecision(18, 2);
+
+            entity.Property(a => a.Status).HasConversion<string>();
+
+            entity.HasIndex(a => a.MentorId);
+            entity.HasIndex(a => a.EmployeeUserId);
+            entity.HasIndex(a => new { a.TargetMonth, a.TargetYear });
+            entity.HasIndex(a => a.Status);
+        });
     }
 }

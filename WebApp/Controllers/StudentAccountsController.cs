@@ -48,6 +48,14 @@ public class StudentAccountsController(IStudentAccountService service) : Control
         return StatusCode(res.StatusCode, res);
     }
 
+    [HttpPost("withdraw")]
+    [Authorize(Roles = "Admin,SuperAdmin,Manager")]
+    public async Task<ActionResult<Response<GetStudentAccountDto>>> Withdraw([FromBody] WithdrawDto dto)
+    {
+        var res = await service.WithdrawAsync(dto);
+        return StatusCode(res.StatusCode, res);
+    }
+
     [HttpPost("monthly-charge-run")]
     [Authorize(Roles = "Admin,SuperAdmin,Manager")]
     public async Task<ActionResult<Response<int>>> MonthlyChargeRun([FromQuery] int month, [FromQuery] int year)

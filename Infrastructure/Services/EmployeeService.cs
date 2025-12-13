@@ -4,6 +4,7 @@ using Domain.Filters;
 using Domain.Responses;
 using Infrastructure.Data;
 using Infrastructure.Helpers;
+using Infrastructure.Constants;
 using Infrastructure.Interfaces;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -15,99 +16,81 @@ using Microsoft.Extensions.Configuration;
 
 namespace Infrastructure.Services;
 
-public class EmployeeService : IEmployeeService
+public class EmployeeService(
+    DataContext context,
+    UserManager<User> userManager,
+    string uploadPath,
+    IEmailService emailService,
+    IHttpContextAccessor httpContextAccessor,
+    IOsonSmsService osonSmsService,
+    IConfiguration configuration)
+    : IEmployeeService
 {
-    private readonly DataContext _context;
-    private readonly UserManager<User> _userManager;
-    private readonly string _uploadPath;
-    private readonly IEmailService _emailService;
-    private readonly IHttpContextAccessor _httpContextAccessor;
-    private readonly IOsonSmsService _osonSmsService;
-    private readonly IConfiguration _configuration;
-
-    public EmployeeService(DataContext context, UserManager<User> userManager, string uploadPath, IEmailService emailService, IHttpContextAccessor httpContextAccessor, IOsonSmsService osonSmsService, IConfiguration configuration)
-    {
-        _context = context;
-        _userManager = userManager;
-        _uploadPath = uploadPath;
-        _emailService = emailService;
-        _httpContextAccessor = httpContextAccessor;
-        _osonSmsService = osonSmsService;
-        _configuration = configuration;
-    }
+    #region GetEmployeesAsync
 
     public async Task<PaginationResponse<List<GetEmployeeDto>>> GetEmployeesAsync(EmployeeFilter filter)
     {
-        var usersQuery = _context.Users.Where(u => !u.IsDeleted);
-        usersQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
-            usersQuery, _httpContextAccessor, u => u.CenterId);
-        var users = await usersQuery.ToListAsync();
-        var employees = new List<GetEmployeeDto>();
-        foreach (var u in users)
+        try
         {
-            var roles = await _userManager.GetRolesAsync(u);
-            if (!roles.Any(r => r == "Admin" || r == "Manager" || r == "SuperAdmin" || r == "User"))
-                continue;
-            if (filter.Id.HasValue && u.Id != filter.Id.Value) continue;
-            if (!string.IsNullOrEmpty(filter.FullName) && (!u.FullName.Contains(filter.FullName))) continue;
-            if (!string.IsNullOrEmpty(filter.PhoneNumber) && (u.PhoneNumber == null || !u.PhoneNumber.Contains(filter.PhoneNumber))) continue;
-            if (filter.Age.HasValue && u.Age != filter.Age.Value) continue;
-            if (filter.Gender.HasValue && u.Gender != filter.Gender.Value) continue;
-            if (filter.Salary.HasValue && u.Salary != filter.Salary.Value) continue;
-            if (filter.CenterId.HasValue && u.CenterId != filter.CenterId.Value) continue;
-            employees.Add(new GetEmployeeDto
+            var usersQuery = context.Users.Where(u => !u.IsDeleted);
+            usersQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
+                usersQuery, httpContextAccessor, u => u.CenterId);
+            var users = await usersQuery.ToListAsync();
+            var employees = new List<GetEmployeeDto>();
+            foreach (var u in users)
             {
-                Id = u.Id,
-                FullName = u.FullName,
-                Email = u.Email,
-                Address = u.Address,
-                PhoneNumber = u.PhoneNumber,
-                Role = roles.FirstOrDefault(),
-                Salary = u.Salary,
-                Birthday = u.Birthday,
-                Age = u.Age,
-                Experience = u.Experience,
-                Gender = u.Gender,
-                ActiveStatus = u.ActiveStatus,
-                PaymentStatus = u.PaymentStatus,
-                ImagePath = u.ProfileImagePath,
-                DocumentPath = u.DocumentPath,
-                CenterId = u.CenterId
-            });
+                var roles = await userManager.GetRolesAsync(u);
+                if (!roles.Any(r => r == "Admin" || r == "Manager" || r == "SuperAdmin" || r == "User"))
+                    continue;
+                if (filter.Id.HasValue && u.Id != filter.Id.Value) continue;
+                if (!string.IsNullOrEmpty(filter.FullName) && (!u.FullName.Contains(filter.FullName))) continue;
+                if (!string.IsNullOrEmpty(filter.PhoneNumber) && (u.PhoneNumber == null || !u.PhoneNumber.Contains(filter.PhoneNumber))) continue;
+                if (filter.Age.HasValue && u.Age != filter.Age.Value) continue;
+                if (filter.Gender.HasValue && u.Gender != filter.Gender.Value) continue;
+                if (filter.Salary.HasValue && u.Salary != filter.Salary.Value) continue;
+                if (filter.CenterId.HasValue && u.CenterId != filter.CenterId.Value) continue;
+                
+                employees.Add(DtoMappingHelper.MapToGetEmployeeDto(u, roles.FirstOrDefault()));
+            }
+            return new PaginationResponse<List<GetEmployeeDto>>(employees, employees.Count, 1, employees.Count);
         }
-        return new PaginationResponse<List<GetEmployeeDto>>(employees, employees.Count, 1, employees.Count);
+        catch (Exception ex)
+        {
+            return new PaginationResponse<List<GetEmployeeDto>>(HttpStatusCode.InternalServerError, string.Format(Messages.Employee.GetListError, ex.Message));
+        }
     }
+
+    #endregion
+
+    #region GetEmployeeAsync
 
     public async Task<Response<GetEmployeeDto>> GetEmployeeAsync(int employeeId)
     {
-        var usersQuery = _context.Users.Where(x => x.Id == employeeId && !x.IsDeleted);
-        usersQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
-            usersQuery, _httpContextAccessor, u => u.CenterId);
-        var u = await usersQuery.FirstOrDefaultAsync();
-        if (u == null)
-            return new Response<GetEmployeeDto>(HttpStatusCode.NotFound, "Корманд ёфт нашуд");
-        var roles = await _userManager.GetRolesAsync(u);
-        var dto = new GetEmployeeDto
+        try
         {
-            Id = u.Id,
-            FullName = u.FullName,
-            Email = u.Email,
-            Address = u.Address,
-            PhoneNumber = u.PhoneNumber,
-            Role = roles.FirstOrDefault(),
-            Salary = u.Salary,
-            Birthday = u.Birthday,
-            Age = u.Age,
-            Experience = u.Experience,
-            Gender = u.Gender,
-            ActiveStatus = u.ActiveStatus,
-            PaymentStatus = u.PaymentStatus,
-            ImagePath = u.ProfileImagePath,
-            DocumentPath = u.DocumentPath,
-            CenterId = u.CenterId
-        };
-        return new Response<GetEmployeeDto>(dto);
+            var usersQuery = context.Users.Where(x => x.Id == employeeId && !x.IsDeleted);
+            usersQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(
+                usersQuery, httpContextAccessor, u => u.CenterId);
+            var u = await usersQuery.FirstOrDefaultAsync();
+            if (u == null)
+                return new Response<GetEmployeeDto>(HttpStatusCode.NotFound, Messages.Employee.NotFound);
+            var roles = await userManager.GetRolesAsync(u);
+            
+            var dto = DtoMappingHelper.MapToGetEmployeeDto(u, roles.FirstOrDefault());
+            return new Response<GetEmployeeDto>(dto);
+        }
+        catch (Exception ex)
+        {
+            return new Response<GetEmployeeDto>
+            {
+                Message = string.Format(Messages.Employee.GetError, ex.Message)
+            };
+        }
     }
+
+    #endregion
+
+    #region CreateEmployeeAsync
 
     public async Task<Response<string>> CreateEmployeeAsync(CreateEmployeeDto request)
     {
@@ -116,29 +99,29 @@ public class EmployeeService : IEmployeeService
             string imagePath = string.Empty;
             if (request.Image != null)
             {
-                var imageResult = await FileUploadHelper.UploadFileAsync(request.Image, _uploadPath, "profiles", "profile");
+                var imageResult = await FileUploadHelper.UploadFileAsync(request.Image, uploadPath, "profiles", "profile");
                 if (imageResult.StatusCode != 200)
-                    return new Response<string>((HttpStatusCode)imageResult.StatusCode, imageResult.Message);
+                    return new Response<string>((HttpStatusCode)imageResult.StatusCode, imageResult.Message!);
                 imagePath = imageResult.Data;
             }
             string documentPath = string.Empty;
             if (request.Document != null)
             {
-                var docResult = await FileUploadHelper.UploadFileAsync(request.Document, _uploadPath, "employee", "document");
+                var docResult = await FileUploadHelper.UploadFileAsync(request.Document, uploadPath, "employee", "document");
                 if (docResult.StatusCode != 200)
-                    return new Response<string>((HttpStatusCode)docResult.StatusCode, docResult.Message);
+                    return new Response<string>((HttpStatusCode)docResult.StatusCode, docResult.Message!);
                 documentPath = docResult.Data;
             }
             int? safeCenterId = null;
             if (request.CenterId.HasValue)
             {
-                var centerExists = await _context.Centers.AnyAsync(c => c.Id == request.CenterId.Value);
+                var centerExists = await context.Centers.AnyAsync(c => c.Id == request.CenterId.Value);
                 if (centerExists)
                     safeCenterId = request.CenterId;
             }
             var userResult = await UserManagementHelper.CreateUserAsync(
                 request,
-                _userManager,
+                userManager,
                 request.Role.ToString(),
                 dto => dto.PhoneNumber,
                 dto => dto.Email,
@@ -149,7 +132,7 @@ public class EmployeeService : IEmployeeService
                 _ => safeCenterId,
                 _ => imagePath);
             if (userResult.StatusCode != 200)
-                return new Response<string>((HttpStatusCode)userResult.StatusCode, userResult.Message);
+                return new Response<string>((HttpStatusCode)userResult.StatusCode, userResult.Message!);
             var (user, password, username) = userResult.Data;
             user.Salary = request.Salary;
             user.Experience = request.Experience;
@@ -158,23 +141,23 @@ public class EmployeeService : IEmployeeService
             user.PaymentStatus = PaymentStatus.Completed;
             user.DocumentPath = documentPath;
             user.UpdatedAt = DateTime.UtcNow;
-            await _userManager.UpdateAsync(user);
+            await userManager.UpdateAsync(user);
 
             if (request.Role == Role.Manager && safeCenterId.HasValue)
             {
-                var center = await _context.Centers.FirstOrDefaultAsync(c => c.Id == safeCenterId.Value && !c.IsDeleted);
+                var center = await context.Centers.FirstOrDefaultAsync(c => c.Id == safeCenterId.Value && !c.IsDeleted);
                 if (center != null)
                 {
                     center.ManagerId = user.Id;
                     center.UpdatedAt = DateTime.UtcNow;
-                    _context.Centers.Update(center);
-                    await _context.SaveChangesAsync();
+                    context.Centers.Update(center);
+                    await context.SaveChangesAsync();
                 }
             }
             if (!string.IsNullOrEmpty(request.Email))
             {
                 await EmailHelper.SendLoginDetailsEmailAsync(
-                    _emailService,
+                    emailService,
                     request.Email,
                     username,
                     password,
@@ -185,106 +168,148 @@ public class EmployeeService : IEmployeeService
 
             if (!string.IsNullOrEmpty(user.PhoneNumber))
             {
-                var loginUrl = _configuration["AppSettings:LoginUrl"];
-                var smsMessage = $"Салом, {user.FullName}!\nUsername: {username},\nPassword: {password}\nЛутфан, барои ворид шудан ба система ба ин суроға ташриф оред: {loginUrl}\nKavsar Academy";
-                await _osonSmsService.SendSmsAsync(user.PhoneNumber, smsMessage);
+                var loginUrl = configuration["AppSettings:LoginUrl"];
+                var smsMessage = string.Format(Messages.Sms.WelcomeEmployee, user.FullName, username, password, loginUrl);
+                await osonSmsService.SendSmsAsync(user.PhoneNumber, smsMessage);
             }
 
-            return new Response<string>(HttpStatusCode.Created, $"Корманд бомуваффақият илова шуд. Маълумоти воридшавӣ ба email ва/ё SMS фиристода шуд. Username: {username}");
+            return new Response<string>(HttpStatusCode.Created, string.Format(Messages.Employee.CreatedWithAuth, username));
         }
         catch (Exception ex)
         {
-            return new Response<string>(HttpStatusCode.InternalServerError, ex.Message);
+            return new Response<string>(HttpStatusCode.InternalServerError, string.Format(Messages.Employee.CreationError, ex.Message));
         }
     }
+
+    #endregion
+
+    #region UpdateEmployeeAsync
 
     public async Task<Response<string>> UpdateEmployeeAsync(UpdateEmployeeDto request)
     {
-        var user = await _context.Users.FirstOrDefaultAsync(x => x.Id == request.Id && !x.IsDeleted);
-        if (user == null)
-            return new Response<string>(HttpStatusCode.NotFound, "Корманд ёфт нашуд");
-        if (request.Image != null)
+        try
         {
-            if (!string.IsNullOrEmpty(user.ProfileImagePath))
-                FileDeleteHelper.DeleteFile(user.ProfileImagePath, _uploadPath);
-            var imageResult = await FileUploadHelper.UploadFileAsync(request.Image, _uploadPath, "profiles", "profile");
-            if (imageResult.StatusCode == 200)
-                user.ProfileImagePath = imageResult.Data;
+            var user = await context.Users.FirstOrDefaultAsync(x => x.Id == request.Id && !x.IsDeleted);
+            if (user == null)
+                return new Response<string>(HttpStatusCode.NotFound, Messages.Employee.NotFound);
+            if (request.Image != null)
+            {
+                if (!string.IsNullOrEmpty(user.ProfileImagePath))
+                    FileDeleteHelper.DeleteFile(user.ProfileImagePath, uploadPath);
+                var imageResult = await FileUploadHelper.UploadFileAsync(request.Image, uploadPath, "profiles", "profile");
+                if (imageResult.StatusCode == 200)
+                    user.ProfileImagePath = imageResult.Data;
+            }
+            if (request.Document != null)
+            {
+                if (!string.IsNullOrEmpty(user.DocumentPath))
+                    FileDeleteHelper.DeleteFile(user.DocumentPath, uploadPath);
+                var docResult = await FileUploadHelper.UploadFileAsync(request.Document, uploadPath, "employee", "document");
+                if (docResult.StatusCode == 200)
+                    user.DocumentPath = docResult.Data;
+            }
+            user.FullName = request.FullName ?? user.FullName;
+            user.Email = request.Email ?? user.Email;
+            user.Address = request.Address ?? user.Address;
+            user.PhoneNumber = request.PhoneNumber ?? user.PhoneNumber;
+            user.Salary = request.Salary ?? user.Salary;
+            user.Birthday = request.Birthday ?? user.Birthday;
+            user.Age = request.Age ?? user.Age;
+            user.Experience = request.Experience ?? user.Experience;
+            user.Gender = request.Gender ?? user.Gender;
+            user.ActiveStatus = request.ActiveStatus ?? user.ActiveStatus;
+            user.PaymentStatus = request.PaymentStatus ?? user.PaymentStatus;
+            user.CenterId = request.CenterId ?? user.CenterId;
+            user.UpdatedAt = DateTime.UtcNow;
+            var result = await userManager.UpdateAsync(user);
+            return result.Succeeded
+                ? new Response<string>(HttpStatusCode.OK, Messages.Employee.Updated)
+                : new Response<string>(HttpStatusCode.BadRequest, IdentityHelper.FormatIdentityErrors(result));
         }
-        if (request.Document != null)
+        catch (Exception ex)
         {
-            if (!string.IsNullOrEmpty(user.DocumentPath))
-                FileDeleteHelper.DeleteFile(user.DocumentPath, _uploadPath);
-            var docResult = await FileUploadHelper.UploadFileAsync(request.Document, _uploadPath, "employee", "document");
-            if (docResult.StatusCode == 200)
-                user.DocumentPath = docResult.Data;
+            return new Response<string>(HttpStatusCode.InternalServerError, string.Format(Messages.Employee.UpdateError, ex.Message));
         }
-        user.FullName = request.FullName ?? user.FullName;
-        user.Email = request.Email ?? user.Email;
-        user.Address = request.Address ?? user.Address;
-        user.PhoneNumber = request.PhoneNumber ?? user.PhoneNumber;
-        user.Salary = request.Salary ?? user.Salary;
-        user.Birthday = request.Birthday ?? user.Birthday;
-        user.Age = request.Age ?? user.Age;
-        user.Experience = request.Experience ?? user.Experience;
-        user.Gender = request.Gender ?? user.Gender;
-        user.ActiveStatus = request.ActiveStatus ?? user.ActiveStatus;
-        user.PaymentStatus = request.PaymentStatus ?? user.PaymentStatus;
-        user.CenterId = request.CenterId ?? user.CenterId;
-        user.UpdatedAt = DateTime.UtcNow;
-        var result = await _userManager.UpdateAsync(user);
-        return result.Succeeded
-            ? new Response<string>(HttpStatusCode.OK, "Маълумоти корманд тағйир ёфт")
-            : new Response<string>(HttpStatusCode.BadRequest, IdentityHelper.FormatIdentityErrors(result));
     }
+
+    #endregion
+
+    #region DeleteEmployeeAsync
 
     public async Task<Response<string>> DeleteEmployeeAsync(int employeeId)
     {
-        var user = await _context.Users.FirstOrDefaultAsync(x => x.Id == employeeId && !x.IsDeleted);
-        if (user == null)
-            return new Response<string>(HttpStatusCode.NotFound, "Корманд ёфт нашуд");
-        user.IsDeleted = true;
-        user.UpdatedAt = DateTime.UtcNow;
-        var result = await _userManager.UpdateAsync(user);
-        return result.Succeeded
-            ? new Response<string>(HttpStatusCode.OK, "Корманд бо муваффақият нест шуд")
-            : new Response<string>(HttpStatusCode.BadRequest, IdentityHelper.FormatIdentityErrors(result));
+        try
+        {
+            var user = await context.Users.FirstOrDefaultAsync(x => x.Id == employeeId && !x.IsDeleted);
+            if (user == null)
+                return new Response<string>(HttpStatusCode.NotFound, Messages.Employee.NotFound);
+            user.IsDeleted = true;
+            user.UpdatedAt = DateTime.UtcNow;
+            var result = await userManager.UpdateAsync(user);
+            return result.Succeeded
+                ? new Response<string>(HttpStatusCode.OK, Messages.Employee.Deleted)
+                : new Response<string>(HttpStatusCode.BadRequest, IdentityHelper.FormatIdentityErrors(result));
+        }
+        catch (Exception ex)
+        {
+            return new Response<string>(HttpStatusCode.InternalServerError, string.Format(Messages.Employee.DeleteError, ex.Message));
+        }
     }
+
+    #endregion
+
+    #region GetManagersForSelectAsync
 
     public async Task<Response<List<ManagerSelectDto>>> GetManagersForSelectAsync()
     {
-        var usersQuery = _context.Users.Where(u => !u.IsDeleted);
-        usersQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(usersQuery, _httpContextAccessor, u => u.CenterId);
-        var users = await usersQuery.ToListAsync();
-        var managers = new List<ManagerSelectDto>();
-        foreach (var u in users)
+        try
         {
-            var roles = await _userManager.GetRolesAsync(u);
-            if (roles.Contains("Manager"))
+            var usersQuery = context.Users.Where(u => !u.IsDeleted);
+            usersQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(usersQuery, httpContextAccessor, u => u.CenterId);
+            var users = await usersQuery.ToListAsync();
+            var managers = new List<ManagerSelectDto>();
+            foreach (var u in users)
             {
-                managers.Add(new ManagerSelectDto
+                var roles = await userManager.GetRolesAsync(u);
+                if (roles.Contains("Manager"))
                 {
-                    Id = u.Id,
-                    FullName = u.FullName 
-                });
+                    managers.Add(DtoMappingHelper.MapToManagerSelectDto(u));
+                }
             }
+            return new Response<List<ManagerSelectDto>>(managers);
         }
-        return new Response<List<ManagerSelectDto>>(managers);
+        catch (Exception ex)
+        {
+            return new Response<List<ManagerSelectDto>>(HttpStatusCode.InternalServerError, string.Format(Messages.Employee.GetListError, ex.Message));
+        }
     }
+
+    #endregion
+
+    #region UpdateEmployeePaymentStatusAsync
 
     public async Task<Response<string>> UpdateEmployeePaymentStatusAsync(int employeeId, PaymentStatus status)
     {
-        var usersQuery = _context.Users.Where(u => u.Id == employeeId && !u.IsDeleted);
-        usersQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(usersQuery, _httpContextAccessor, u => u.CenterId);
-        var user = await usersQuery.FirstOrDefaultAsync();
-        if (user == null)
-            return new Response<string>(HttpStatusCode.NotFound, "Корманд ёфт нашуд");
+        try
+        {
+            var usersQuery = context.Users.Where(u => u.Id == employeeId && !u.IsDeleted);
+            usersQuery = QueryFilterHelper.FilterByCenterIfNotSuperAdmin(usersQuery, httpContextAccessor, u => u.CenterId);
+            var user = await usersQuery.FirstOrDefaultAsync();
+            if (user == null)
+                return new Response<string>(HttpStatusCode.NotFound, Messages.Employee.NotFound);
 
-        user.PaymentStatus = status;
-        user.UpdatedAt = DateTime.UtcNow;
-        var res = await _userManager.UpdateAsync(user);
-        return res.Succeeded
-            ? new Response<string>(HttpStatusCode.OK, "Ҳолати пардохти корманд навсозӣ шуд")
-            : new Response<string>(HttpStatusCode.BadRequest, IdentityHelper.FormatIdentityErrors(res));
+            user.PaymentStatus = status;
+            user.UpdatedAt = DateTime.UtcNow;
+            var res = await userManager.UpdateAsync(user);
+            return res.Succeeded
+                ? new Response<string>(HttpStatusCode.OK, Messages.Common.Success)
+                : new Response<string>(HttpStatusCode.BadRequest, IdentityHelper.FormatIdentityErrors(res));
+        }
+        catch (Exception ex)
+        {
+            return new Response<string>(HttpStatusCode.InternalServerError, string.Format(Messages.Employee.UpdateError, ex.Message));
+        }
     }
+
+    #endregion
 }

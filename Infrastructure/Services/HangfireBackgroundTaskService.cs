@@ -1,6 +1,5 @@
 using Hangfire;
 using Hangfire.Storage;
-using Hangfire.Common;
 using Infrastructure.BackgroundTasks;
 using Microsoft.Extensions.Logging;
 
@@ -14,6 +13,8 @@ public class HangfireBackgroundTaskService(
     MonthlyFinanceAggregatorService monthlyFinanceAggregatorService,
     DailyAutoChargeService dailyAutoChargeService)
 {
+    #region StartAllBackgroundTasks
+
     public void StartAllBackgroundTasks()
     {
         try
@@ -22,10 +23,12 @@ public class HangfireBackgroundTaskService(
                 "group-expiration-check",
                 () => groupExpirationService.Run(),
                 Cron.Daily(0, 0));
-          recurringJobManager.AddOrUpdate(
+
+            recurringJobManager.AddOrUpdate(
                 "weekly-journal-schedule",
                 () => weeklyJournalSchedulerService.ProcessActiveGroupsAsync(CancellationToken.None),
                 Cron.Daily(0, 30));
+
             recurringJobManager.AddOrUpdate(
                 "daily-auto-charge",
                 () => dailyAutoChargeService.Run(),
@@ -45,6 +48,10 @@ public class HangfireBackgroundTaskService(
         }
     }
 
+    #endregion
+
+    #region StopAllBackgroundTasks
+
     public void StopAllBackgroundTasks()
     {
         try
@@ -62,6 +69,10 @@ public class HangfireBackgroundTaskService(
             throw;
         }
     }
+
+    #endregion
+
+    #region TriggerBackgroundTask
 
     public void TriggerBackgroundTask(string taskName)
     {
@@ -97,6 +108,10 @@ public class HangfireBackgroundTaskService(
         }
     }
 
+    #endregion
+
+    #region GetRecurringJobsStatus
+
     public object GetRecurringJobsStatus()
     {
         using (var connection = JobStorage.Current.GetConnection())
@@ -120,4 +135,6 @@ public class HangfireBackgroundTaskService(
             return status;
         }
     }
+
+    #endregion
 }
