@@ -603,7 +603,7 @@ public class PayrollService(
             if (dto.MentorId == null && dto.EmployeeUserId == null)
                 return new Response<GetAdvanceDto>(HttpStatusCode.BadRequest, Messages.Payroll.MustSpecifyMentorOrEmployee);
 
-            var currentUserId = UserContextHelper.GetCurrentUserMentorId(httpContextAccessor);
+            var currentUserId = UserContextHelper.GetCurrentUserId(httpContextAccessor);
             if (currentUserId == null)
                 return new Response<GetAdvanceDto>(HttpStatusCode.Unauthorized, "User ID not found");
 
