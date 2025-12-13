@@ -604,6 +604,9 @@ public class PayrollService(
                 return new Response<GetAdvanceDto>(HttpStatusCode.BadRequest, Messages.Payroll.MustSpecifyMentorOrEmployee);
 
             var currentUserId = UserContextHelper.GetCurrentUserMentorId(httpContextAccessor);
+            if (currentUserId == null)
+                return new Response<GetAdvanceDto>(HttpStatusCode.Unauthorized, "User ID not found");
+
             var currentUserName = await context.Users
                 .Where(u => u.Id == currentUserId)
                 .Select(u => u.FullName)
@@ -620,7 +623,7 @@ public class PayrollService(
                 TargetMonth = dto.TargetMonth,
                 TargetYear = dto.TargetYear,
                 Status = AdvanceStatus.Pending,
-                GivenByUserId = currentUserId!.Value,
+                GivenByUserId = currentUserId.Value,
                 GivenByName = currentUserName,
                 CreatedAt = DateTimeOffset.UtcNow,
                 UpdatedAt = DateTimeOffset.UtcNow
